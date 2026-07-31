@@ -224,7 +224,7 @@ function MissionDetailPage() {
   );
 }
 
-function Section({ title, body }: { title: string; body?: string }) {
+function Section({ title, body }: { title: string; body?: string | undefined }) {
   return (
     <div className="mt-5">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
