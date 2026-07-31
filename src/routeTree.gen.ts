@@ -17,6 +17,7 @@ import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oubl
 import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitialiser-mot-de-passe'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
+import { Route as MissionsIndexRouteImport } from './routes/missions.index'
 import { Route as ProjetsIndexRouteImport } from './routes/projets.index'
 import { Route as ProjetsProjectIdRouteImport } from './routes/projets.$projectId'
 
@@ -60,6 +61,11 @@ const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
   path: '/clients/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MissionsIndexRoute = MissionsIndexRouteImport.update({
+  id: '/missions/',
+  path: '/missions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjetsIndexRoute = ProjetsIndexRouteImport.update({
   id: '/projets/',
   path: '/projets/',
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
+  '/missions/': typeof MissionsIndexRoute
   '/projets/': typeof ProjetsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients': typeof ClientsIndexRoute
+  '/missions': typeof MissionsIndexRoute
   '/projets': typeof ProjetsIndexRoute
 }
 export interface FileRoutesById {
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
+  '/missions/': typeof MissionsIndexRoute
   '/projets/': typeof ProjetsIndexRoute
 }
 export interface FileRouteTypes {
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/projets/$projectId'
     | '/clients/'
+    | '/missions/'
     | '/projets/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/projets/$projectId'
     | '/clients'
+    | '/missions'
     | '/projets'
   id:
     | '__root__'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/clients/$clientId'
     | '/projets/$projectId'
     | '/clients/'
+    | '/missions/'
     | '/projets/'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +169,7 @@ export interface RootRouteChildren {
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
+  MissionsIndexRoute: typeof MissionsIndexRoute
   ProjetsIndexRoute: typeof ProjetsIndexRoute
 }
 
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/missions/': {
+      id: '/missions/'
+      path: '/missions'
+      fullPath: '/missions/'
+      preLoaderRoute: typeof MissionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projets/': {
       id: '/projets/'
       path: '/projets'
@@ -245,6 +265,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClientsClientIdRoute: ClientsClientIdRoute,
   ProjetsProjectIdRoute: ProjetsProjectIdRoute,
   ClientsIndexRoute: ClientsIndexRoute,
+  MissionsIndexRoute: MissionsIndexRoute,
   ProjetsIndexRoute: ProjetsIndexRoute,
 }
 export const routeTree = rootRouteImport
