@@ -18,6 +18,7 @@ import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitiali
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
 import { Route as ProjetsIndexRouteImport } from './routes/projets.index'
+import { Route as ProjetsProjectIdRouteImport } from './routes/projets.$projectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const ProjetsIndexRoute = ProjetsIndexRouteImport.update({
   path: '/projets/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjetsProjectIdRoute = ProjetsProjectIdRouteImport.update({
+  id: '/projets/$projectId',
+  path: '/projets/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
   '/projets/': typeof ProjetsIndexRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients': typeof ClientsIndexRoute
   '/projets': typeof ProjetsIndexRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
   '/projets/': typeof ProjetsIndexRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/mot-de-passe-oublie'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
+    | '/projets/$projectId'
     | '/clients/'
     | '/projets/'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/mot-de-passe-oublie'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
+    | '/projets/$projectId'
     | '/clients'
     | '/projets'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/mot-de-passe-oublie'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
+    | '/projets/$projectId'
     | '/clients/'
     | '/projets/'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   MotDePasseOublieRoute: typeof MotDePasseOublieRoute
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
+  ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
   ProjetsIndexRoute: typeof ProjetsIndexRoute
 }
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjetsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/projets/$projectId': {
+      id: '/projets/$projectId'
+      path: '/projets/$projectId'
+      fullPath: '/projets/$projectId'
+      preLoaderRoute: typeof ProjetsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   MotDePasseOublieRoute: MotDePasseOublieRoute,
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
+  ProjetsProjectIdRoute: ProjetsProjectIdRoute,
   ClientsIndexRoute: ClientsIndexRoute,
   ProjetsIndexRoute: ProjetsIndexRoute,
 }
