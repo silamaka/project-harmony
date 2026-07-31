@@ -77,9 +77,9 @@ export function AppShell({
 }: {
   children: ReactNode;
   title: string;
-  subtitle?: string;
-  actions?: ReactNode;
-  allow?: Role[];
+  subtitle?: string | undefined;
+  actions?: ReactNode | undefined;
+  allow?: Role[] | undefined;
 }) {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
