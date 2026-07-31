@@ -10,33 +10,180 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CollaborateursRouteImport } from './routes/collaborateurs'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oublie'
+import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitialiser-mot-de-passe'
+import { Route as ClientsIndexRouteImport } from './routes/clients.index'
+import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
+import { Route as MissionsIndexRouteImport } from './routes/missions.index'
+import { Route as MissionsMissionIdRouteImport } from './routes/missions.$missionId'
+import { Route as ProjetsIndexRouteImport } from './routes/projets.index'
+import { Route as ProjetsProjectIdRouteImport } from './routes/projets.$projectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollaborateursRoute = CollaborateursRouteImport.update({
+  id: '/collaborateurs',
+  path: '/collaborateurs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MotDePasseOublieRoute = MotDePasseOublieRouteImport.update({
+  id: '/mot-de-passe-oublie',
+  path: '/mot-de-passe-oublie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReinitialiserMotDePasseRoute = ReinitialiserMotDePasseRouteImport.update({
+  id: '/reinitialiser-mot-de-passe',
+  path: '/reinitialiser-mot-de-passe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsIndexRoute = ClientsIndexRouteImport.update({
+  id: '/clients/',
+  path: '/clients/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
+  id: '/clients/$clientId',
+  path: '/clients/$clientId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MissionsIndexRoute = MissionsIndexRouteImport.update({
+  id: '/missions/',
+  path: '/missions/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MissionsMissionIdRoute = MissionsMissionIdRouteImport.update({
+  id: '/missions/$missionId',
+  path: '/missions/$missionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjetsIndexRoute = ProjetsIndexRouteImport.update({
+  id: '/projets/',
+  path: '/projets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjetsProjectIdRoute = ProjetsProjectIdRouteImport.update({
+  id: '/projets/$projectId',
+  path: '/projets/$projectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/collaborateurs': typeof CollaborateursRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
+  '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
+  '/projets/$projectId': typeof ProjetsProjectIdRoute
+  '/clients/': typeof ClientsIndexRoute
+  '/missions/': typeof MissionsIndexRoute
+  '/projets/': typeof ProjetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/collaborateurs': typeof CollaborateursRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
+  '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
+  '/projets/$projectId': typeof ProjetsProjectIdRoute
+  '/clients': typeof ClientsIndexRoute
+  '/missions': typeof MissionsIndexRoute
+  '/projets': typeof ProjetsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/collaborateurs': typeof CollaborateursRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
+  '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/clients/$clientId': typeof ClientsClientIdRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
+  '/projets/$projectId': typeof ProjetsProjectIdRoute
+  '/clients/': typeof ClientsIndexRoute
+  '/missions/': typeof MissionsIndexRoute
+  '/projets/': typeof ProjetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/collaborateurs'
+    | '/dashboard'
+    | '/login'
+    | '/mot-de-passe-oublie'
+    | '/reinitialiser-mot-de-passe'
+    | '/clients/$clientId'
+    | '/missions/$missionId'
+    | '/projets/$projectId'
+    | '/clients/'
+    | '/missions/'
+    | '/projets/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/collaborateurs'
+    | '/dashboard'
+    | '/login'
+    | '/mot-de-passe-oublie'
+    | '/reinitialiser-mot-de-passe'
+    | '/clients/$clientId'
+    | '/missions/$missionId'
+    | '/projets/$projectId'
+    | '/clients'
+    | '/missions'
+    | '/projets'
+  id:
+    | '__root__'
+    | '/'
+    | '/collaborateurs'
+    | '/dashboard'
+    | '/login'
+    | '/mot-de-passe-oublie'
+    | '/reinitialiser-mot-de-passe'
+    | '/clients/$clientId'
+    | '/missions/$missionId'
+    | '/projets/$projectId'
+    | '/clients/'
+    | '/missions/'
+    | '/projets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CollaborateursRoute: typeof CollaborateursRoute
+  DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
+  MotDePasseOublieRoute: typeof MotDePasseOublieRoute
+  ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
+  ClientsClientIdRoute: typeof ClientsClientIdRoute
+  MissionsMissionIdRoute: typeof MissionsMissionIdRoute
+  ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
+  ClientsIndexRoute: typeof ClientsIndexRoute
+  MissionsIndexRoute: typeof MissionsIndexRoute
+  ProjetsIndexRoute: typeof ProjetsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +195,100 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collaborateurs': {
+      id: '/collaborateurs'
+      path: '/collaborateurs'
+      fullPath: '/collaborateurs'
+      preLoaderRoute: typeof CollaborateursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mot-de-passe-oublie': {
+      id: '/mot-de-passe-oublie'
+      path: '/mot-de-passe-oublie'
+      fullPath: '/mot-de-passe-oublie'
+      preLoaderRoute: typeof MotDePasseOublieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reinitialiser-mot-de-passe': {
+      id: '/reinitialiser-mot-de-passe'
+      path: '/reinitialiser-mot-de-passe'
+      fullPath: '/reinitialiser-mot-de-passe'
+      preLoaderRoute: typeof ReinitialiserMotDePasseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients/': {
+      id: '/clients/'
+      path: '/clients'
+      fullPath: '/clients/'
+      preLoaderRoute: typeof ClientsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clients/$clientId': {
+      id: '/clients/$clientId'
+      path: '/clients/$clientId'
+      fullPath: '/clients/$clientId'
+      preLoaderRoute: typeof ClientsClientIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/missions/': {
+      id: '/missions/'
+      path: '/missions'
+      fullPath: '/missions/'
+      preLoaderRoute: typeof MissionsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/missions/$missionId': {
+      id: '/missions/$missionId'
+      path: '/missions/$missionId'
+      fullPath: '/missions/$missionId'
+      preLoaderRoute: typeof MissionsMissionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projets/': {
+      id: '/projets/'
+      path: '/projets'
+      fullPath: '/projets/'
+      preLoaderRoute: typeof ProjetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projets/$projectId': {
+      id: '/projets/$projectId'
+      path: '/projets/$projectId'
+      fullPath: '/projets/$projectId'
+      preLoaderRoute: typeof ProjetsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CollaborateursRoute: CollaborateursRoute,
+  DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
+  MotDePasseOublieRoute: MotDePasseOublieRoute,
+  ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
+  ClientsClientIdRoute: ClientsClientIdRoute,
+  MissionsMissionIdRoute: MissionsMissionIdRoute,
+  ProjetsProjectIdRoute: ProjetsProjectIdRoute,
+  ClientsIndexRoute: ClientsIndexRoute,
+  MissionsIndexRoute: MissionsIndexRoute,
+  ProjetsIndexRoute: ProjetsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
