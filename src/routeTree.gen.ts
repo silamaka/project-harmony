@@ -18,6 +18,7 @@ import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitiali
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
 import { Route as MissionsIndexRouteImport } from './routes/missions.index'
+import { Route as MissionsMissionIdRouteImport } from './routes/missions.$missionId'
 import { Route as ProjetsIndexRouteImport } from './routes/projets.index'
 import { Route as ProjetsProjectIdRouteImport } from './routes/projets.$projectId'
 
@@ -66,6 +67,11 @@ const MissionsIndexRoute = MissionsIndexRouteImport.update({
   path: '/missions/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MissionsMissionIdRoute = MissionsMissionIdRouteImport.update({
+  id: '/missions/$missionId',
+  path: '/missions/$missionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjetsIndexRoute = ProjetsIndexRouteImport.update({
   id: '/projets/',
   path: '/projets/',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
   '/missions/': typeof MissionsIndexRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients': typeof ClientsIndexRoute
   '/missions': typeof MissionsIndexRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
   '/missions/': typeof MissionsIndexRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/mot-de-passe-oublie'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
+    | '/missions/$missionId'
     | '/projets/$projectId'
     | '/clients/'
     | '/missions/'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/mot-de-passe-oublie'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
+    | '/missions/$missionId'
     | '/projets/$projectId'
     | '/clients'
     | '/missions'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/mot-de-passe-oublie'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
+    | '/missions/$missionId'
     | '/projets/$projectId'
     | '/clients/'
     | '/missions/'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   MotDePasseOublieRoute: typeof MotDePasseOublieRoute
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
+  MissionsMissionIdRoute: typeof MissionsMissionIdRoute
   ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
   MissionsIndexRoute: typeof MissionsIndexRoute
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MissionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/missions/$missionId': {
+      id: '/missions/$missionId'
+      path: '/missions/$missionId'
+      fullPath: '/missions/$missionId'
+      preLoaderRoute: typeof MissionsMissionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projets/': {
       id: '/projets/'
       path: '/projets'
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   MotDePasseOublieRoute: MotDePasseOublieRoute,
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
+  MissionsMissionIdRoute: MissionsMissionIdRoute,
   ProjetsProjectIdRoute: ProjetsProjectIdRoute,
   ClientsIndexRoute: ClientsIndexRoute,
   MissionsIndexRoute: MissionsIndexRoute,
