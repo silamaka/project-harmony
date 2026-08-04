@@ -114,11 +114,11 @@ export function AppShell({
   const items = NAV.filter((i) => i.roles.includes(user.role));
 
   return (
-    <div className="min-h-screen bg-background lg:flex">
+    <div className="min-h-screen bg-background md:flex">
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 md:sticky md:top-0 md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -131,7 +131,7 @@ export function AppShell({
             <p className="text-[11px] text-muted-foreground">Agence 360°</p>
           </div>
           <button
-            className="ml-auto lg:hidden"
+            className="ml-auto md:hidden"
             onClick={() => setOpen(false)}
             aria-label="Fermer le menu"
           >
@@ -141,7 +141,8 @@ export function AppShell({
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
           {items.map((item) => {
-            const active = location.pathname.startsWith(item.to);
+            const active =
+              location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
             return (
               <Link
                 key={item.to}
@@ -189,7 +190,7 @@ export function AppShell({
 
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-foreground/30 lg:hidden"
+          className="fixed inset-0 z-30 bg-foreground/30 md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -197,7 +198,7 @@ export function AppShell({
       {/* Contenu */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/80 px-4 py-4 backdrop-blur lg:px-8">
-          <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
+          <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
