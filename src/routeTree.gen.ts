@@ -10,10 +10,16 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CalendrierRouteImport } from './routes/calendrier'
 import { Route as CollaborateursRouteImport } from './routes/collaborateurs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as LivrablesRouteImport } from './routes/livrables'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MesMissionsRouteImport } from './routes/mes-missions'
 import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oublie'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as ParametresRouteImport } from './routes/parametres'
+import { Route as PortailRouteImport } from './routes/portail'
 import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitialiser-mot-de-passe'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
@@ -27,6 +33,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CalendrierRoute = CalendrierRouteImport.update({
+  id: '/calendrier',
+  path: '/calendrier',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CollaborateursRoute = CollaborateursRouteImport.update({
   id: '/collaborateurs',
   path: '/collaborateurs',
@@ -37,14 +48,39 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LivrablesRoute = LivrablesRouteImport.update({
+  id: '/livrables',
+  path: '/livrables',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MesMissionsRoute = MesMissionsRouteImport.update({
+  id: '/mes-missions',
+  path: '/mes-missions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MotDePasseOublieRoute = MotDePasseOublieRouteImport.update({
   id: '/mot-de-passe-oublie',
   path: '/mot-de-passe-oublie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParametresRoute = ParametresRouteImport.update({
+  id: '/parametres',
+  path: '/parametres',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortailRoute = PortailRouteImport.update({
+  id: '/portail',
+  path: '/portail',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReinitialiserMotDePasseRoute = ReinitialiserMotDePasseRouteImport.update({
@@ -85,10 +121,16 @@ const ProjetsProjectIdRoute = ProjetsProjectIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/calendrier': typeof CalendrierRoute
   '/collaborateurs': typeof CollaborateursRoute
   '/dashboard': typeof DashboardRoute
+  '/livrables': typeof LivrablesRoute
   '/login': typeof LoginRoute
+  '/mes-missions': typeof MesMissionsRoute
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
+  '/notifications': typeof NotificationsRoute
+  '/parametres': typeof ParametresRoute
+  '/portail': typeof PortailRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
@@ -99,10 +141,16 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/calendrier': typeof CalendrierRoute
   '/collaborateurs': typeof CollaborateursRoute
   '/dashboard': typeof DashboardRoute
+  '/livrables': typeof LivrablesRoute
   '/login': typeof LoginRoute
+  '/mes-missions': typeof MesMissionsRoute
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
+  '/notifications': typeof NotificationsRoute
+  '/parametres': typeof ParametresRoute
+  '/portail': typeof PortailRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
@@ -114,10 +162,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/calendrier': typeof CalendrierRoute
   '/collaborateurs': typeof CollaborateursRoute
   '/dashboard': typeof DashboardRoute
+  '/livrables': typeof LivrablesRoute
   '/login': typeof LoginRoute
+  '/mes-missions': typeof MesMissionsRoute
   '/mot-de-passe-oublie': typeof MotDePasseOublieRoute
+  '/notifications': typeof NotificationsRoute
+  '/parametres': typeof ParametresRoute
+  '/portail': typeof PortailRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
@@ -130,10 +184,16 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/calendrier'
     | '/collaborateurs'
     | '/dashboard'
+    | '/livrables'
     | '/login'
+    | '/mes-missions'
     | '/mot-de-passe-oublie'
+    | '/notifications'
+    | '/parametres'
+    | '/portail'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
     | '/missions/$missionId'
@@ -144,10 +204,16 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/calendrier'
     | '/collaborateurs'
     | '/dashboard'
+    | '/livrables'
     | '/login'
+    | '/mes-missions'
     | '/mot-de-passe-oublie'
+    | '/notifications'
+    | '/parametres'
+    | '/portail'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
     | '/missions/$missionId'
@@ -158,10 +224,16 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/calendrier'
     | '/collaborateurs'
     | '/dashboard'
+    | '/livrables'
     | '/login'
+    | '/mes-missions'
     | '/mot-de-passe-oublie'
+    | '/notifications'
+    | '/parametres'
+    | '/portail'
     | '/reinitialiser-mot-de-passe'
     | '/clients/$clientId'
     | '/missions/$missionId'
@@ -173,10 +245,16 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CalendrierRoute: typeof CalendrierRoute
   CollaborateursRoute: typeof CollaborateursRoute
   DashboardRoute: typeof DashboardRoute
+  LivrablesRoute: typeof LivrablesRoute
   LoginRoute: typeof LoginRoute
+  MesMissionsRoute: typeof MesMissionsRoute
   MotDePasseOublieRoute: typeof MotDePasseOublieRoute
+  NotificationsRoute: typeof NotificationsRoute
+  ParametresRoute: typeof ParametresRoute
+  PortailRoute: typeof PortailRoute
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   MissionsMissionIdRoute: typeof MissionsMissionIdRoute
@@ -195,6 +273,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/calendrier': {
+      id: '/calendrier'
+      path: '/calendrier'
+      fullPath: '/calendrier'
+      preLoaderRoute: typeof CalendrierRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/collaborateurs': {
       id: '/collaborateurs'
       path: '/collaborateurs'
@@ -209,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/livrables': {
+      id: '/livrables'
+      path: '/livrables'
+      fullPath: '/livrables'
+      preLoaderRoute: typeof LivrablesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -216,11 +308,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mes-missions': {
+      id: '/mes-missions'
+      path: '/mes-missions'
+      fullPath: '/mes-missions'
+      preLoaderRoute: typeof MesMissionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mot-de-passe-oublie': {
       id: '/mot-de-passe-oublie'
       path: '/mot-de-passe-oublie'
       fullPath: '/mot-de-passe-oublie'
       preLoaderRoute: typeof MotDePasseOublieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parametres': {
+      id: '/parametres'
+      path: '/parametres'
+      fullPath: '/parametres'
+      preLoaderRoute: typeof ParametresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portail': {
+      id: '/portail'
+      path: '/portail'
+      fullPath: '/portail'
+      preLoaderRoute: typeof PortailRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reinitialiser-mot-de-passe': {
@@ -277,10 +397,16 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CalendrierRoute: CalendrierRoute,
   CollaborateursRoute: CollaborateursRoute,
   DashboardRoute: DashboardRoute,
+  LivrablesRoute: LivrablesRoute,
   LoginRoute: LoginRoute,
+  MesMissionsRoute: MesMissionsRoute,
   MotDePasseOublieRoute: MotDePasseOublieRoute,
+  NotificationsRoute: NotificationsRoute,
+  ParametresRoute: ParametresRoute,
+  PortailRoute: PortailRoute,
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   MissionsMissionIdRoute: MissionsMissionIdRoute,
