@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  CheckCircle2,
   Download,
   FileText,
   Film,
@@ -17,6 +18,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
@@ -26,7 +28,12 @@ import {
   missionService,
   userService,
 } from "@/services";
-import { MISSION_WORKFLOW, MISSION_STATUS_LABELS, type DeliverableType } from "@/types";
+import {
+  MISSION_WORKFLOW,
+  MISSION_STATUS_LABELS,
+  type DeliverableType,
+  type MissionStatus,
+} from "@/types";
 
 export const Route = createFileRoute("/missions/$missionId")({
   head: () => ({
@@ -51,7 +58,9 @@ const typeIcon: Record<DeliverableType, typeof FileText> = {
 function MissionDetailPage() {
   const { missionId } = Route.useParams();
   const { user } = useAuth();
+  const qc = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [newLink, setNewLink] = useState("");
 
   const { data: mission } = useQuery({
     queryKey: ["missions", missionId],
@@ -66,6 +75,54 @@ function MissionDetailPage() {
     queryFn: () => commentService.byMission(missionId),
   });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
+
+  const refresh = (keys: string[][]) =>
+    keys.forEach((key) => void qc.invalidateQueries({ queryKey: key }));
+
+  const statusMutation = useMutation({
+    mutationFn: (status: MissionStatus) => missionService.updateStatus(missionId, status),
+    onSuccess: (_d, status) => {
+      refresh([["missions"], ["missions", missionId]]);
+      toast.success(`Statut : ${MISSION_STATUS_LABELS[status]}`);
+    },
+  });
+
+  const commentMutation = useMutation({
+    mutationFn: (body: string) =>
+      commentService.create({ mission_id: missionId, author_id: user?.id ?? "", body }),
+    onSuccess: () => {
+      refresh([["comments", missionId]]);
+      setDraft("");
+      toast.success("Commentaire publié.");
+    },
+  });
+
+  const deliverableMutation = useMutation({
+    mutationFn: (url: string) =>
+      deliverableService.create({
+        mission_id: missionId,
+        name: url.split("/").filter(Boolean).pop() ?? "Livrable",
+        type: "lien",
+        url,
+        version: ((deliverables ?? []).length || 0) + 1,
+        uploaded_by: user?.id ?? "",
+        status: "en_attente",
+      }),
+    onSuccess: () => {
+      refresh([["deliverables", missionId], ["deliverables"]]);
+      setNewLink("");
+      toast.success("Livrable ajouté.");
+    },
+  });
+
+  const deliverableStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "valide" | "corrections" | "en_attente" }) =>
+      deliverableService.updateStatus(id, status),
+    onSuccess: () => {
+      refresh([["deliverables", missionId], ["deliverables"]]);
+      toast.success("Statut du livrable mis à jour.");
+    },
+  });
 
   const authorName = (id: string) => {
     const u = users?.find((x) => x.id === id);
@@ -88,16 +145,21 @@ function MissionDetailPage() {
         <div className="flex min-w-[760px] items-center gap-2">
           {MISSION_WORKFLOW.map((s, i) => (
             <div key={s} className="flex flex-1 items-center gap-2">
-              <div
+              <button
+                type="button"
+                onClick={() => statusMutation.mutate(s)}
+                disabled={statusMutation.isPending || mission?.status === s}
+                aria-current={mission?.status === s}
                 className={cn(
-                  "flex-1 rounded-lg px-3 py-2 text-center text-[11px] font-semibold",
+                  "flex-1 rounded-lg px-3 py-2 text-center text-[11px] font-semibold transition-colors",
                   i <= currentIndex
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground",
+                    : "bg-muted text-muted-foreground hover:bg-accent",
+                  mission?.status === s && "ring-2 ring-ring",
                 )}
               >
                 {MISSION_STATUS_LABELS[s]}
-              </div>
+              </button>
             </div>
           ))}
         </div>
@@ -124,11 +186,18 @@ function MissionDetailPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => toast.info("Upload à connecter (Cloudinary / S3).")}
+              disabled={!newLink.trim() || deliverableMutation.isPending}
+              onClick={() => deliverableMutation.mutate(newLink.trim())}
             >
               <Upload className="mr-1 h-3.5 w-3.5" /> Déposer
             </Button>
           </div>
+          <Input
+            value={newLink}
+            onChange={(e) => setNewLink(e.target.value)}
+            placeholder="Lien du livrable (Drive, Figma, S3...)"
+            className="mt-3 h-9"
+          />
           <ul className="mt-4 space-y-2">
             {(deliverables ?? []).map((d) => {
               const Icon = typeIcon[d.type];
@@ -145,12 +214,30 @@ function MissionDetailPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => toast.info("Téléchargement à connecter.")}
-                    aria-label={`Télécharger ${d.name}`}
+                    type="button"
+                    onClick={() =>
+                      deliverableStatus.mutate({
+                        id: d.id,
+                        status: d.status === "valide" ? "en_attente" : "valide",
+                      })
+                    }
+                    aria-label={`Valider ${d.name}`}
+                    className={cn(
+                      "text-muted-foreground hover:text-success",
+                      d.status === "valide" && "text-success",
+                    )}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </button>
+                  <a
+                    href={d.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Ouvrir ${d.name}`}
                     className="text-muted-foreground hover:text-primary"
                   >
                     <Download className="h-4 w-4" />
-                  </button>
+                  </a>
                 </li>
               );
             })}
@@ -202,18 +289,15 @@ function MissionDetailPage() {
               variant="outline"
               size="icon"
               aria-label="Joindre un fichier"
-              onClick={() => toast.info("Pièce jointe à connecter.")}
+              onClick={() => setDraft((d) => `${d}${d ? " " : ""}[pièce jointe] `)}
             >
               <Paperclip className="h-4 w-4" />
             </Button>
             <Button
               size="icon"
               aria-label="Envoyer"
-              disabled={!draft.trim()}
-              onClick={() => {
-                toast.success("Commentaire envoyé.");
-                setDraft("");
-              }}
+              disabled={!draft.trim() || commentMutation.isPending}
+              onClick={() => commentMutation.mutate(draft.trim())}
             >
               <Send className="h-4 w-4" />
             </Button>
