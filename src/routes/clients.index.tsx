@@ -26,6 +26,7 @@ const STATUS = ["tous", "actif", "prospect", "inactif"] as const;
 function ClientsPage() {
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUS)[number]>("tous");
 
