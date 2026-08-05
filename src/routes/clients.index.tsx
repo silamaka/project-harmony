@@ -80,7 +80,12 @@ function ClientsPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {filtered.map((c) => {
-          const count = (projects ?? []).filter((p) => p.client_id === c.id).length;
+          const clientProjects = (projects ?? []).filter((p) => p.client_id === c.id);
+          const count = clientProjects.length;
+          const projectIds = new Set(clientProjects.map((p) => p.id));
+          const missionCount = (missions ?? []).filter(
+            (m) => m.client_id === c.id || projectIds.has(m.project_id),
+          ).length;
           return (
             <Link
               key={c.id}
