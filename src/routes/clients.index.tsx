@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
+import { CreateClientDialog } from "@/components/shared/create-dialogs";
 import { Input } from "@/components/ui/input";
 import { clientService, missionService, projectService } from "@/services";
 import { cn } from "@/lib/utils";
@@ -47,9 +46,7 @@ function ClientsPage() {
       subtitle={`${filtered.length} client(s)`}
       allow={["admin", "chef_projet"]}
       actions={
-        <Button size="sm" onClick={() => toast.info("Formulaire de création client à connecter.")}>
-          <Plus className="mr-1 h-4 w-4" /> Nouveau client
-        </Button>
+        <CreateClientDialog />
       }
     >
       <div className="flex flex-wrap items-center gap-3">

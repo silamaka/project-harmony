@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, Phone, Plus, Search } from "lucide-react";
+import { Mail, Phone, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
+import { CreateUserDialog } from "@/components/shared/create-dialogs";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { missionService, userService } from "@/services";
@@ -45,9 +44,7 @@ function CollaboratorsPage() {
       subtitle={`${filtered.length} membre(s) de l'équipe`}
       allow={["admin", "chef_projet"]}
       actions={
-        <Button size="sm" onClick={() => toast.info("Formulaire d'ajout collaborateur à connecter.")}>
-          <Plus className="mr-1 h-4 w-4" /> Ajouter
-        </Button>
+        <CreateUserDialog role="collaborateur" triggerLabel="Ajouter un collaborateur" />
       }
     >
       <div className="relative max-w-sm">
