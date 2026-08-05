@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { clientService, projectService } from "@/services";
+import { clientService, missionService, projectService } from "@/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/clients/")({
