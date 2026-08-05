@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { clientService, projectService } from "@/services";
+import { clientService, missionService, projectService } from "@/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/clients/")({
@@ -26,6 +26,7 @@ const STATUS = ["tous", "actif", "prospect", "inactif"] as const;
 function ClientsPage() {
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUS)[number]>("tous");
 
@@ -79,7 +80,12 @@ function ClientsPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {filtered.map((c) => {
-          const count = (projects ?? []).filter((p) => p.client_id === c.id).length;
+          const clientProjects = (projects ?? []).filter((p) => p.client_id === c.id);
+          const count = clientProjects.length;
+          const projectIds = new Set(clientProjects.map((p) => p.id));
+          const missionCount = (missions ?? []).filter(
+            (m) => m.client_id === c.id || projectIds.has(m.project_id),
+          ).length;
           return (
             <Link
               key={c.id}
@@ -108,6 +114,7 @@ function ClientsPage() {
               <p className="text-xs text-muted-foreground">{c.industry}</p>
               <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
                 <span>{count} projet(s)</span>
+                <span>{missionCount} mission(s)</span>
                 <span>{c.contacts.length} contact(s)</span>
               </div>
             </Link>
