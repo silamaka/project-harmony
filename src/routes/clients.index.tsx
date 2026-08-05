@@ -114,6 +114,7 @@ function ClientsPage() {
               <p className="text-xs text-muted-foreground">{c.industry}</p>
               <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
                 <span>{count} projet(s)</span>
+                <span>{missionCount} mission(s)</span>
                 <span>{c.contacts.length} contact(s)</span>
               </div>
             </Link>
