@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { LayoutGrid, List, Plus, Search } from "lucide-react";
+import { LayoutGrid, List, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
-import { Button } from "@/components/ui/button";
+import { CreateMissionDialog } from "@/components/shared/create-dialogs";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { clientService, missionService, userService } from "@/services";
@@ -48,9 +47,7 @@ function MissionsPage() {
       subtitle={`${filtered.length} mission(s) · workflow agence`}
       allow={["admin", "chef_projet"]}
       actions={
-        <Button size="sm" onClick={() => toast.info("Formulaire de création mission à connecter.")}>
-          <Plus className="mr-1 h-4 w-4" /> Nouvelle mission
-        </Button>
+        <CreateMissionDialog />
       }
     >
       <div className="flex flex-wrap items-center gap-3">

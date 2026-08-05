@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Moon, Sun } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { Button } from "@/components/ui/button";
+import { CreateUserDialog } from "@/components/shared/create-dialogs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -70,9 +70,7 @@ function SettingsPage() {
       <div className="surface-card mt-4 p-5">
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="min-w-0 flex-1 text-sm font-semibold">Utilisateurs et rôles</h2>
-          <Button size="sm" disabled>
-            Inviter un utilisateur
-          </Button>
+          <CreateUserDialog triggerLabel="Inviter un utilisateur" />
         </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-sm">

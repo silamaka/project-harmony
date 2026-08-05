@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -9,7 +9,6 @@ import {
   RefreshCcw,
   UserPlus,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { notificationService } from "@/services";
@@ -42,12 +41,12 @@ const ICONS: Record<Notification["type"], typeof Bell> = {
 };
 
 function NotificationsPage() {
+  const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["notifications"], queryFn: notificationService.list });
-  const [items, setItems] = useState<Notification[]>([]);
-
-  useEffect(() => {
-    if (data) setItems(data);
-  }, [data]);
+  const items = data ?? [];
+  const invalidate = () => void qc.invalidateQueries({ queryKey: ["notifications"] });
+  const markAll = useMutation({ mutationFn: notificationService.markAllRead, onSuccess: invalidate });
+  const markOne = useMutation({ mutationFn: notificationService.markRead, onSuccess: invalidate });
 
   const unread = items.filter((n) => !n.read).length;
 
@@ -59,7 +58,8 @@ function NotificationsPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setItems((prev) => prev.map((n) => ({ ...n, read: true })))}
+          disabled={unread === 0 || markAll.isPending}
+          onClick={() => markAll.mutate()}
         >
           Tout marquer comme lu
         </Button>
@@ -71,9 +71,7 @@ function NotificationsPage() {
           return (
             <button
               key={n.id}
-              onClick={() =>
-                setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))
-              }
+              onClick={() => markOne.mutate(n.id)}
               className={cn(
                 "surface-card flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent/30",
                 !n.read && "border-l-4 border-l-primary",

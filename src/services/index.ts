@@ -32,29 +32,81 @@ import type {
 const delay = <T,>(data: T, ms = 120): Promise<T> =>
   new Promise((resolve) => setTimeout(() => resolve(data), ms));
 
+/** Identifiant local (remplacé par l'id renvoyé par Django). */
+const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+const now = () => new Date().toISOString();
+
 /* -------------------------------- Clients -------------------------------- */
 export const clientService = {
-  list: () => delay<Client[]>(clients),
+  list: () => delay<Client[]>([...clients]),
   get: (id: string) => delay<Client | undefined>(clients.find((c) => c.id === id)),
+  /** POST /api/v1/clients/ */
+  create: (payload: Omit<Client, "id" | "created_at" | "contacts"> & { contacts?: Client["contacts"] }) => {
+    const client: Client = { id: uid("cli"), created_at: now(), contacts: [], ...payload };
+    clients.unshift(client);
+    return delay(client);
+  },
 };
 
 /* ------------------------------ Utilisateurs ------------------------------ */
 export const userService = {
-  list: () => delay<User[]>(users),
+  list: () => delay<User[]>([...users]),
+  /** POST /api/v1/users/ */
+  create: (payload: Omit<User, "id" | "created_at" | "is_active"> & { is_active?: boolean }) => {
+    const user: User = { id: uid("usr"), created_at: now(), is_active: true, ...payload };
+    users.push(user);
+    return delay(user);
+  },
   collaborators: () => delay<User[]>(users.filter((u) => u.role === "collaborateur")),
+  toggleActive: (id: string) => {
+    const u = users.find((x) => x.id === id);
+    if (u) u.is_active = !u.is_active;
+    return delay(u);
+  },
   get: (id: string) => delay<User | undefined>(users.find((u) => u.id === id)),
 };
 
 /* -------------------------------- Projets -------------------------------- */
 export const projectService = {
-  list: () => delay<Project[]>(projects),
+  list: () => delay<Project[]>([...projects]),
+  /** POST /api/v1/projects/ */
+  create: (payload: Omit<Project, "id" | "created_at">) => {
+    const project: Project = { id: uid("prj"), created_at: now(), ...payload };
+    projects.unshift(project);
+    return delay(project);
+  },
+  update: (id: string, patch: Partial<Project>) => {
+    const p = projects.find((x) => x.id === id);
+    if (p) Object.assign(p, patch);
+    return delay(p);
+  },
   get: (id: string) => delay<Project | undefined>(projects.find((p) => p.id === id)),
   byClient: (clientId: string) => delay<Project[]>(projects.filter((p) => p.client_id === clientId)),
 };
 
 /* ------------------------------- Missions -------------------------------- */
 export const missionService = {
-  list: () => delay<Mission[]>(missions),
+  list: () => delay<Mission[]>([...missions]),
+  /** POST /api/v1/missions/ */
+  create: (payload: Omit<Mission, "id" | "created_at">) => {
+    const mission: Mission = { id: uid("mis"), created_at: now(), ...payload };
+    missions.unshift(mission);
+    notifications.unshift({
+      id: uid("ntf"),
+      type: "mission_creee",
+      title: "Nouvelle mission",
+      body: mission.title,
+      read: false,
+      created_at: now(),
+      link: `/missions/${mission.id}`,
+    });
+    return delay(mission);
+  },
+  updateStatus: (id: string, status: Mission["status"]) => {
+    const m = missions.find((x) => x.id === id);
+    if (m) m.status = status;
+    return delay(m);
+  },
   get: (id: string) => delay<Mission | undefined>(missions.find((m) => m.id === id)),
   byAssignee: (userId: string) => delay<Mission[]>(missions.filter((m) => m.assignee_id === userId)),
   byProject: (projectId: string) =>
@@ -63,7 +115,17 @@ export const missionService = {
 
 /* ------------------------------- Livrables -------------------------------- */
 export const deliverableService = {
-  list: () => delay<Deliverable[]>(deliverables),
+  list: () => delay<Deliverable[]>([...deliverables]),
+  create: (payload: Omit<Deliverable, "id" | "created_at">) => {
+    const d: Deliverable = { id: uid("dlv"), created_at: now(), ...payload };
+    deliverables.unshift(d);
+    return delay(d);
+  },
+  updateStatus: (id: string, status: Deliverable["status"]) => {
+    const d = deliverables.find((x) => x.id === id);
+    if (d) d.status = status;
+    return delay(d);
+  },
   byMission: (missionId: string) =>
     delay<Deliverable[]>(deliverables.filter((d) => d.mission_id === missionId)),
 };
@@ -72,6 +134,17 @@ export const deliverableService = {
 export const commentService = {
   byMission: (missionId: string) =>
     delay<Comment[]>(comments.filter((c) => c.mission_id === missionId)),
+  /** POST /api/v1/comments/ */
+  create: (payload: Omit<Comment, "id" | "created_at" | "mentions"> & { mentions?: string[] }) => {
+    const comment: Comment = {
+      id: uid("cmt"),
+      created_at: now(),
+      mentions: payload.body.match(/@[\w.-]+/g) ?? [],
+      ...payload,
+    };
+    comments.push(comment);
+    return delay(comment);
+  },
 };
 
 /* ------------------------------- Calendrier ------------------------------- */
@@ -81,7 +154,23 @@ export const calendarService = {
 
 /* ----------------------------- Notifications ------------------------------ */
 export const notificationService = {
-  list: () => delay<Notification[]>(notifications),
+  list: () => delay<Notification[]>([...notifications]),
+  markRead: (id: string) => {
+    const n = notifications.find((x) => x.id === id);
+    if (n) n.read = true;
+    return delay(n);
+  },
+  markAllRead: () => {
+    notifications.forEach((n) => {
+      n.read = true;
+    });
+    return delay([...notifications]);
+  },
+  remove: (id: string) => {
+    const i = notifications.findIndex((x) => x.id === id);
+    if (i >= 0) notifications.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* ------------------------------- Dashboard -------------------------------- */
