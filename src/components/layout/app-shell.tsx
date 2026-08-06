@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
+  BarChart3,
   Bell,
   CalendarDays,
   FolderKanban,
@@ -21,6 +23,7 @@ import logo from "@/assets/beba-logo.png.asset.json";
 import { useAuth } from "@/context/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
+import { notificationService } from "@/services";
 import { ROLE_LABELS, type Role } from "@/types";
 import { Button } from "@/components/ui/button";
 
