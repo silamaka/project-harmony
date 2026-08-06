@@ -74,6 +74,7 @@ function ClientDetailPage() {
     teamMap.set(m.assignee_id, [...(teamMap.get(m.assignee_id) ?? []), m]);
   }
   const team = [...teamMap.entries()];
+  const selectedMissions = selectedUserId ? (teamMap.get(selectedUserId) ?? []) : [];
   const managerIds = [...new Set(projectList.map((p) => p.owner_id))];
 
   const stats = [
