@@ -12,6 +12,8 @@ interface AuthContextValue {
   /** Connexion. Branchement API : POST /api/v1/auth/login/ → { access, refresh, user } */
   login: (email: string, password: string) => Promise<User>;
   logout: () => void;
+  /** Mise à jour du profil courant. Branchement API : PATCH /api/v1/auth/me/ */
+  updateProfile: (patch: Partial<User>) => void;
   hasRole: (...roles: Role[]) => boolean;
 }
 
