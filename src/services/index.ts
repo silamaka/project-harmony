@@ -58,6 +58,12 @@ export const userService = {
     return delay(user);
   },
   collaborators: () => delay<User[]>(users.filter((u) => u.role === "collaborateur")),
+  /** PATCH /api/v1/users/:id/ */
+  update: (id: string, patch: Partial<User>) => {
+    const u = users.find((x) => x.id === id);
+    if (u) Object.assign(u, patch);
+    return delay(u);
+  },
   toggleActive: (id: string) => {
     const u = users.find((x) => x.id === id);
     if (u) u.is_active = !u.is_active;
