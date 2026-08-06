@@ -1,8 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Briefcase, FileText, Mail, MapPin, Phone, Users } from "lucide-react";
+import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge, ProjectStatusBadge } from "@/components/shared/badges";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
   clientService,
@@ -29,6 +37,7 @@ export const Route = createFileRoute("/clients/$clientId")({
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
     queryFn: () => clientService.get(clientId),
@@ -65,6 +74,7 @@ function ClientDetailPage() {
     teamMap.set(m.assignee_id, [...(teamMap.get(m.assignee_id) ?? []), m]);
   }
   const team = [...teamMap.entries()];
+  const selectedMissions = selectedUserId ? (teamMap.get(selectedUserId) ?? []) : [];
   const managerIds = [...new Set(projectList.map((p) => p.owner_id))];
 
   const stats = [
@@ -194,7 +204,12 @@ function ClientDetailPage() {
             <h2 className="text-sm font-semibold">Qui travaille sur quoi</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {team.map(([uid, ms]) => (
-                <div key={uid} className="rounded-lg border border-border p-3">
+                <button
+                  key={uid}
+                  type="button"
+                  onClick={() => setSelectedUserId(uid)}
+                  className="rounded-lg border border-border p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                >
                   <div className="flex items-center gap-2">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold">
                       {userName(uid).slice(0, 2).toUpperCase()}
@@ -205,14 +220,17 @@ function ClientDetailPage() {
                     </div>
                   </div>
                   <ul className="mt-2 space-y-1">
-                    {ms.map((m) => (
+                    {ms.slice(0, 3).map((m) => (
                       <li key={m.id} className="flex items-center gap-2 text-xs">
                         <span className="min-w-0 flex-1 truncate">{m.title}</span>
                         <MissionStatusBadge status={m.status} />
                       </li>
                     ))}
                   </ul>
-                </div>
+                  <p className="mt-2 text-xs font-medium text-primary">
+                    Voir toutes ses missions pour ce client →
+                  </p>
+                </button>
               ))}
               {team.length === 0 && (
                 <p className="text-xs text-muted-foreground">Aucun collaborateur affecté.</p>
@@ -275,6 +293,45 @@ function ClientDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={selectedUserId !== null} onOpenChange={(o) => !o && setSelectedUserId(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedUserId ? userName(selectedUserId) : ""}</DialogTitle>
+            <DialogDescription>
+              Missions réalisées pour {client?.name ?? "ce client"} —{" "}
+              {selectedMissions.length} mission(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {selectedMissions.map((m) => {
+              const md = clientDeliverables.filter((d) => d.mission_id === m.id);
+              return (
+                <Link
+                  key={m.id}
+                  to="/missions/$missionId"
+                  params={{ missionId: m.id }}
+                  onClick={() => setSelectedUserId(null)}
+                  className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.title}</span>
+                    <PriorityBadge priority={m.priority} />
+                    <MissionStatusBadge status={m.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {projectName(m.project_id)} · Échéance{" "}
+                    {new Date(m.deadline).toLocaleDateString("fr-FR")} · {md.length} livrable(s)
+                  </p>
+                </Link>
+              );
+            })}
+            {selectedMissions.length === 0 && (
+              <p className="text-xs text-muted-foreground">Aucune mission.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
