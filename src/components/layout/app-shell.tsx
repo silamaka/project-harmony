@@ -230,10 +230,15 @@ export function AppShell({
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Changer de thème">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Link to="/notifications" aria-label="Notifications">
+            <Link to="/notifications" aria-label="Notifications" className="relative">
               <Button variant="ghost" size="icon">
                 <Bell className="h-4 w-4" />
               </Button>
+              {unread > 0 && (
+                <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
             </Link>
           </div>
         </header>
