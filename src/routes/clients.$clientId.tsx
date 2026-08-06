@@ -37,6 +37,7 @@ export const Route = createFileRoute("/clients/$clientId")({
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
     queryFn: () => clientService.get(clientId),
