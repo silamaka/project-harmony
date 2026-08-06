@@ -1,8 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Briefcase, FileText, Mail, MapPin, Phone, Users } from "lucide-react";
+import { useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge, ProjectStatusBadge } from "@/components/shared/badges";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import {
   clientService,
