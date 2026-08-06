@@ -292,6 +292,45 @@ function ClientDetailPage() {
           </div>
         </div>
       </div>
+
+      <Dialog open={selectedUserId !== null} onOpenChange={(o) => !o && setSelectedUserId(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedUserId ? userName(selectedUserId) : ""}</DialogTitle>
+            <DialogDescription>
+              Missions réalisées pour {client?.name ?? "ce client"} —{" "}
+              {selectedMissions.length} mission(s)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {selectedMissions.map((m) => {
+              const md = clientDeliverables.filter((d) => d.mission_id === m.id);
+              return (
+                <Link
+                  key={m.id}
+                  to="/missions/$missionId"
+                  params={{ missionId: m.id }}
+                  onClick={() => setSelectedUserId(null)}
+                  className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.title}</span>
+                    <PriorityBadge priority={m.priority} />
+                    <MissionStatusBadge status={m.status} />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {projectName(m.project_id)} · Échéance{" "}
+                    {new Date(m.deadline).toLocaleDateString("fr-FR")} · {md.length} livrable(s)
+                  </p>
+                </Link>
+              );
+            })}
+            {selectedMissions.length === 0 && (
+              <p className="text-xs text-muted-foreground">Aucune mission.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
