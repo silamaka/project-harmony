@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
+  BarChart3,
   Bell,
   CalendarDays,
   FolderKanban,
@@ -21,6 +23,7 @@ import logo from "@/assets/beba-logo.png.asset.json";
 import { useAuth } from "@/context/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
+import { notificationService } from "@/services";
 import { ROLE_LABELS, type Role } from "@/types";
 import { Button } from "@/components/ui/button";
 
@@ -57,9 +60,21 @@ const NAV: NavItem[] = [
   },
   { to: "/portail", label: "Portail client", icon: UserCircle, roles: ["client"] },
   {
+    to: "/statistiques",
+    label: "Statistiques",
+    icon: BarChart3,
+    roles: ["admin", "chef_projet"],
+  },
+  {
     to: "/notifications",
     label: "Notifications",
     icon: Bell,
+    roles: ["admin", "chef_projet", "collaborateur", "client"],
+  },
+  {
+    to: "/profil",
+    label: "Mon profil",
+    icon: UserCircle,
     roles: ["admin", "chef_projet", "collaborateur", "client"],
   },
   { to: "/parametres", label: "Paramètres", icon: Settings, roles: ["admin"] },
@@ -86,6 +101,11 @@ export function AppShell({
   const location = useLocation();
   const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
+  const { data: notifs } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: notificationService.list,
+  });
+  const unread = (notifs ?? []).filter((n) => !n.read).length;
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
@@ -156,7 +176,12 @@ export function AppShell({
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                <span className="flex-1">{item.label}</span>
+                {item.to === "/notifications" && unread > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                    {unread}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -210,10 +235,15 @@ export function AppShell({
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Changer de thème">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Link to="/notifications" aria-label="Notifications">
+            <Link to="/notifications" aria-label="Notifications" className="relative">
               <Button variant="ghost" size="icon">
                 <Bell className="h-4 w-4" />
               </Button>
+              {unread > 0 && (
+                <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
             </Link>
           </div>
         </header>

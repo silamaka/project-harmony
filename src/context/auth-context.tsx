@@ -12,6 +12,8 @@ interface AuthContextValue {
   /** Connexion. Branchement API : POST /api/v1/auth/login/ → { access, refresh, user } */
   login: (email: string, password: string) => Promise<User>;
   logout: () => void;
+  /** Mise à jour du profil courant. Branchement API : PATCH /api/v1/auth/me/ */
+  updateProfile: (patch: Partial<User>) => void;
   hasRole: (...roles: Role[]) => boolean;
 }
 
@@ -48,15 +50,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback((patch: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      const stored = users.find((u) => u.id === prev.id);
+      if (stored) Object.assign(stored, patch);
+      window.localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       loading,
       login,
       logout,
+      updateProfile,
       hasRole: (...roles: Role[]) => !!user && roles.includes(user.role),
     }),
-    [user, loading, login, logout],
+    [user, loading, login, logout, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

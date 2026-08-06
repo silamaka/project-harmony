@@ -20,7 +20,9 @@ import { Route as MotDePasseOublieRouteImport } from './routes/mot-de-passe-oubl
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PortailRouteImport } from './routes/portail'
+import { Route as ProfilRouteImport } from './routes/profil'
 import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitialiser-mot-de-passe'
+import { Route as StatistiquesRouteImport } from './routes/statistiques'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
 import { Route as MissionsIndexRouteImport } from './routes/missions.index'
@@ -83,9 +85,19 @@ const PortailRoute = PortailRouteImport.update({
   path: '/portail',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfilRoute = ProfilRouteImport.update({
+  id: '/profil',
+  path: '/profil',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReinitialiserMotDePasseRoute = ReinitialiserMotDePasseRouteImport.update({
   id: '/reinitialiser-mot-de-passe',
   path: '/reinitialiser-mot-de-passe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatistiquesRoute = StatistiquesRouteImport.update({
+  id: '/statistiques',
+  path: '/statistiques',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
@@ -131,7 +143,9 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsRoute
   '/parametres': typeof ParametresRoute
   '/portail': typeof PortailRoute
+  '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
@@ -151,7 +165,9 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsRoute
   '/parametres': typeof ParametresRoute
   '/portail': typeof PortailRoute
+  '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
@@ -172,7 +188,9 @@ export interface FileRoutesById {
   '/notifications': typeof NotificationsRoute
   '/parametres': typeof ParametresRoute
   '/portail': typeof PortailRoute
+  '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
@@ -194,7 +212,9 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/parametres'
     | '/portail'
+    | '/profil'
     | '/reinitialiser-mot-de-passe'
+    | '/statistiques'
     | '/clients/$clientId'
     | '/missions/$missionId'
     | '/projets/$projectId'
@@ -214,7 +234,9 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/parametres'
     | '/portail'
+    | '/profil'
     | '/reinitialiser-mot-de-passe'
+    | '/statistiques'
     | '/clients/$clientId'
     | '/missions/$missionId'
     | '/projets/$projectId'
@@ -234,7 +256,9 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/parametres'
     | '/portail'
+    | '/profil'
     | '/reinitialiser-mot-de-passe'
+    | '/statistiques'
     | '/clients/$clientId'
     | '/missions/$missionId'
     | '/projets/$projectId'
@@ -255,7 +279,9 @@ export interface RootRouteChildren {
   NotificationsRoute: typeof NotificationsRoute
   ParametresRoute: typeof ParametresRoute
   PortailRoute: typeof PortailRoute
+  ProfilRoute: typeof ProfilRoute
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
+  StatistiquesRoute: typeof StatistiquesRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   MissionsMissionIdRoute: typeof MissionsMissionIdRoute
   ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
@@ -343,11 +369,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profil': {
+      id: '/profil'
+      path: '/profil'
+      fullPath: '/profil'
+      preLoaderRoute: typeof ProfilRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reinitialiser-mot-de-passe': {
       id: '/reinitialiser-mot-de-passe'
       path: '/reinitialiser-mot-de-passe'
       fullPath: '/reinitialiser-mot-de-passe'
       preLoaderRoute: typeof ReinitialiserMotDePasseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/statistiques': {
+      id: '/statistiques'
+      path: '/statistiques'
+      fullPath: '/statistiques'
+      preLoaderRoute: typeof StatistiquesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients/': {
@@ -407,7 +447,9 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsRoute: NotificationsRoute,
   ParametresRoute: ParametresRoute,
   PortailRoute: PortailRoute,
+  ProfilRoute: ProfilRoute,
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
+  StatistiquesRoute: StatistiquesRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   MissionsMissionIdRoute: MissionsMissionIdRoute,
   ProjetsProjectIdRoute: ProjetsProjectIdRoute,
