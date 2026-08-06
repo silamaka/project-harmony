@@ -22,6 +22,7 @@ import { Route as ParametresRouteImport } from './routes/parametres'
 import { Route as PortailRouteImport } from './routes/portail'
 import { Route as ProfilRouteImport } from './routes/profil'
 import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitialiser-mot-de-passe'
+import { Route as StatistiquesRouteImport } from './routes/statistiques'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
 import { Route as MissionsIndexRouteImport } from './routes/missions.index'
@@ -94,6 +95,11 @@ const ReinitialiserMotDePasseRoute = ReinitialiserMotDePasseRouteImport.update({
   path: '/reinitialiser-mot-de-passe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatistiquesRoute = StatistiquesRouteImport.update({
+  id: '/statistiques',
+  path: '/statistiques',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
   id: '/clients/',
   path: '/clients/',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/portail': typeof PortailRoute
   '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/portail': typeof PortailRoute
   '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/portail': typeof PortailRoute
   '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
+  '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/portail'
     | '/profil'
     | '/reinitialiser-mot-de-passe'
+    | '/statistiques'
     | '/clients/$clientId'
     | '/missions/$missionId'
     | '/projets/$projectId'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/portail'
     | '/profil'
     | '/reinitialiser-mot-de-passe'
+    | '/statistiques'
     | '/clients/$clientId'
     | '/missions/$missionId'
     | '/projets/$projectId'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/portail'
     | '/profil'
     | '/reinitialiser-mot-de-passe'
+    | '/statistiques'
     | '/clients/$clientId'
     | '/missions/$missionId'
     | '/projets/$projectId'
@@ -269,6 +281,7 @@ export interface RootRouteChildren {
   PortailRoute: typeof PortailRoute
   ProfilRoute: typeof ProfilRoute
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
+  StatistiquesRoute: typeof StatistiquesRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   MissionsMissionIdRoute: typeof MissionsMissionIdRoute
   ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
@@ -370,6 +383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReinitialiserMotDePasseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/statistiques': {
+      id: '/statistiques'
+      path: '/statistiques'
+      fullPath: '/statistiques'
+      preLoaderRoute: typeof StatistiquesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clients/': {
       id: '/clients/'
       path: '/clients'
@@ -429,6 +449,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortailRoute: PortailRoute,
   ProfilRoute: ProfilRoute,
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
+  StatistiquesRoute: StatistiquesRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   MissionsMissionIdRoute: MissionsMissionIdRoute,
   ProjetsProjectIdRoute: ProjetsProjectIdRoute,

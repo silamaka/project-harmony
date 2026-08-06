@@ -57,9 +57,21 @@ const NAV: NavItem[] = [
   },
   { to: "/portail", label: "Portail client", icon: UserCircle, roles: ["client"] },
   {
+    to: "/statistiques",
+    label: "Statistiques",
+    icon: BarChart3,
+    roles: ["admin", "chef_projet"],
+  },
+  {
     to: "/notifications",
     label: "Notifications",
     icon: Bell,
+    roles: ["admin", "chef_projet", "collaborateur", "client"],
+  },
+  {
+    to: "/profil",
+    label: "Mon profil",
+    icon: UserCircle,
     roles: ["admin", "chef_projet", "collaborateur", "client"],
   },
   { to: "/parametres", label: "Paramètres", icon: Settings, roles: ["admin"] },
