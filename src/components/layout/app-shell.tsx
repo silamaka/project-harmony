@@ -101,6 +101,11 @@ export function AppShell({
   const location = useLocation();
   const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
+  const { data: notifs } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: notificationService.list,
+  });
+  const unread = (notifs ?? []).filter((n) => !n.read).length;
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });
