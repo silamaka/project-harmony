@@ -202,7 +202,12 @@ function ClientDetailPage() {
             <h2 className="text-sm font-semibold">Qui travaille sur quoi</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {team.map(([uid, ms]) => (
-                <div key={uid} className="rounded-lg border border-border p-3">
+                <button
+                  key={uid}
+                  type="button"
+                  onClick={() => setSelectedUserId(uid)}
+                  className="rounded-lg border border-border p-3 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                >
                   <div className="flex items-center gap-2">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold">
                       {userName(uid).slice(0, 2).toUpperCase()}
@@ -213,14 +218,17 @@ function ClientDetailPage() {
                     </div>
                   </div>
                   <ul className="mt-2 space-y-1">
-                    {ms.map((m) => (
+                    {ms.slice(0, 3).map((m) => (
                       <li key={m.id} className="flex items-center gap-2 text-xs">
                         <span className="min-w-0 flex-1 truncate">{m.title}</span>
                         <MissionStatusBadge status={m.status} />
                       </li>
                     ))}
                   </ul>
-                </div>
+                  <p className="mt-2 text-xs font-medium text-primary">
+                    Voir toutes ses missions pour ce client →
+                  </p>
+                </button>
               ))}
               {team.length === 0 && (
                 <p className="text-xs text-muted-foreground">Aucun collaborateur affecté.</p>
