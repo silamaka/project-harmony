@@ -50,15 +50,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const updateProfile = useCallback((patch: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      const stored = users.find((u) => u.id === prev.id);
+      if (stored) Object.assign(stored, patch);
+      window.localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       loading,
       login,
       logout,
+      updateProfile,
       hasRole: (...roles: Role[]) => !!user && roles.includes(user.role),
     }),
-    [user, loading, login, logout],
+    [user, loading, login, logout, updateProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
