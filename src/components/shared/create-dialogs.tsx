@@ -464,12 +464,18 @@ export function CreateUserDialog({
             <select
               className={selectClass}
               value={form.role}
+              disabled={lockRole}
               onChange={(e) => setForm({ ...form, role: e.target.value as typeof role })}
             >
-              <option value="collaborateur">Collaborateur</option>
-              <option value="chef_projet">Chef de projet</option>
-              <option value="admin">Administrateur</option>
-              <option value="client">Client</option>
+              {lockRole ? (
+                <option value={role}>{ROLE_OPTIONS[role]}</option>
+              ) : (
+                Object.entries(ROLE_OPTIONS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))
+              )}
             </select>
           </Field>
         </div>
