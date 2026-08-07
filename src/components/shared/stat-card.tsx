@@ -65,4 +65,8 @@ export function StatCard({
           </Tag>
         );
       })()}
+    </motion.div>
+  );
+}
+
 
