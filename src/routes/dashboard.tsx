@@ -340,16 +340,138 @@ function DashboardPage() {
           </table>
         </div>
       </div>
+      <Dialog open={drill !== null} onOpenChange={(o) => !o && setDrill(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {drill === "clients" && "Tous les clients"}
+              {drill === "projects" && "Tous les projets"}
+              {drill === "missions" && "Toutes les missions"}
+              {drill === "collaborators" && "Collaborateurs"}
+              {drill === "deliverables" && "Livrables"}
+              {drill === "late" && "Missions en retard"}
+              {drill === "in24h" && "Échéances dans 24 h"}
+              {drill === "in48h" && "Échéances dans 48 h"}
+              {drill === "blocked" && "Missions bloquées (corrections)"}
+              {drill === "pendingDeliverables" && "Livrables en attente de validation"}
+            </DialogTitle>
+            <DialogDescription>Cliquez sur une ligne pour ouvrir la fiche détaillée.</DialogDescription>
+          </DialogHeader>
+
+          {drill === "clients" && (
+            <div className="space-y-2">
+              {(clients ?? []).map((c) => (
+                <Link
+                  key={c.id}
+                  to="/clients/$clientId"
+                  params={{ clientId: c.id }}
+                  onClick={() => setDrill(null)}
+                  className="flex items-center gap-3 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
+                >
+                  <span className="flex-1 font-medium">{c.name}</span>
+                  <span className="text-xs text-muted-foreground">{c.industry}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {(missions ?? []).filter((m) => m.client_id === c.id).length} missions
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {drill === "projects" && (
+            <div className="space-y-2">
+              {(projects ?? []).map((p) => (
+                <Link
+                  key={p.id}
+                  to="/projets/$projectId"
+                  params={{ projectId: p.id }}
+                  onClick={() => setDrill(null)}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
+                >
+                  <span className="flex-1 font-medium">{p.name}</span>
+                  <span className="text-xs text-muted-foreground">{clientName(p.client_id)}</span>
+                  <span className="text-xs text-muted-foreground">Chef : {userName(p.owner_id)}</span>
+                  <span className="text-xs font-semibold text-primary">{p.progress}%</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {drill === "collaborators" && (
+            <div className="space-y-2">
+              {collaborators.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm"
+                >
+                  <span className="flex-1 font-medium">
+                    {u.first_name} {u.last_name}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{u.job_title ?? u.email}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {(missions ?? []).filter((m) => m.assignee_id === u.id).length} missions
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(drill === "deliverables" || drill === "pendingDeliverables") && (
+            <div className="space-y-2">
+              {(drill === "deliverables"
+                ? (deliverables ?? [])
+                : (alerts?.pendingDeliverables ?? [])
+              ).map((d) => (
+                <Link
+                  key={d.id}
+                  to="/missions/$missionId"
+                  params={{ missionId: d.mission_id }}
+                  onClick={() => setDrill(null)}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
+                >
+                  <span className="flex-1 font-medium">{d.name}</span>
+                  <span className="text-xs text-muted-foreground">{missionTitle(d.mission_id)}</span>
+                  <span className="text-xs text-muted-foreground">v{d.version}</span>
+                  <span className="text-xs text-muted-foreground">{userName(d.uploaded_by)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {drill === "missions" && <MissionRows items={missions ?? []} />}
+          {drill === "late" && <MissionRows items={lateMissions} />}
+          {drill === "in24h" && <MissionRows items={alerts?.in24h ?? []} />}
+          {drill === "in48h" && <MissionRows items={alerts?.in48h ?? []} />}
+          {drill === "blocked" && <MissionRows items={alerts?.blocked ?? []} />}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
 
-function AlertRow({ icon, label, count }: { icon: React.ReactNode; label: string; count: number }) {
+function AlertRow({
+  icon,
+  label,
+  count,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  onClick?: () => void;
+}) {
   return (
-    <li className="flex items-center gap-3 rounded-lg border border-border px-3 py-2">
-      {icon}
-      <span className="flex-1">{label}</span>
-      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{count}</span>
+    <li>
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-muted/50"
+      >
+        {icon}
+        <span className="flex-1">{label}</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{count}</span>
+      </button>
     </li>
   );
+
 }
