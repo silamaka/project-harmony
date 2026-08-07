@@ -79,6 +79,49 @@ function DashboardPage() {
     queryFn: dashboardService.alerts,
   });
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
+  const { data: deliverables } = useQuery({
+    queryKey: ["deliverables"],
+    queryFn: deliverableService.list,
+  });
+
+  const [drill, setDrill] = useState<null | string>(null);
+
+  const clientName = (id: string) => clients?.find((c) => c.id === id)?.name ?? "—";
+  const projectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? "—";
+  const userName = (id: string) => {
+    const u = users?.find((x) => x.id === id);
+    return u ? `${u.first_name} ${u.last_name}` : "—";
+  };
+  const missionTitle = (id: string) => missions?.find((m) => m.id === id)?.title ?? "—";
+
+  const lateMissions = (missions ?? []).filter(isLate);
+  const collaborators = (users ?? []).filter((u) => u.role === "collaborateur");
+
+  const MissionRows = ({ items }: { items: Mission[] }) => (
+    <div className="space-y-2">
+      {items.length === 0 && <p className="text-sm text-muted-foreground">Aucun élément.</p>}
+      {items.map((m) => (
+        <Link
+          key={m.id}
+          to="/missions/$missionId"
+          params={{ missionId: m.id }}
+          onClick={() => setDrill(null)}
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
+        >
+          <span className="flex-1 font-medium">{m.title}</span>
+          <span className="text-xs text-muted-foreground">{clientName(m.client_id)}</span>
+          <PriorityBadge priority={m.priority} />
+          <MissionStatusBadge status={m.status} />
+          <span className="text-xs text-muted-foreground">
+            {new Date(m.deadline).toLocaleDateString("fr-FR")}
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
 
   return (
     <AppShell
@@ -87,19 +130,51 @@ function DashboardPage() {
       allow={["admin", "chef_projet"]}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <StatCard label="Clients" value={stats?.clients ?? 0} icon={Building2} delay={0} />
-        <StatCard label="Projets" value={stats?.projects ?? 0} icon={FolderKanban} delay={0.04} />
-        <StatCard label="Missions" value={stats?.missions ?? 0} icon={ListChecks} delay={0.08} />
-        <StatCard label="Collaborateurs" value={stats?.collaborators ?? 0} icon={Users} delay={0.12} />
-        <StatCard label="Livrables" value={stats?.deliverables ?? 0} icon={Package} delay={0.16} />
+        <StatCard
+          label="Clients"
+          value={stats?.clients ?? 0}
+          icon={Building2}
+          delay={0}
+          onClick={() => setDrill("clients")}
+        />
+        <StatCard
+          label="Projets"
+          value={stats?.projects ?? 0}
+          icon={FolderKanban}
+          delay={0.04}
+          onClick={() => setDrill("projects")}
+        />
+        <StatCard
+          label="Missions"
+          value={stats?.missions ?? 0}
+          icon={ListChecks}
+          delay={0.08}
+          onClick={() => setDrill("missions")}
+        />
+        <StatCard
+          label="Collaborateurs"
+          value={stats?.collaborators ?? 0}
+          icon={Users}
+          delay={0.12}
+          onClick={() => setDrill("collaborators")}
+        />
+        <StatCard
+          label="Livrables"
+          value={stats?.deliverables ?? 0}
+          icon={Package}
+          delay={0.16}
+          onClick={() => setDrill("deliverables")}
+        />
         <StatCard
           label="Missions en retard"
           value={stats?.late_missions ?? 0}
           icon={AlertTriangle}
           tone="danger"
           delay={0.2}
+          onClick={() => setDrill("late")}
         />
       </div>
+
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5 lg:col-span-2">
