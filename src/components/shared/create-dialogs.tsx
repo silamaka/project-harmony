@@ -400,9 +400,12 @@ export function CreateMissionDialog({ projectId }: { projectId?: string }) {
 export function CreateUserDialog({
   role = "collaborateur",
   triggerLabel = "Ajouter",
+  lockRole = false,
 }: {
   role?: "collaborateur" | "chef_projet" | "admin" | "client";
   triggerLabel?: string;
+  /** Limite le sélecteur au rôle fourni (aucun autre rôle proposé). */
+  lockRole?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
