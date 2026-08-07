@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -24,7 +25,24 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
 import { StatCard } from "@/components/shared/stat-card";
-import { dashboardService, missionService } from "@/services";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  clientService,
+  dashboardService,
+  deliverableService,
+  isLate,
+  missionService,
+  projectService,
+  userService,
+} from "@/services";
+import type { Mission } from "@/types";
+
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
