@@ -31,6 +31,13 @@ import {
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+const ROLE_OPTIONS: Record<"collaborateur" | "chef_projet" | "admin" | "client", string> = {
+  collaborateur: "Collaborateur",
+  chef_projet: "Chef de projet",
+  admin: "Administrateur",
+  client: "Client",
+};
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
   const control = isValidElement(children)
@@ -400,9 +407,12 @@ export function CreateMissionDialog({ projectId }: { projectId?: string }) {
 export function CreateUserDialog({
   role = "collaborateur",
   triggerLabel = "Ajouter",
+  lockRole = false,
 }: {
   role?: "collaborateur" | "chef_projet" | "admin" | "client";
   triggerLabel?: string;
+  /** Limite le sélecteur au rôle fourni (aucun autre rôle proposé). */
+  lockRole?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -461,12 +471,18 @@ export function CreateUserDialog({
             <select
               className={selectClass}
               value={form.role}
+              disabled={lockRole}
               onChange={(e) => setForm({ ...form, role: e.target.value as typeof role })}
             >
-              <option value="collaborateur">Collaborateur</option>
-              <option value="chef_projet">Chef de projet</option>
-              <option value="admin">Administrateur</option>
-              <option value="client">Client</option>
+              {lockRole ? (
+                <option value={role}>{ROLE_OPTIONS[role]}</option>
+              ) : (
+                Object.entries(ROLE_OPTIONS).map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))
+              )}
             </select>
           </Field>
         </div>
