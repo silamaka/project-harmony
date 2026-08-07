@@ -31,6 +31,13 @@ import {
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+const ROLE_OPTIONS: Record<"collaborateur" | "chef_projet" | "admin" | "client", string> = {
+  collaborateur: "Collaborateur",
+  chef_projet: "Chef de projet",
+  admin: "Administrateur",
+  client: "Client",
+};
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
   const control = isValidElement(children)
