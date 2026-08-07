@@ -44,7 +44,7 @@ function CollaboratorsPage() {
       subtitle={`${filtered.length} membre(s) de l'équipe`}
       allow={["admin", "chef_projet"]}
       actions={
-        <CreateUserDialog role="collaborateur" triggerLabel="Ajouter un collaborateur" />
+        <CreateUserDialog role="collaborateur" lockRole triggerLabel="Ajouter un collaborateur" />
       }
     >
       <div className="relative max-w-sm">
