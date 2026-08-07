@@ -275,22 +275,27 @@ function DashboardPage() {
               icon={<Clock className="h-4 w-4 text-destructive" />}
               label="Échéance dans 24 h"
               count={alerts?.in24h.length ?? 0}
+              onClick={() => setDrill("in24h")}
             />
             <AlertRow
               icon={<Clock className="h-4 w-4 text-warning" />}
               label="Échéance dans 48 h"
               count={alerts?.in48h.length ?? 0}
+              onClick={() => setDrill("in48h")}
             />
             <AlertRow
               icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
               label="Missions bloquées"
               count={alerts?.blocked.length ?? 0}
+              onClick={() => setDrill("blocked")}
             />
             <AlertRow
               icon={<Package className="h-4 w-4 text-info" />}
               label="Livrables en attente"
               count={alerts?.pendingDeliverables.length ?? 0}
+              onClick={() => setDrill("pendingDeliverables")}
             />
+
           </ul>
         </div>
       </div>
