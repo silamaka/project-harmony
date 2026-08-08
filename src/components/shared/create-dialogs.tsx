@@ -26,6 +26,8 @@ import {
   type MissionStatus,
   type Priority,
   type ProjectStatus,
+  type Role,
+  type User,
 } from "@/types";
 
 const selectClass =
@@ -492,6 +494,87 @@ export function CreateUserDialog({
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "Ajout..." : "Ajouter"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ----------------------------- Édition utilisateur (admin) ---------------- */
+export function EditUserDialog({ user }: { user: User }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    first_name: user.first_name,
+    last_name: user.last_name,
+    email: user.email,
+    phone: user.phone ?? "",
+    job_title: user.job_title ?? "",
+    role: user.role,
+    is_active: user.is_active,
+  });
+  const done = useCreate([["users"], ["collaborators"]], () => setOpen(false));
+
+  const mutation = useMutation({
+    mutationFn: () => userService.update(user.id, { ...form, role: form.role }),
+    onSuccess: () => done("Utilisateur mis à jour."),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          Modifier
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Modifier l'utilisateur</DialogTitle>
+          <DialogDescription>Seul un administrateur peut modifier ces informations.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Prénom">
+            <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+          </Field>
+          <Field label="Nom">
+            <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+          </Field>
+          <Field label="E-mail">
+            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </Field>
+          <Field label="Téléphone">
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+          <Field label="Poste">
+            <Input value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
+          </Field>
+          <Field label="Rôle">
+            <select
+              className={selectClass}
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
+            >
+              {Object.entries(ROLE_OPTIONS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Statut">
+            <select
+              className={selectClass}
+              value={form.is_active ? "1" : "0"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "1" })}
+            >
+              <option value="1">Actif</option>
+              <option value="0">Inactif</option>
+            </select>
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+            {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </DialogFooter>
       </DialogContent>
