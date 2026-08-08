@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Moon, Sun } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { CreateUserDialog } from "@/components/shared/create-dialogs";
+import { CreateUserDialog, EditUserDialog } from "@/components/shared/create-dialogs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -80,6 +80,7 @@ function SettingsPage() {
                 <th className="py-2 font-medium">Email</th>
                 <th className="py-2 font-medium">Rôle</th>
                 <th className="py-2 font-medium">Statut</th>
+                <th className="py-2 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -100,6 +101,9 @@ function SettingsPage() {
                     >
                       {u.is_active ? "Actif" : "Inactif"}
                     </span>
+                  </td>
+                  <td className="py-2.5 text-right">
+                    <EditUserDialog user={u} />
                   </td>
                 </tr>
               ))}
