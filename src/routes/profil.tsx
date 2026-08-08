@@ -29,16 +29,18 @@ export const Route = createFileRoute("/profil")({
   component: ProfilePage,
 });
 
+function ReadField({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-sm font-medium">{value?.trim() ? value : "—"}</p>
+    </div>
+  );
+}
+
 function ProfilePage() {
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
-  const [form, setForm] = useState({
-    first_name: user?.first_name ?? "",
-    last_name: user?.last_name ?? "",
-    email: user?.email ?? "",
-    phone: user?.phone ?? "",
-    job_title: user?.job_title ?? "",
-  });
 
   const mine = (missions ?? []).filter((m) => m.assignee_id === user?.id);
 
@@ -47,69 +49,18 @@ function ProfilePage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold">Informations personnelles</h2>
-          <form
-            className="mt-4 grid gap-4 sm:grid-cols-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              updateProfile(form);
-              toast.success("Profil mis à jour.");
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="pf-first" className="text-xs">
-                Prénom
-              </Label>
-              <Input
-                id="pf-first"
-                value={form.first_name}
-                onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pf-last" className="text-xs">
-                Nom
-              </Label>
-              <Input
-                id="pf-last"
-                value={form.last_name}
-                onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pf-email" className="text-xs">
-                Email
-              </Label>
-              <Input
-                id="pf-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pf-phone" className="text-xs">
-                Téléphone
-              </Label>
-              <Input
-                id="pf-phone"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="pf-job" className="text-xs">
-                Fonction
-              </Label>
-              <Input
-                id="pf-job"
-                value={form.job_title}
-                onChange={(e) => setForm((f) => ({ ...f, job_title: e.target.value }))}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Button type="submit">Enregistrer</Button>
-            </div>
-          </form>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Consultation uniquement. Pour toute modification, contactez un administrateur
+            (Paramètres &gt; Utilisateurs et rôles).
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <ReadField label="Prénom" value={user?.first_name} />
+            <ReadField label="Nom" value={user?.last_name} />
+            <ReadField label="Email" value={user?.email} />
+            <ReadField label="Téléphone" value={user?.phone} />
+            <ReadField label="Fonction" value={user?.job_title} />
+            <ReadField label="Rôle" value={user ? ROLE_LABELS[user.role] : undefined} />
+          </div>
         </div>
 
         <div className="space-y-4">
