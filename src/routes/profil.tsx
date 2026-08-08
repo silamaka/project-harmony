@@ -1,12 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge } from "@/components/shared/badges";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
 import { missionService } from "@/services";
@@ -29,7 +24,7 @@ export const Route = createFileRoute("/profil")({
   component: ProfilePage,
 });
 
-function ReadField({ label, value }: { label: string; value?: string }) {
+function ReadField({ label, value }: { label: string; value?: string | undefined }) {
   return (
     <div className="space-y-1">
       <p className="text-xs text-muted-foreground">{label}</p>
@@ -67,12 +62,12 @@ function ProfilePage() {
           <div className="surface-card p-5">
             <div className="flex items-center gap-3">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-base font-bold text-primary-foreground">
-                {form.first_name[0]}
-                {form.last_name[0]}
+                {user?.first_name?.[0] ?? ""}
+                {user?.last_name?.[0] ?? ""}
               </div>
               <div className="min-w-0">
                 <p className="truncate font-semibold">
-                  {form.first_name} {form.last_name}
+                  {user?.first_name} {user?.last_name}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {user ? ROLE_LABELS[user.role] : ""}
