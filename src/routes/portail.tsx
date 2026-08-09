@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, FolderKanban, ListChecks, Package } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, ProjectStatusBadge } from "@/components/shared/badges";
 import { StatCard } from "@/components/shared/stat-card";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -12,6 +14,7 @@ import {
   missionService,
   projectService,
 } from "@/services";
+import type { Deliverable } from "@/types";
 
 export const Route = createFileRoute("/portail")({
   head: () => ({
@@ -31,6 +34,7 @@ export const Route = createFileRoute("/portail")({
 
 function ClientPortalPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
@@ -48,6 +52,19 @@ function ClientPortalPage() {
   const myMissionIds = new Set(myMissions.map((m) => m.id));
   const myDeliverables = (deliverables ?? []).filter((d) => myMissionIds.has(d.mission_id));
   const validated = myDeliverables.filter((d) => d.status === "valide").length;
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Deliverable["status"] }) =>
+      deliverableService.updateStatus(id, status),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["deliverables"] });
+      toast.success(
+        variables.status === "valide"
+          ? "Livrable validé, merci !"
+          : "Demande de corrections envoyée à l'agence.",
+      );
+    },
+  });
 
   return (
     <AppShell title="Portail client" subtitle={client?.name} allow={["client"]}>
@@ -118,6 +135,23 @@ function ClientPortalPage() {
                 <span className="text-xs text-muted-foreground">
                   {new Date(d.created_at).toLocaleDateString("fr-FR")}
                 </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={reviewMutation.isPending}
+                    onClick={() => reviewMutation.mutate({ id: d.id, status: "valide" })}
+                  >
+                    Valider
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={d.status === "corrections" || reviewMutation.isPending}
+                    onClick={() => reviewMutation.mutate({ id: d.id, status: "corrections" })}
+                  >
+                    Demander des corrections
+                  </Button>
+                </div>
               </div>
             ))}
           {myDeliverables.filter((d) => d.status !== "valide").length === 0 && (

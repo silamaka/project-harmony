@@ -1,9 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FileArchive, FileText, Image as ImageIcon, Link2, Video } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/auth-context";
 import { deliverableService, missionService, userService } from "@/services";
 import type { Deliverable, DeliverableType } from "@/types";
 import { cn } from "@/lib/utils";
@@ -43,8 +46,14 @@ const STATUS_LABEL: Record<Deliverable["status"], string> = {
   corrections: "Corrections",
 };
 
+const FILTERS = ["tous", "en_attente", "valide", "corrections"] as const;
+
 function DeliverablesPage() {
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
+  const { hasRole } = useAuth();
+  const canValidate = hasRole("admin", "chef_projet");
+  const queryClient = useQueryClient();
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
     queryFn: deliverableService.list,
@@ -52,8 +61,21 @@ function DeliverablesPage() {
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
 
-  const list = (deliverables ?? []).filter((d) =>
-    d.name.toLowerCase().includes(q.trim().toLowerCase()),
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Deliverable["status"] }) =>
+      deliverableService.updateStatus(id, status),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["deliverables"] });
+      toast.success(
+        variables.status === "valide" ? "Livrable validé." : "Corrections demandées.",
+      );
+    },
+  });
+
+  const list = (deliverables ?? []).filter(
+    (d) =>
+      d.name.toLowerCase().includes(q.trim().toLowerCase()) &&
+      (filter === "tous" || d.status === filter),
   );
 
   return (
@@ -62,12 +84,30 @@ function DeliverablesPage() {
       subtitle={`${deliverables?.length ?? 0} fichier(s) déposé(s)`}
       allow={["admin", "chef_projet", "collaborateur"]}
     >
-      <Input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Rechercher un livrable…"
-        className="max-w-sm"
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Rechercher un livrable…"
+          className="max-w-sm"
+        />
+        <div className="flex gap-1 rounded-lg border border-border p-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === f
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent",
+              )}
+            >
+              {f === "tous" ? "Tous" : STATUS_LABEL[f]}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {list.map((d) => {
@@ -108,6 +148,27 @@ function DeliverablesPage() {
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}
                 {new Date(d.created_at).toLocaleDateString("fr-FR")}
               </p>
+              {canValidate && (
+                <div className="flex gap-2 border-t border-border pt-3">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={d.status === "valide" || statusMutation.isPending}
+                    onClick={() => statusMutation.mutate({ id: d.id, status: "valide" })}
+                  >
+                    Valider
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={d.status === "corrections" || statusMutation.isPending}
+                    onClick={() => statusMutation.mutate({ id: d.id, status: "corrections" })}
+                  >
+                    Corrections
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })}
