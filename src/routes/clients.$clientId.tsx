@@ -35,9 +35,13 @@ export const Route = createFileRoute("/clients/$clientId")({
   component: ClientDetailPage,
 });
 
+type StatKey = "projets" | "missions" | "livrables" | "intervenants";
+
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<StatKey | null>(null);
+
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
     queryFn: () => clientService.get(clientId),
@@ -78,11 +82,23 @@ function ClientDetailPage() {
   const managerIds = [...new Set(projectList.map((p) => p.owner_id))];
 
   const stats = [
-    { label: "Projets", value: projectList.length, icon: Briefcase },
-    { label: "Missions", value: clientMissions.length, icon: FileText },
-    { label: "Livrables", value: clientDeliverables.length, icon: FileText },
-    { label: "Intervenants", value: team.length, icon: Users },
+    { key: "projets" as const, label: "Projets", value: projectList.length, icon: Briefcase },
+    { key: "missions" as const, label: "Missions", value: clientMissions.length, icon: FileText },
+    {
+      key: "livrables" as const,
+      label: "Livrables",
+      value: clientDeliverables.length,
+      icon: FileText,
+    },
+    { key: "intervenants" as const, label: "Intervenants", value: team.length, icon: Users },
   ];
+
+  const detailTitles: Record<StatKey, string> = {
+    projets: "Projets du client",
+    missions: "Missions du client",
+    livrables: "Livrables du client",
+    intervenants: "Intervenants sur le compte",
+  };
 
   return (
     <AppShell
@@ -99,17 +115,24 @@ function ClientDetailPage() {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="surface-card flex items-center gap-3 p-4">
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => setDetail(s.key)}
+            className="surface-card flex w-full items-center gap-3 p-4 text-left transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <s.icon className="h-4.5 w-4.5" />
             </div>
             <div>
               <p className="text-xl font-bold">{s.value}</p>
               <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className="text-xs font-medium text-primary">Voir le détail</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
+
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5">
@@ -294,7 +317,122 @@ function ClientDetailPage() {
         </div>
       </div>
 
+      <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{detail ? detailTitles[detail] : ""}</DialogTitle>
+            <DialogDescription>{client?.name ?? "Client"}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {detail === "projets" &&
+              (projectList.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun projet.</p>
+              ) : (
+                projectList.map((p) => (
+                  <Link
+                    key={p.id}
+                    to="/projets/$projectId"
+                    params={{ projectId: p.id }}
+                    onClick={() => setDetail(null)}
+                    className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+                      <ProjectStatusBadge status={p.status} />
+                      <span className="text-xs font-semibold">{p.progress}%</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Chef de projet : {userName(p.owner_id)} ·{" "}
+                      {clientMissions.filter((m) => m.project_id === p.id).length} mission(s)
+                    </p>
+                  </Link>
+                ))
+              ))}
+
+            {detail === "missions" &&
+              (clientMissions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucune mission.</p>
+              ) : (
+                clientMissions.map((m) => (
+                  <Link
+                    key={m.id}
+                    to="/missions/$missionId"
+                    params={{ missionId: m.id }}
+                    onClick={() => setDetail(null)}
+                    className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.title}</span>
+                      <PriorityBadge priority={m.priority} />
+                      <MissionStatusBadge status={m.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {projectName(m.project_id)} · {userName(m.assignee_id)} · Échéance{" "}
+                      {new Date(m.deadline).toLocaleDateString("fr-FR")}
+                    </p>
+                  </Link>
+                ))
+              ))}
+
+            {detail === "livrables" &&
+              (clientDeliverables.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun livrable.</p>
+              ) : (
+                clientDeliverables.map((d) => (
+                  <Link
+                    key={d.id}
+                    to="/missions/$missionId"
+                    params={{ missionId: d.mission_id }}
+                    onClick={() => setDetail(null)}
+                    className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {d.name} <span className="text-xs text-muted-foreground">v{d.version}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">{d.status}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {missionTitle(d.mission_id)} · Déposé par {userName(d.uploaded_by)} ·{" "}
+                      {new Date(d.created_at).toLocaleDateString("fr-FR")}
+                    </p>
+                  </Link>
+                ))
+              ))}
+
+            {detail === "intervenants" &&
+              (team.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun intervenant.</p>
+              ) : (
+                team.map(([uid, ms]) => (
+                  <button
+                    key={uid}
+                    type="button"
+                    onClick={() => {
+                      setDetail(null);
+                      setSelectedUserId(uid);
+                    }}
+                    className="w-full rounded-lg border border-border px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold">
+                        {userName(uid).slice(0, 2).toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{userName(uid)}</p>
+                        <p className="text-xs text-muted-foreground">{ms.length} mission(s)</p>
+                      </div>
+                      <span className="text-xs font-medium text-primary">Détail →</span>
+                    </div>
+                  </button>
+                ))
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={selectedUserId !== null} onOpenChange={(o) => !o && setSelectedUserId(null)}>
+
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedUserId ? userName(selectedUserId) : ""}</DialogTitle>
