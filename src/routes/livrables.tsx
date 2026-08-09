@@ -148,6 +148,27 @@ function DeliverablesPage() {
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}
                 {new Date(d.created_at).toLocaleDateString("fr-FR")}
               </p>
+              {canValidate && (
+                <div className="flex gap-2 border-t border-border pt-3">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={d.status === "valide" || statusMutation.isPending}
+                    onClick={() => statusMutation.mutate({ id: d.id, status: "valide" })}
+                  >
+                    Valider
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={d.status === "corrections" || statusMutation.isPending}
+                    onClick={() => statusMutation.mutate({ id: d.id, status: "corrections" })}
+                  >
+                    Corrections
+                  </Button>
+                </div>
+              )}
             </div>
           );
         })}
