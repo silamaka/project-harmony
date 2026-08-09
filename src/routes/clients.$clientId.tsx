@@ -35,9 +35,13 @@ export const Route = createFileRoute("/clients/$clientId")({
   component: ClientDetailPage,
 });
 
+type StatKey = "projets" | "missions" | "livrables" | "intervenants";
+
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<StatKey | null>(null);
+
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
     queryFn: () => clientService.get(clientId),
