@@ -78,11 +78,23 @@ function ClientDetailPage() {
   const managerIds = [...new Set(projectList.map((p) => p.owner_id))];
 
   const stats = [
-    { label: "Projets", value: projectList.length, icon: Briefcase },
-    { label: "Missions", value: clientMissions.length, icon: FileText },
-    { label: "Livrables", value: clientDeliverables.length, icon: FileText },
-    { label: "Intervenants", value: team.length, icon: Users },
+    { key: "projets" as const, label: "Projets", value: projectList.length, icon: Briefcase },
+    { key: "missions" as const, label: "Missions", value: clientMissions.length, icon: FileText },
+    {
+      key: "livrables" as const,
+      label: "Livrables",
+      value: clientDeliverables.length,
+      icon: FileText,
+    },
+    { key: "intervenants" as const, label: "Intervenants", value: team.length, icon: Users },
   ];
+
+  const detailTitles: Record<StatKey, string> = {
+    projets: "Projets du client",
+    missions: "Missions du client",
+    livrables: "Livrables du client",
+    intervenants: "Intervenants sur le compte",
+  };
 
   return (
     <AppShell
@@ -99,17 +111,24 @@ function ClientDetailPage() {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="surface-card flex items-center gap-3 p-4">
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => setDetail(s.key)}
+            className="surface-card flex w-full items-center gap-3 p-4 text-left transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <s.icon className="h-4.5 w-4.5" />
             </div>
             <div>
               <p className="text-xl font-bold">{s.value}</p>
               <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className="text-xs font-medium text-primary">Voir le détail</p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
+
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5">
