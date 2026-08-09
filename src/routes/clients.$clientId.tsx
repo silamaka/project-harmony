@@ -317,7 +317,122 @@ function ClientDetailPage() {
         </div>
       </div>
 
+      <Dialog open={detail !== null} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{detail ? detailTitles[detail] : ""}</DialogTitle>
+            <DialogDescription>{client?.name ?? "Client"}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {detail === "projets" &&
+              (projectList.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun projet.</p>
+              ) : (
+                projectList.map((p) => (
+                  <Link
+                    key={p.id}
+                    to="/projets/$projectId"
+                    params={{ projectId: p.id }}
+                    onClick={() => setDetail(null)}
+                    className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+                      <ProjectStatusBadge status={p.status} />
+                      <span className="text-xs font-semibold">{p.progress}%</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Chef de projet : {userName(p.owner_id)} ·{" "}
+                      {clientMissions.filter((m) => m.project_id === p.id).length} mission(s)
+                    </p>
+                  </Link>
+                ))
+              ))}
+
+            {detail === "missions" &&
+              (clientMissions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucune mission.</p>
+              ) : (
+                clientMissions.map((m) => (
+                  <Link
+                    key={m.id}
+                    to="/missions/$missionId"
+                    params={{ missionId: m.id }}
+                    onClick={() => setDetail(null)}
+                    className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.title}</span>
+                      <PriorityBadge priority={m.priority} />
+                      <MissionStatusBadge status={m.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {projectName(m.project_id)} · {userName(m.assignee_id)} · Échéance{" "}
+                      {new Date(m.deadline).toLocaleDateString("fr-FR")}
+                    </p>
+                  </Link>
+                ))
+              ))}
+
+            {detail === "livrables" &&
+              (clientDeliverables.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun livrable.</p>
+              ) : (
+                clientDeliverables.map((d) => (
+                  <Link
+                    key={d.id}
+                    to="/missions/$missionId"
+                    params={{ missionId: d.mission_id }}
+                    onClick={() => setDetail(null)}
+                    className="block rounded-lg border border-border px-3 py-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                        {d.name} <span className="text-xs text-muted-foreground">v{d.version}</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">{d.status}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {missionTitle(d.mission_id)} · Déposé par {userName(d.uploaded_by)} ·{" "}
+                      {new Date(d.created_at).toLocaleDateString("fr-FR")}
+                    </p>
+                  </Link>
+                ))
+              ))}
+
+            {detail === "intervenants" &&
+              (team.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Aucun intervenant.</p>
+              ) : (
+                team.map(([uid, ms]) => (
+                  <button
+                    key={uid}
+                    type="button"
+                    onClick={() => {
+                      setDetail(null);
+                      setSelectedUserId(uid);
+                    }}
+                    className="w-full rounded-lg border border-border px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold">
+                        {userName(uid).slice(0, 2).toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{userName(uid)}</p>
+                        <p className="text-xs text-muted-foreground">{ms.length} mission(s)</p>
+                      </div>
+                      <span className="text-xs font-medium text-primary">Détail →</span>
+                    </div>
+                  </button>
+                ))
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={selectedUserId !== null} onOpenChange={(o) => !o && setSelectedUserId(null)}>
+
         <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedUserId ? userName(selectedUserId) : ""}</DialogTitle>
