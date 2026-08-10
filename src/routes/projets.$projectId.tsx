@@ -1,8 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, CalendarDays, User } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge, ProjectStatusBadge } from "@/components/shared/badges";
+import { CreateMissionDialog } from "@/components/shared/create-dialogs";
+import { ConfirmDeleteButton, EditProjectDialog } from "@/components/shared/edit-dialogs";
 import { Progress } from "@/components/ui/progress";
 import { clientService, missionService, projectService, userService } from "@/services";
 
@@ -31,6 +34,18 @@ function ProjectDetailPage() {
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
 
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const removeProject = useMutation({
+    mutationFn: () => projectService.remove(projectId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Projet supprimé.");
+      void navigate({ to: "/projets" });
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
   const client = clients?.find((c) => c.id === project?.client_id);
   const owner = users?.find((u) => u.id === project?.owner_id);
 
@@ -39,6 +54,20 @@ function ProjectDetailPage() {
       title={project?.name ?? "Projet"}
       subtitle={client?.name}
       allow={["admin", "chef_projet"]}
+      actions={
+        project ? (
+          <div className="flex items-center gap-2">
+            <CreateMissionDialog projectId={project.id} />
+            <EditProjectDialog key={project.id} project={project} />
+            <ConfirmDeleteButton
+              title="Supprimer ce projet ?"
+              description="Le projet sera retiré de la liste. Cette action est irréversible."
+              pending={removeProject.isPending}
+              onConfirm={() => removeProject.mutate()}
+            />
+          </div>
+        ) : undefined
+      }
     >
       <Link
         to="/projets"

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   LinkIcon,
   Paperclip,
   Send,
+  Trash2,
   Upload,
   FileArchive,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
+import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -124,15 +126,51 @@ function MissionDetailPage() {
     },
   });
 
+  const navigate = useNavigate();
+  const removeDeliverable = useMutation({
+    mutationFn: (id: string) => deliverableService.remove(id),
+    onSuccess: () => {
+      refresh([["deliverables", missionId], ["deliverables"]]);
+      toast.success("Livrable supprimé.");
+    },
+  });
+
+  const removeMission = useMutation({
+    mutationFn: () => missionService.remove(missionId),
+    onSuccess: () => {
+      refresh([["missions"]]);
+      toast.success("Mission supprimée.");
+      void navigate({ to: "/missions" });
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
   const authorName = (id: string) => {
     const u = users?.find((x) => x.id === id);
     return u ? `${u.first_name} ${u.last_name}` : "Utilisateur";
   };
 
   const currentIndex = mission ? MISSION_WORKFLOW.indexOf(mission.status) : -1;
+  const canManage = user?.role === "admin" || user?.role === "chef_projet";
 
   return (
-    <AppShell title={mission?.title ?? "Mission"} subtitle={mission?.objective}>
+    <AppShell
+      title={mission?.title ?? "Mission"}
+      subtitle={mission?.objective}
+      actions={
+        mission && canManage ? (
+          <div className="flex items-center gap-2">
+            <EditMissionDialog key={mission.id} mission={mission} />
+            <ConfirmDeleteButton
+              title="Supprimer cette mission ?"
+              description="La mission et son suivi seront retirés du tableau. Action irréversible."
+              pending={removeMission.isPending}
+              onConfirm={() => removeMission.mutate()}
+            />
+          </div>
+        ) : undefined
+      }
+    >
       <Link
         to="/missions"
         className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
@@ -238,6 +276,17 @@ function MissionDetailPage() {
                   >
                     <Download className="h-4 w-4" />
                   </a>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => removeDeliverable.mutate(d.id)}
+                      disabled={removeDeliverable.isPending}
+                      aria-label={`Supprimer ${d.name}`}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </li>
               );
             })}

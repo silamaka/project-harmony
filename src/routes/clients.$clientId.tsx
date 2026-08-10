@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Briefcase, FileText, Mail, MapPin, Phone, Users } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge, ProjectStatusBadge } from "@/components/shared/badges";
+import { ConfirmDeleteButton, EditClientDialog } from "@/components/shared/edit-dialogs";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,20 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detail, setDetail] = useState<StatKey | null>(null);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const removeClient = useMutation({
+    mutationFn: () => clientService.remove(clientId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client supprimé.");
+      void navigate({ to: "/clients" });
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
+
 
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
@@ -105,6 +121,19 @@ function ClientDetailPage() {
       title={client?.name ?? "Client"}
       subtitle={client?.industry}
       allow={["admin", "chef_projet"]}
+      actions={
+        client ? (
+          <div className="flex items-center gap-2">
+            <EditClientDialog key={client.id} client={client} />
+            <ConfirmDeleteButton
+              title="Supprimer ce client ?"
+              description="Le compte client sera retiré du portefeuille. Cette action est irréversible."
+              pending={removeClient.isPending}
+              onConfirm={() => removeClient.mutate()}
+            />
+          </div>
+        ) : undefined
+      }
     >
       <Link
         to="/clients"

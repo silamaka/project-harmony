@@ -46,7 +46,20 @@ export const clientService = {
     clients.unshift(client);
     return delay(client);
   },
+  /** PATCH /api/v1/clients/:id/ */
+  update: (id: string, patch: Partial<Client>) => {
+    const c = clients.find((x) => x.id === id);
+    if (c) Object.assign(c, patch);
+    return delay(c);
+  },
+  /** DELETE /api/v1/clients/:id/ */
+  remove: (id: string) => {
+    const i = clients.findIndex((x) => x.id === id);
+    if (i >= 0) clients.splice(i, 1);
+    return delay(true);
+  },
 };
+
 
 /* ------------------------------ Utilisateurs ------------------------------ */
 export const userService = {
@@ -88,6 +101,12 @@ export const projectService = {
   },
   get: (id: string) => delay<Project | undefined>(projects.find((p) => p.id === id)),
   byClient: (clientId: string) => delay<Project[]>(projects.filter((p) => p.client_id === clientId)),
+  /** DELETE /api/v1/projects/:id/ */
+  remove: (id: string) => {
+    const i = projects.findIndex((x) => x.id === id);
+    if (i >= 0) projects.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* ------------------------------- Missions -------------------------------- */
@@ -113,6 +132,18 @@ export const missionService = {
     if (m) m.status = status;
     return delay(m);
   },
+  /** PATCH /api/v1/missions/:id/ */
+  update: (id: string, patch: Partial<Mission>) => {
+    const m = missions.find((x) => x.id === id);
+    if (m) Object.assign(m, patch);
+    return delay(m);
+  },
+  /** DELETE /api/v1/missions/:id/ */
+  remove: (id: string) => {
+    const i = missions.findIndex((x) => x.id === id);
+    if (i >= 0) missions.splice(i, 1);
+    return delay(true);
+  },
   get: (id: string) => delay<Mission | undefined>(missions.find((m) => m.id === id)),
   byAssignee: (userId: string) => delay<Mission[]>(missions.filter((m) => m.assignee_id === userId)),
   byProject: (projectId: string) =>
@@ -134,6 +165,12 @@ export const deliverableService = {
   },
   byMission: (missionId: string) =>
     delay<Deliverable[]>(deliverables.filter((d) => d.mission_id === missionId)),
+  /** DELETE /api/v1/files/:id/ */
+  remove: (id: string) => {
+    const i = deliverables.findIndex((x) => x.id === id);
+    if (i >= 0) deliverables.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* ------------------------------ Commentaires ------------------------------ */
