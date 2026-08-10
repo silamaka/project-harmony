@@ -43,6 +43,20 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detail, setDetail] = useState<StatKey | null>(null);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+
+  const removeClient = useMutation({
+    mutationFn: () => clientService.remove(clientId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client supprimé.");
+      void navigate({ to: "/clients" });
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
+
 
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
