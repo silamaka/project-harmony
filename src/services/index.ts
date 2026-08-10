@@ -165,6 +165,12 @@ export const deliverableService = {
   },
   byMission: (missionId: string) =>
     delay<Deliverable[]>(deliverables.filter((d) => d.mission_id === missionId)),
+  /** DELETE /api/v1/files/:id/ */
+  remove: (id: string) => {
+    const i = deliverables.findIndex((x) => x.id === id);
+    if (i >= 0) deliverables.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* ------------------------------ Commentaires ------------------------------ */
