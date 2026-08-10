@@ -126,15 +126,51 @@ function MissionDetailPage() {
     },
   });
 
+  const navigate = useNavigate();
+  const removeDeliverable = useMutation({
+    mutationFn: (id: string) => deliverableService.remove(id),
+    onSuccess: () => {
+      refresh([["deliverables", missionId], ["deliverables"]]);
+      toast.success("Livrable supprimé.");
+    },
+  });
+
+  const removeMission = useMutation({
+    mutationFn: () => missionService.remove(missionId),
+    onSuccess: () => {
+      refresh([["missions"]]);
+      toast.success("Mission supprimée.");
+      void navigate({ to: "/missions" });
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
   const authorName = (id: string) => {
     const u = users?.find((x) => x.id === id);
     return u ? `${u.first_name} ${u.last_name}` : "Utilisateur";
   };
 
   const currentIndex = mission ? MISSION_WORKFLOW.indexOf(mission.status) : -1;
+  const canManage = user?.role === "admin" || user?.role === "chef_projet";
 
   return (
-    <AppShell title={mission?.title ?? "Mission"} subtitle={mission?.objective}>
+    <AppShell
+      title={mission?.title ?? "Mission"}
+      subtitle={mission?.objective}
+      actions={
+        mission && canManage ? (
+          <div className="flex items-center gap-2">
+            <EditMissionDialog mission={mission} />
+            <ConfirmDeleteButton
+              title="Supprimer cette mission ?"
+              description="La mission et son suivi seront retirés du tableau. Action irréversible."
+              pending={removeMission.isPending}
+              onConfirm={() => removeMission.mutate()}
+            />
+          </div>
+        ) : undefined
+      }
+    >
       <Link
         to="/missions"
         className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
