@@ -121,6 +121,19 @@ function ClientDetailPage() {
       title={client?.name ?? "Client"}
       subtitle={client?.industry}
       allow={["admin", "chef_projet"]}
+      actions={
+        client ? (
+          <div className="flex items-center gap-2">
+            <EditClientDialog client={client} />
+            <ConfirmDeleteButton
+              title="Supprimer ce client ?"
+              description="Le compte client sera retiré du portefeuille. Cette action est irréversible."
+              pending={removeClient.isPending}
+              onConfirm={() => removeClient.mutate()}
+            />
+          </div>
+        ) : undefined
+      }
     >
       <Link
         to="/clients"
