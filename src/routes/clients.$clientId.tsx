@@ -1,9 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Briefcase, FileText, Mail, MapPin, Phone, Users } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge, ProjectStatusBadge } from "@/components/shared/badges";
+import { ConfirmDeleteButton, EditClientDialog } from "@/components/shared/edit-dialogs";
 import {
   Dialog,
   DialogContent,
