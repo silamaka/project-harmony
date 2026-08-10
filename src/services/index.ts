@@ -132,6 +132,18 @@ export const missionService = {
     if (m) m.status = status;
     return delay(m);
   },
+  /** PATCH /api/v1/missions/:id/ */
+  update: (id: string, patch: Partial<Mission>) => {
+    const m = missions.find((x) => x.id === id);
+    if (m) Object.assign(m, patch);
+    return delay(m);
+  },
+  /** DELETE /api/v1/missions/:id/ */
+  remove: (id: string) => {
+    const i = missions.findIndex((x) => x.id === id);
+    if (i >= 0) missions.splice(i, 1);
+    return delay(true);
+  },
   get: (id: string) => delay<Mission | undefined>(missions.find((m) => m.id === id)),
   byAssignee: (userId: string) => delay<Mission[]>(missions.filter((m) => m.assignee_id === userId)),
   byProject: (projectId: string) =>
