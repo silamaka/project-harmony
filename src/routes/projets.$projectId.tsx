@@ -34,6 +34,18 @@ function ProjectDetailPage() {
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
 
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const removeProject = useMutation({
+    mutationFn: () => projectService.remove(projectId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Projet supprimé.");
+      void navigate({ to: "/projets" });
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
   const client = clients?.find((c) => c.id === project?.client_id);
   const owner = users?.find((u) => u.id === project?.owner_id);
 
@@ -42,6 +54,20 @@ function ProjectDetailPage() {
       title={project?.name ?? "Projet"}
       subtitle={client?.name}
       allow={["admin", "chef_projet"]}
+      actions={
+        project ? (
+          <div className="flex items-center gap-2">
+            <CreateMissionDialog projectId={project.id} />
+            <EditProjectDialog project={project} />
+            <ConfirmDeleteButton
+              title="Supprimer ce projet ?"
+              description="Le projet sera retiré de la liste. Cette action est irréversible."
+              pending={removeProject.isPending}
+              onConfirm={() => removeProject.mutate()}
+            />
+          </div>
+        ) : undefined
+      }
     >
       <Link
         to="/projets"
