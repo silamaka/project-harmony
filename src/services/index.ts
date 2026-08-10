@@ -101,6 +101,12 @@ export const projectService = {
   },
   get: (id: string) => delay<Project | undefined>(projects.find((p) => p.id === id)),
   byClient: (clientId: string) => delay<Project[]>(projects.filter((p) => p.client_id === clientId)),
+  /** DELETE /api/v1/projects/:id/ */
+  remove: (id: string) => {
+    const i = projects.findIndex((x) => x.id === id);
+    if (i >= 0) projects.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* ------------------------------- Missions -------------------------------- */
