@@ -276,6 +276,17 @@ function MissionDetailPage() {
                   >
                     <Download className="h-4 w-4" />
                   </a>
+                  {canManage && (
+                    <button
+                      type="button"
+                      onClick={() => removeDeliverable.mutate(d.id)}
+                      disabled={removeDeliverable.isPending}
+                      aria-label={`Supprimer ${d.name}`}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </li>
               );
             })}
