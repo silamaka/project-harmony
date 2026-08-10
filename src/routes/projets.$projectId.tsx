@@ -58,7 +58,7 @@ function ProjectDetailPage() {
         project ? (
           <div className="flex items-center gap-2">
             <CreateMissionDialog projectId={project.id} />
-            <EditProjectDialog project={project} />
+            <EditProjectDialog key={project.id} project={project} />
             <ConfirmDeleteButton
               title="Supprimer ce projet ?"
               description="Le projet sera retiré de la liste. Cette action est irréversible."

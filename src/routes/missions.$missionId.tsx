@@ -160,7 +160,7 @@ function MissionDetailPage() {
       actions={
         mission && canManage ? (
           <div className="flex items-center gap-2">
-            <EditMissionDialog mission={mission} />
+            <EditMissionDialog key={mission.id} mission={mission} />
             <ConfirmDeleteButton
               title="Supprimer cette mission ?"
               description="La mission et son suivi seront retirés du tableau. Action irréversible."

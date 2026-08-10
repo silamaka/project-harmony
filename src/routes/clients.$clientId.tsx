@@ -124,7 +124,7 @@ function ClientDetailPage() {
       actions={
         client ? (
           <div className="flex items-center gap-2">
-            <EditClientDialog client={client} />
+            <EditClientDialog key={client.id} client={client} />
             <ConfirmDeleteButton
               title="Supprimer ce client ?"
               description="Le compte client sera retiré du portefeuille. Cette action est irréversible."
