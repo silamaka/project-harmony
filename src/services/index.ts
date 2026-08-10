@@ -46,7 +46,20 @@ export const clientService = {
     clients.unshift(client);
     return delay(client);
   },
+  /** PATCH /api/v1/clients/:id/ */
+  update: (id: string, patch: Partial<Client>) => {
+    const c = clients.find((x) => x.id === id);
+    if (c) Object.assign(c, patch);
+    return delay(c);
+  },
+  /** DELETE /api/v1/clients/:id/ */
+  remove: (id: string) => {
+    const i = clients.findIndex((x) => x.id === id);
+    if (i >= 0) clients.splice(i, 1);
+    return delay(true);
+  },
 };
+
 
 /* ------------------------------ Utilisateurs ------------------------------ */
 export const userService = {
