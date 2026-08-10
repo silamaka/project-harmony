@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   LinkIcon,
   Paperclip,
   Send,
+  Trash2,
   Upload,
   FileArchive,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
+import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
