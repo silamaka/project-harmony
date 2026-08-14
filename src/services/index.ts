@@ -1,11 +1,12 @@
 import {
-  calendarEvents,
   clients,
   comments,
   deliverables,
+  meetings,
   missions,
   monthlyEvolution,
   notifications,
+  persistMockState,
   projects,
   users,
 } from "@/lib/mock-data";
@@ -29,8 +30,10 @@ import type {
  *   const { data } = await api.get<Client[]>(endpoints.clients); return data;
  */
 
-const delay = <T,>(data: T, ms = 120): Promise<T> =>
-  new Promise((resolve) => setTimeout(() => resolve(data), ms));
+const delay = <T>(data: T, ms = 120): Promise<T> => {
+  persistMockState();
+  return new Promise((resolve) => setTimeout(() => resolve(data), ms));
+};
 
 /** Identifiant local (remplacé par l'id renvoyé par Django). */
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -41,7 +44,9 @@ export const clientService = {
   list: () => delay<Client[]>([...clients]),
   get: (id: string) => delay<Client | undefined>(clients.find((c) => c.id === id)),
   /** POST /api/v1/clients/ */
-  create: (payload: Omit<Client, "id" | "created_at" | "contacts"> & { contacts?: Client["contacts"] }) => {
+  create: (
+    payload: Omit<Client, "id" | "created_at" | "contacts"> & { contacts?: Client["contacts"] },
+  ) => {
     const client: Client = { id: uid("cli"), created_at: now(), contacts: [], ...payload };
     clients.unshift(client);
     return delay(client);
@@ -59,7 +64,6 @@ export const clientService = {
     return delay(true);
   },
 };
-
 
 /* ------------------------------ Utilisateurs ------------------------------ */
 export const userService = {
@@ -83,6 +87,12 @@ export const userService = {
     return delay(u);
   },
   get: (id: string) => delay<User | undefined>(users.find((u) => u.id === id)),
+  /** DELETE /api/v1/users/:id/ */
+  remove: (id: string) => {
+    const i = users.findIndex((x) => x.id === id);
+    if (i >= 0) users.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* -------------------------------- Projets -------------------------------- */
@@ -100,7 +110,8 @@ export const projectService = {
     return delay(p);
   },
   get: (id: string) => delay<Project | undefined>(projects.find((p) => p.id === id)),
-  byClient: (clientId: string) => delay<Project[]>(projects.filter((p) => p.client_id === clientId)),
+  byClient: (clientId: string) =>
+    delay<Project[]>(projects.filter((p) => p.client_id === clientId)),
   /** DELETE /api/v1/projects/:id/ */
   remove: (id: string) => {
     const i = projects.findIndex((x) => x.id === id);
@@ -145,7 +156,8 @@ export const missionService = {
     return delay(true);
   },
   get: (id: string) => delay<Mission | undefined>(missions.find((m) => m.id === id)),
-  byAssignee: (userId: string) => delay<Mission[]>(missions.filter((m) => m.assignee_id === userId)),
+  byAssignee: (userId: string) =>
+    delay<Mission[]>(missions.filter((m) => m.assignee_id === userId)),
   byProject: (projectId: string) =>
     delay<Mission[]>(missions.filter((m) => m.project_id === projectId)),
 };
@@ -175,6 +187,7 @@ export const deliverableService = {
 
 /* ------------------------------ Commentaires ------------------------------ */
 export const commentService = {
+  list: () => delay<Comment[]>([...comments]),
   byMission: (missionId: string) =>
     delay<Comment[]>(comments.filter((c) => c.mission_id === missionId)),
   /** POST /api/v1/comments/ */
@@ -192,7 +205,41 @@ export const commentService = {
 
 /* ------------------------------- Calendrier ------------------------------- */
 export const calendarService = {
-  list: () => delay<CalendarEvent[]>(calendarEvents),
+  /** Fusionne les échéances de missions, les dépôts de livrables et les réunions créées manuellement. */
+  list: () => {
+    const missionEvents: CalendarEvent[] = missions.map((m) => ({
+      id: `ev-${m.id}`,
+      title: m.title,
+      date: m.deadline,
+      type: "mission",
+      mission_id: m.id,
+    }));
+    const deliverableEvents: CalendarEvent[] = deliverables.map((d) => ({
+      id: `liv-${d.id}`,
+      title: d.name,
+      date: d.created_at,
+      type: "livrable",
+      mission_id: d.mission_id,
+    }));
+    return delay<CalendarEvent[]>([...missionEvents, ...deliverableEvents, ...meetings]);
+  },
+  /** POST — crée une réunion (seul type d'événement créable directement depuis le calendrier). */
+  createMeeting: (payload: Omit<CalendarEvent, "id" | "type">) => {
+    const event: CalendarEvent = { id: uid("meet"), type: "reunion", ...payload };
+    meetings.push(event);
+    return delay(event);
+  },
+  /** PATCH — déplacer (drag & drop) ou modifier une réunion. */
+  updateMeeting: (id: string, patch: Partial<CalendarEvent>) => {
+    const e = meetings.find((x) => x.id === id);
+    if (e) Object.assign(e, patch);
+    return delay(e);
+  },
+  removeMeeting: (id: string) => {
+    const i = meetings.findIndex((x) => x.id === id);
+    if (i >= 0) meetings.splice(i, 1);
+    return delay(true);
+  },
 };
 
 /* ----------------------------- Notifications ------------------------------ */

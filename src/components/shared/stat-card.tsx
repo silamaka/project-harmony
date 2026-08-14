@@ -16,7 +16,7 @@ export function StatCard({
   value: number | string;
   icon: LucideIcon;
   hint?: string;
-  tone?: "default" | "danger" | "success";
+  tone?: "default" | "danger" | "warning" | "info" | "success";
   delay?: number;
   onClick?: () => void;
 }) {
@@ -54,9 +54,13 @@ export function StatCard({
                   "flex h-10 w-10 items-center justify-center rounded-lg",
                   tone === "danger"
                     ? "bg-destructive/10 text-destructive"
-                    : tone === "success"
-                      ? "bg-success/15 text-success"
-                      : "bg-primary/10 text-primary",
+                    : tone === "warning"
+                      ? "bg-warning/15 text-warning"
+                      : tone === "info"
+                        ? "bg-info/15 text-info"
+                        : tone === "success"
+                          ? "bg-success/15 text-success"
+                          : "bg-primary/10 text-primary",
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -68,5 +72,3 @@ export function StatCard({
     </motion.div>
   );
 }
-
-

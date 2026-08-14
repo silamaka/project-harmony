@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { cloneElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
+import { AvatarPicker } from "@/components/shared/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -67,7 +68,13 @@ function useCreate(keys: string[][], onDone: () => void) {
 /* --------------------------------- Client --------------------------------- */
 export function CreateClientDialog() {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", industry: "", email: "", phone: "", status: "prospect" });
+  const [form, setForm] = useState({
+    name: "",
+    industry: "",
+    email: "",
+    phone: "",
+    status: "prospect",
+  });
   const done = useCreate([["clients"]], () => setOpen(false));
 
   const mutation = useMutation({
@@ -100,16 +107,31 @@ export function CreateClientDialog() {
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Nom">
-            <Input value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input
+              value={form.name}
+              maxLength={120}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
           </Field>
           <Field label="Secteur">
-            <Input value={form.industry} maxLength={80} onChange={(e) => setForm({ ...form, industry: e.target.value })} />
+            <Input
+              value={form.industry}
+              maxLength={80}
+              onChange={(e) => setForm({ ...form, industry: e.target.value })}
+            />
           </Field>
           <Field label="E-mail">
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </Field>
           <Field label="Téléphone">
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
           </Field>
           <Field label="Statut">
             <select
@@ -181,7 +203,11 @@ export function CreateProjectDialog({ clientId }: { clientId?: string }) {
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Nom du projet">
-            <Input value={form.name} maxLength={120} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Input
+              value={form.name}
+              maxLength={120}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
           </Field>
           <Field label="Client">
             <select
@@ -262,9 +288,18 @@ export function CreateProjectDialog({ clientId }: { clientId?: string }) {
 }
 
 /* -------------------------------- Mission --------------------------------- */
-export function CreateMissionDialog({ projectId }: { projectId?: string }) {
+export function CreateMissionDialog({
+  projectId,
+  clientId,
+}: {
+  projectId?: string;
+  clientId?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const { data: allProjects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const projects = clientId
+    ? (allProjects ?? []).filter((p) => p.client_id === clientId)
+    : allProjects;
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
   const today = new Date().toISOString().slice(0, 10);
@@ -312,7 +347,11 @@ export function CreateMissionDialog({ projectId }: { projectId?: string }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Field label="Titre">
-              <Input value={form.title} maxLength={140} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              <Input
+                value={form.title}
+                maxLength={140}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
             </Field>
           </div>
           <Field label="Projet">
@@ -386,10 +425,16 @@ export function CreateMissionDialog({ projectId }: { projectId?: string }) {
             </Field>
           </div>
           <Field label="Objectif">
-            <Input value={form.objective} onChange={(e) => setForm({ ...form, objective: e.target.value })} />
+            <Input
+              value={form.objective}
+              onChange={(e) => setForm({ ...form, objective: e.target.value })}
+            />
           </Field>
           <Field label="Ressources">
-            <Input value={form.resources} onChange={(e) => setForm({ ...form, resources: e.target.value })} />
+            <Input
+              value={form.resources}
+              onChange={(e) => setForm({ ...form, resources: e.target.value })}
+            />
           </Field>
         </div>
         <DialogFooter>
@@ -423,21 +468,40 @@ export function CreateUserDialog({
     email: "",
     phone: "",
     job_title: "",
+    password: "",
     role,
+    is_active: true,
     workload: 0,
+    avatar_url: "",
   });
   const done = useCreate([["users"], ["collaborators"]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () =>
-      userService.create({
-        ...form,
+    mutationFn: () => {
+      const { password: _password, ...rest } = form;
+      return userService.create({
+        ...rest,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         role: form.role,
-      }),
-    onSuccess: () => done("Utilisateur ajouté."),
+      });
+    },
+    onSuccess: () => {
+      done("Utilisateur ajouté.");
+      setForm({
+        first_name: "",
+        last_name: "",
+        email: "",
+        phone: "",
+        job_title: "",
+        password: "",
+        role,
+        is_active: true,
+        workload: 0,
+        avatar_url: "",
+      });
+    },
     onError: () => toast.error("Ajout impossible."),
   });
 
@@ -454,20 +518,45 @@ export function CreateUserDialog({
           <DialogDescription>Créez un accès à la plateforme.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field label="Photo de profil">
+              <AvatarPicker
+                value={form.avatar_url}
+                onChange={(avatar_url) => setForm({ ...form, avatar_url })}
+                fallbackInitials={`${form.first_name[0] ?? ""}${form.last_name[0] ?? ""}`}
+              />
+            </Field>
+          </div>
           <Field label="Prénom">
-            <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <Input
+              value={form.first_name}
+              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+            />
           </Field>
           <Field label="Nom">
-            <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <Input
+              value={form.last_name}
+              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+            />
           </Field>
           <Field label="E-mail">
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </Field>
           <Field label="Téléphone">
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
           </Field>
           <Field label="Poste">
-            <Input value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
+            <Input
+              value={form.job_title}
+              onChange={(e) => setForm({ ...form, job_title: e.target.value })}
+            />
           </Field>
           <Field label="Rôle">
             <select
@@ -487,10 +576,33 @@ export function CreateUserDialog({
               )}
             </select>
           </Field>
+          <Field label="Mot de passe">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </Field>
+          <Field label="Statut">
+            <select
+              className={selectClass}
+              value={form.is_active ? "1" : "0"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "1" })}
+            >
+              <option value="1">Actif</option>
+              <option value="0">Inactif</option>
+            </select>
+          </Field>
         </div>
         <DialogFooter>
           <Button
-            disabled={!form.first_name.trim() || !form.email.trim() || mutation.isPending}
+            disabled={
+              !form.first_name.trim() ||
+              !form.email.trim() ||
+              form.password.trim().length < 4 ||
+              mutation.isPending
+            }
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "Ajout..." : "Ajouter"}
@@ -510,13 +622,18 @@ export function EditUserDialog({ user }: { user: User }) {
     email: user.email,
     phone: user.phone ?? "",
     job_title: user.job_title ?? "",
+    password: "",
     role: user.role,
     is_active: user.is_active,
+    avatar_url: user.avatar_url ?? "",
   });
   const done = useCreate([["users"], ["collaborators"]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () => userService.update(user.id, { ...form, role: form.role }),
+    mutationFn: () => {
+      const { password: _password, ...rest } = form;
+      return userService.update(user.id, { ...rest, role: form.role });
+    },
     onSuccess: () => done("Utilisateur mis à jour."),
   });
 
@@ -530,23 +647,50 @@ export function EditUserDialog({ user }: { user: User }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Modifier l'utilisateur</DialogTitle>
-          <DialogDescription>Seul un administrateur peut modifier ces informations.</DialogDescription>
+          <DialogDescription>
+            Seul un administrateur peut modifier ces informations.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field label="Photo de profil">
+              <AvatarPicker
+                value={form.avatar_url}
+                onChange={(avatar_url) => setForm({ ...form, avatar_url })}
+                fallbackInitials={`${form.first_name[0] ?? ""}${form.last_name[0] ?? ""}`}
+              />
+            </Field>
+          </div>
           <Field label="Prénom">
-            <Input value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+            <Input
+              value={form.first_name}
+              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+            />
           </Field>
           <Field label="Nom">
-            <Input value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+            <Input
+              value={form.last_name}
+              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+            />
           </Field>
           <Field label="E-mail">
-            <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
           </Field>
           <Field label="Téléphone">
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
           </Field>
           <Field label="Poste">
-            <Input value={form.job_title} onChange={(e) => setForm({ ...form, job_title: e.target.value })} />
+            <Input
+              value={form.job_title}
+              onChange={(e) => setForm({ ...form, job_title: e.target.value })}
+            />
           </Field>
           <Field label="Rôle">
             <select
@@ -560,6 +704,15 @@ export function EditUserDialog({ user }: { user: User }) {
                 </option>
               ))}
             </select>
+          </Field>
+          <Field label="Mot de passe">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Laisser vide pour ne pas changer"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
           </Field>
           <Field label="Statut">
             <select

@@ -1,24 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Search } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, Mail, Phone, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
-import { CreateMissionDialog } from "@/components/shared/create-dialogs";
-import {
-  ConfirmDeleteButton,
-  EditClientDialog,
-  EditMissionDialog,
-} from "@/components/shared/edit-dialogs";
-import { Input } from "@/components/ui/input";
+import { UserAvatar } from "@/components/shared/avatar";
+import { EditUserDialog } from "@/components/shared/create-dialogs";
+import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { MissionsTable } from "@/components/shared/missions-table";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   clientService,
   commentService,
   deliverableService,
   missionService,
-  projectService,
   userService,
 } from "@/services";
 import {
@@ -29,77 +26,58 @@ import {
   type Priority,
 } from "@/types";
 
-export const Route = createFileRoute("/clients/$clientId")({
+export const Route = createFileRoute("/collaborateurs/$userId")({
   head: () => ({
     meta: [
-      { title: "Missions client — BEBA EMPIRE" },
-      { name: "description", content: "Suivi détaillé des missions du compte client." },
-      { property: "og:title", content: "Missions client — BEBA EMPIRE" },
-      { property: "og:description", content: "Priorité, actions, deadline et statut par mission." },
+      { title: "Missions du collaborateur — BEBA EMPIRE" },
+      { name: "description", content: "Toutes les missions assignées à ce collaborateur." },
+      { property: "og:title", content: "Missions du collaborateur — BEBA EMPIRE" },
+      {
+        property: "og:description",
+        content: "Priorité, statut, deadline et livrables par mission.",
+      },
     ],
   }),
-  component: ClientDetailPage,
+  component: CollaboratorDetailPage,
 });
 
 const STATUS_FILTERS = ["tous", ...MISSION_WORKFLOW] as const;
 
-function ClientDetailPage() {
-  const { clientId } = Route.useParams();
+const workloadTone = (w: number) =>
+  w >= 85 ? "bg-destructive" : w >= 60 ? "bg-warning" : "bg-primary";
+
+function CollaboratorDetailPage() {
+  const { userId } = Route.useParams();
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
 
-  const removeClient = useMutation({
-    mutationFn: () => clientService.remove(clientId),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["clients"] });
-      toast.success("Client supprimé.");
-      void navigate({ to: "/clients" });
-    },
-    onError: () => toast.error("Suppression impossible."),
-  });
-
-  const { data: client } = useQuery({
-    queryKey: ["clients", clientId],
-    queryFn: () => clientService.get(clientId),
-  });
-  const { data: projects } = useQuery({
-    queryKey: ["projects", "client", clientId],
-    queryFn: () => projectService.byClient(clientId),
+  const { data: collaborator } = useQuery({
+    queryKey: ["users", userId],
+    queryFn: () => userService.get(userId),
   });
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
     queryFn: deliverableService.list,
   });
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
-  const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
 
-  const projectIds = new Set((projects ?? []).map((p) => p.id));
-  const clientMissions = (missions ?? []).filter(
-    (m) => m.client_id === clientId || projectIds.has(m.project_id),
-  );
-
-  const collaborators = (users ?? []).filter((u) => u.role !== "client");
-  const assigneeOptions: Record<string, string> = Object.fromEntries(
-    collaborators.map((u) => [u.id, `${u.first_name} ${u.last_name}`]),
-  );
-  const assigneeTone: Record<string, string> = Object.fromEntries(
-    collaborators.map((u) => [u.id, "bg-accent text-accent-foreground"]),
-  );
+  const ownMissions = (missions ?? []).filter((m) => m.assignee_id === userId);
+  const clientName = (id: string) => (clients ?? []).find((c) => c.id === id)?.name ?? "—";
 
   const filtered = useMemo(
     () =>
-      clientMissions.filter(
+      ownMissions.filter(
         (m) =>
           (statusFilter === "tous" || m.status === statusFilter) &&
           (m.title.toLowerCase().includes(query.toLowerCase()) ||
             m.objective.toLowerCase().includes(query.toLowerCase())),
       ),
-    [clientMissions, query, statusFilter],
+    [ownMissions, query, statusFilter],
   );
 
   const updateStatus = useMutation({
@@ -114,13 +92,6 @@ function ClientDetailPage() {
       missionService.update(id, { priority }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
     onError: () => toast.error("Mise à jour de la priorité impossible."),
-  });
-
-  const updateAssignee = useMutation({
-    mutationFn: ({ id, assignee_id }: { id: string; assignee_id: string }) =>
-      missionService.update(id, { assignee_id }),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
-    onError: () => toast.error("Réassignation impossible."),
   });
 
   const removeMission = useMutation({
@@ -143,32 +114,64 @@ function ClientDetailPage() {
   const missionDeliverables = (missionId: string) =>
     (deliverables ?? []).filter((d) => d.mission_id === missionId);
 
+  const workload = collaborator?.workload ?? 0;
+
   return (
     <AppShell
-      title={client?.name ?? "Client"}
-      subtitle={client ? `${client.industry} · ${clientMissions.length} mission(s)` : undefined}
-      allow={["admin", "chef_projet"]}
-      actions={
-        client ? (
-          <div className="flex items-center gap-2">
-            <CreateMissionDialog clientId={client.id} />
-            <EditClientDialog key={client.id} client={client} />
-            <ConfirmDeleteButton
-              title="Supprimer ce client ?"
-              description="Le compte client sera retiré du portefeuille. Cette action est irréversible."
-              pending={removeClient.isPending}
-              onConfirm={() => removeClient.mutate()}
-            />
-          </div>
-        ) : undefined
+      title={
+        collaborator ? `${collaborator.first_name} ${collaborator.last_name}` : "Collaborateur"
       }
+      subtitle={
+        collaborator
+          ? `${collaborator.job_title ?? "Collaborateur"} · ${ownMissions.length} mission(s)`
+          : undefined
+      }
+      allow={["admin", "chef_projet"]}
+      actions={collaborator ? <EditUserDialog user={collaborator} /> : undefined}
     >
       <Link
-        to="/clients"
+        to="/collaborateurs"
         className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
       >
-        <ArrowLeft className="h-3.5 w-3.5" /> Retour aux clients
+        <ArrowLeft className="h-3.5 w-3.5" /> Retour aux collaborateurs
       </Link>
+
+      {collaborator && (
+        <div className="surface-card mt-4 flex flex-wrap items-center gap-6 p-5">
+          <UserAvatar user={collaborator} className="h-14 w-14 text-lg" />
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Mail className="h-3.5 w-3.5" /> {collaborator.email}
+            </span>
+            {collaborator.phone && (
+              <span className="flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" /> {collaborator.phone}
+              </span>
+            )}
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                collaborator.is_active
+                  ? "bg-success/15 text-success"
+                  : "bg-muted text-muted-foreground",
+              )}
+            >
+              {collaborator.is_active ? "Actif" : "Inactif"}
+            </span>
+          </div>
+          <div className="min-w-40 flex-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Charge de travail</span>
+              <span className="font-semibold">{workload}%</span>
+            </div>
+            <Progress
+              value={workload}
+              className="mt-2 h-2"
+              indicatorClassName={workloadTone(workload)}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
@@ -201,17 +204,15 @@ function ClientDetailPage() {
       <div className="mt-4">
         <MissionsTable
           missions={filtered}
-          showResponsable
-          assigneeOptions={assigneeOptions}
-          assigneeTone={assigneeTone}
+          showClient
+          clientName={clientName}
           deliverablesFor={missionDeliverables}
           commentFor={lastComment}
           onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
           onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
-          onAssigneeChange={(id, assignee_id) => updateAssignee.mutate({ id, assignee_id })}
           onEditMission={setEditingMission}
           onDeleteMission={setDeletingMission}
-          emptyMessage="Aucune mission pour ce client."
+          emptyMessage="Aucune mission assignée."
         />
       </div>
 

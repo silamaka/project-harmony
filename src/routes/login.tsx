@@ -5,7 +5,6 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import logo from "@/assets/beba-logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,7 +68,7 @@ function LoginPage() {
           transition={{ duration: 0.35 }}
           className="w-full max-w-sm"
         >
-          <img src={logo.url} alt="Logo BEBA EMPIRE" className="h-14 w-14 rounded-full" />
+          <img src="/beba-logo.svg" alt="Logo BEBA EMPIRE" className="h-14 w-14 rounded-full" />
           <h1 className="mt-6 text-2xl font-extrabold tracking-tight">Connexion</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Accédez à votre espace de gestion d'agence.

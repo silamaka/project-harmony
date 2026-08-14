@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CalendrierRouteImport } from './routes/calendrier'
-import { Route as CollaborateursRouteImport } from './routes/collaborateurs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LivrablesRouteImport } from './routes/livrables'
 import { Route as LoginRouteImport } from './routes/login'
@@ -25,6 +24,8 @@ import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitiali
 import { Route as StatistiquesRouteImport } from './routes/statistiques'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
+import { Route as CollaborateursIndexRouteImport } from './routes/collaborateurs.index'
+import { Route as CollaborateursUserIdRouteImport } from './routes/collaborateurs.$userId'
 import { Route as MissionsIndexRouteImport } from './routes/missions.index'
 import { Route as MissionsMissionIdRouteImport } from './routes/missions.$missionId'
 import { Route as ProjetsIndexRouteImport } from './routes/projets.index'
@@ -38,11 +39,6 @@ const IndexRoute = IndexRouteImport.update({
 const CalendrierRoute = CalendrierRouteImport.update({
   id: '/calendrier',
   path: '/calendrier',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CollaborateursRoute = CollaborateursRouteImport.update({
-  id: '/collaborateurs',
-  path: '/collaborateurs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -110,6 +106,16 @@ const ClientsClientIdRoute = ClientsClientIdRouteImport.update({
   path: '/clients/$clientId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollaborateursIndexRoute = CollaborateursIndexRouteImport.update({
+  id: '/collaborateurs/',
+  path: '/collaborateurs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollaborateursUserIdRoute = CollaborateursUserIdRouteImport.update({
+  id: '/collaborateurs/$userId',
+  path: '/collaborateurs/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MissionsIndexRoute = MissionsIndexRouteImport.update({
   id: '/missions/',
   path: '/missions/',
@@ -134,7 +140,6 @@ const ProjetsProjectIdRoute = ProjetsProjectIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/calendrier': typeof CalendrierRoute
-  '/collaborateurs': typeof CollaborateursRoute
   '/dashboard': typeof DashboardRoute
   '/livrables': typeof LivrablesRoute
   '/login': typeof LoginRoute
@@ -147,16 +152,17 @@ export interface FileRoutesByFullPath {
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/collaborateurs/$userId': typeof CollaborateursUserIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
+  '/collaborateurs/': typeof CollaborateursIndexRoute
   '/missions/': typeof MissionsIndexRoute
   '/projets/': typeof ProjetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/calendrier': typeof CalendrierRoute
-  '/collaborateurs': typeof CollaborateursRoute
   '/dashboard': typeof DashboardRoute
   '/livrables': typeof LivrablesRoute
   '/login': typeof LoginRoute
@@ -169,9 +175,11 @@ export interface FileRoutesByTo {
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/collaborateurs/$userId': typeof CollaborateursUserIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients': typeof ClientsIndexRoute
+  '/collaborateurs': typeof CollaborateursIndexRoute
   '/missions': typeof MissionsIndexRoute
   '/projets': typeof ProjetsIndexRoute
 }
@@ -179,7 +187,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/calendrier': typeof CalendrierRoute
-  '/collaborateurs': typeof CollaborateursRoute
   '/dashboard': typeof DashboardRoute
   '/livrables': typeof LivrablesRoute
   '/login': typeof LoginRoute
@@ -192,9 +199,11 @@ export interface FileRoutesById {
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/statistiques': typeof StatistiquesRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
+  '/collaborateurs/$userId': typeof CollaborateursUserIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
   '/clients/': typeof ClientsIndexRoute
+  '/collaborateurs/': typeof CollaborateursIndexRoute
   '/missions/': typeof MissionsIndexRoute
   '/projets/': typeof ProjetsIndexRoute
 }
@@ -203,7 +212,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/calendrier'
-    | '/collaborateurs'
     | '/dashboard'
     | '/livrables'
     | '/login'
@@ -216,16 +224,17 @@ export interface FileRouteTypes {
     | '/reinitialiser-mot-de-passe'
     | '/statistiques'
     | '/clients/$clientId'
+    | '/collaborateurs/$userId'
     | '/missions/$missionId'
     | '/projets/$projectId'
     | '/clients/'
+    | '/collaborateurs/'
     | '/missions/'
     | '/projets/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/calendrier'
-    | '/collaborateurs'
     | '/dashboard'
     | '/livrables'
     | '/login'
@@ -238,16 +247,17 @@ export interface FileRouteTypes {
     | '/reinitialiser-mot-de-passe'
     | '/statistiques'
     | '/clients/$clientId'
+    | '/collaborateurs/$userId'
     | '/missions/$missionId'
     | '/projets/$projectId'
     | '/clients'
+    | '/collaborateurs'
     | '/missions'
     | '/projets'
   id:
     | '__root__'
     | '/'
     | '/calendrier'
-    | '/collaborateurs'
     | '/dashboard'
     | '/livrables'
     | '/login'
@@ -260,9 +270,11 @@ export interface FileRouteTypes {
     | '/reinitialiser-mot-de-passe'
     | '/statistiques'
     | '/clients/$clientId'
+    | '/collaborateurs/$userId'
     | '/missions/$missionId'
     | '/projets/$projectId'
     | '/clients/'
+    | '/collaborateurs/'
     | '/missions/'
     | '/projets/'
   fileRoutesById: FileRoutesById
@@ -270,7 +282,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CalendrierRoute: typeof CalendrierRoute
-  CollaborateursRoute: typeof CollaborateursRoute
   DashboardRoute: typeof DashboardRoute
   LivrablesRoute: typeof LivrablesRoute
   LoginRoute: typeof LoginRoute
@@ -283,9 +294,11 @@ export interface RootRouteChildren {
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
   StatistiquesRoute: typeof StatistiquesRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
+  CollaborateursUserIdRoute: typeof CollaborateursUserIdRoute
   MissionsMissionIdRoute: typeof MissionsMissionIdRoute
   ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
+  CollaborateursIndexRoute: typeof CollaborateursIndexRoute
   MissionsIndexRoute: typeof MissionsIndexRoute
   ProjetsIndexRoute: typeof ProjetsIndexRoute
 }
@@ -304,13 +317,6 @@ declare module '@tanstack/react-router' {
       path: '/calendrier'
       fullPath: '/calendrier'
       preLoaderRoute: typeof CalendrierRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/collaborateurs': {
-      id: '/collaborateurs'
-      path: '/collaborateurs'
-      fullPath: '/collaborateurs'
-      preLoaderRoute: typeof CollaborateursRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -404,6 +410,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClientsClientIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collaborateurs/': {
+      id: '/collaborateurs/'
+      path: '/collaborateurs'
+      fullPath: '/collaborateurs/'
+      preLoaderRoute: typeof CollaborateursIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collaborateurs/$userId': {
+      id: '/collaborateurs/$userId'
+      path: '/collaborateurs/$userId'
+      fullPath: '/collaborateurs/$userId'
+      preLoaderRoute: typeof CollaborateursUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/missions/': {
       id: '/missions/'
       path: '/missions'
@@ -438,7 +458,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CalendrierRoute: CalendrierRoute,
-  CollaborateursRoute: CollaborateursRoute,
   DashboardRoute: DashboardRoute,
   LivrablesRoute: LivrablesRoute,
   LoginRoute: LoginRoute,
@@ -451,12 +470,24 @@ const rootRouteChildren: RootRouteChildren = {
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
   StatistiquesRoute: StatistiquesRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
+  CollaborateursUserIdRoute: CollaborateursUserIdRoute,
   MissionsMissionIdRoute: MissionsMissionIdRoute,
   ProjetsProjectIdRoute: ProjetsProjectIdRoute,
   ClientsIndexRoute: ClientsIndexRoute,
+  CollaborateursIndexRoute: CollaborateursIndexRoute,
   MissionsIndexRoute: MissionsIndexRoute,
   ProjetsIndexRoute: ProjetsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

@@ -1,11 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { Mail, Phone, Search, UserCircle } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateClientDialog } from "@/components/shared/create-dialogs";
+import { ConfirmDeleteButton, EditClientDialog } from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
-import { clientService, missionService, projectService } from "@/services";
+import { clientService, missionService, projectService, userService } from "@/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/clients/")({
@@ -23,11 +25,22 @@ export const Route = createFileRoute("/clients/")({
 const STATUS = ["tous", "actif", "prospect", "inactif"] as const;
 
 function ClientsPage() {
+  const qc = useQueryClient();
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
+  const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUS)[number]>("tous");
+
+  const removeClient = useMutation({
+    mutationFn: (id: string) => clientService.remove(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client supprimé.");
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
 
   const filtered = useMemo(
     () =>
@@ -45,9 +58,7 @@ function ClientsPage() {
       title="Clients"
       subtitle={`${filtered.length} client(s)`}
       allow={["admin", "chef_projet"]}
-      actions={
-        <CreateClientDialog />
-      }
+      actions={<CreateClientDialog />}
     >
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
@@ -66,7 +77,9 @@ function ClientsPage() {
               onClick={() => setStatus(s)}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors",
-                status === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent",
+                status === s
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent",
               )}
             >
               {s}
@@ -83,38 +96,69 @@ function ClientsPage() {
           const missionCount = (missions ?? []).filter(
             (m) => m.client_id === c.id || projectIds.has(m.project_id),
           ).length;
+          const ownerNames = [...new Set(clientProjects.map((p) => p.owner_id))]
+            .map((id) => (users ?? []).find((u) => u.id === id))
+            .filter((u): u is NonNullable<typeof u> => u !== undefined)
+            .map((u) => `${u.first_name} ${u.last_name}`);
           return (
-            <Link
+            <div
               key={c.id}
-              to="/clients/$clientId"
-              params={{ clientId: c.id }}
-              className="surface-card block p-5 transition-shadow hover:shadow-[var(--shadow-elevated)]"
+              className="surface-card flex h-full flex-col p-5 transition-shadow hover:shadow-[var(--shadow-elevated)]"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                  {c.name.slice(0, 2).toUpperCase()}
+              <Link to="/clients/$clientId" params={{ clientId: c.id }} className="block">
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+                    {c.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <span
+                    className={cn(
+                      "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
+                      c.status === "actif"
+                        ? "bg-success/15 text-success"
+                        : c.status === "prospect"
+                          ? "bg-info/15 text-info"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {c.status}
+                  </span>
                 </div>
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize",
-                    c.status === "actif"
-                      ? "bg-success/15 text-success"
-                      : c.status === "prospect"
-                        ? "bg-info/15 text-info"
-                        : "bg-muted text-muted-foreground",
+                <h3 className="mt-4 font-semibold">{c.name}</h3>
+                <p className="text-xs text-muted-foreground">{c.industry}</p>
+                <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{c.email}</span>
+                  </div>
+                  {c.phone && (
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{c.phone}</span>
+                    </div>
                   )}
-                >
-                  {c.status}
-                </span>
+                  <div className="flex items-center gap-1.5">
+                    <UserCircle className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {ownerNames.length > 0 ? ownerNames.join(", ") : "Aucun chef de projet"}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+                  <span>{count} projet(s)</span>
+                  <span>{missionCount} mission(s)</span>
+                  <span>{c.contacts.length} contact(s)</span>
+                </div>
+              </Link>
+              <div className="mt-auto flex items-center justify-end gap-2 border-t border-border pt-3">
+                <EditClientDialog client={c} />
+                <ConfirmDeleteButton
+                  title={`Supprimer ${c.name} ?`}
+                  description="Le compte client sera retiré du portefeuille. Cette action est irréversible."
+                  pending={removeClient.isPending && removeClient.variables === c.id}
+                  onConfirm={() => removeClient.mutate(c.id)}
+                />
               </div>
-              <h3 className="mt-4 font-semibold">{c.name}</h3>
-              <p className="text-xs text-muted-foreground">{c.industry}</p>
-              <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-                <span>{count} projet(s)</span>
-                <span>{missionCount} mission(s)</span>
-                <span>{c.contacts.length} contact(s)</span>
-              </div>
-            </Link>
+            </div>
           );
         })}
       </div>

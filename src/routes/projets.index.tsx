@@ -1,15 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
-import { ProjectStatusBadge } from "@/components/shared/badges";
+import { projectTone } from "@/components/shared/badges";
 import { CreateProjectDialog } from "@/components/shared/create-dialogs";
+import { ConfirmDeleteButton, EditProjectDialog } from "@/components/shared/edit-dialogs";
+import { PillSelect } from "@/components/shared/pill-select";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { clientService, projectService, userService } from "@/services";
-import { PROJECT_STATUS_LABELS, type ProjectStatus } from "@/types";
+import { PROJECT_STATUS_LABELS, type Project, type ProjectStatus } from "@/types";
 
 export const Route = createFileRoute("/projets/")({
   head: () => ({
@@ -34,6 +37,7 @@ const FILTERS: ("tous" | ProjectStatus)[] = [
 ];
 
 function ProjectsPage() {
+  const qc = useQueryClient();
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
@@ -56,14 +60,28 @@ function ProjectsPage() {
     return u ? `${u.first_name} ${u.last_name}` : "—";
   };
 
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status: s }: { id: string; status: ProjectStatus }) =>
+      projectService.update(id, { status: s }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["projects"] }),
+    onError: () => toast.error("Mise à jour du statut impossible."),
+  });
+
+  const removeProject = useMutation({
+    mutationFn: (id: string) => projectService.remove(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["projects"] });
+      toast.success("Projet supprimé.");
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
   return (
     <AppShell
       title="Projets"
       subtitle={`${filtered.length} projet(s)`}
       allow={["admin", "chef_projet"]}
-      actions={
-        <CreateProjectDialog />
-      }
+      actions={<CreateProjectDialog />}
     >
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
@@ -93,45 +111,117 @@ function ProjectsPage() {
         </div>
       </div>
 
-      <div className="surface-card mt-6 overflow-x-auto p-1">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
-              <th className="px-4 py-3 font-medium">Projet</th>
-              <th className="px-4 py-3 font-medium">Client</th>
-              <th className="px-4 py-3 font-medium">Responsable</th>
-              <th className="px-4 py-3 font-medium">Échéance</th>
-              <th className="px-4 py-3 font-medium">Statut</th>
-              <th className="px-4 py-3 font-medium">Progression</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="border-b border-border/60 last:border-0 hover:bg-accent/30">
-                <td className="px-4 py-3 font-medium">
-                  <Link to="/projets/$projectId" params={{ projectId: p.id }} className="hover:text-primary">
-                    {p.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{clientName(p.client_id)}</td>
-                <td className="px-4 py-3 text-muted-foreground">{ownerName(p.owner_id)}</td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {new Date(p.end_date).toLocaleDateString("fr-FR")}
-                </td>
-                <td className="px-4 py-3">
-                  <ProjectStatusBadge status={p.status} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Progress value={p.progress} className="h-2 w-24" />
-                    <span className="text-xs font-semibold">{p.progress}%</span>
-                  </div>
-                </td>
+      <div className="surface-card mt-6 overflow-hidden">
+        <div className="max-h-[70vh] overflow-auto">
+          <table className="w-full table-fixed border-collapse text-sm">
+            <colgroup>
+              <col className="w-[22%]" />
+              <col className="w-[15%]" />
+              <col className="w-[13%]" />
+              <col className="w-[10%]" />
+              <col className="w-[16%]" />
+              <col className="w-[13%]" />
+              <col className="w-[11%]" />
+            </colgroup>
+            <thead>
+              <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)]">
+                <th className="px-3 py-3">Projet</th>
+                <th className="px-3 py-3">Client</th>
+                <th className="px-3 py-3">Responsable</th>
+                <th className="px-3 py-3">Échéance</th>
+                <th className="px-3 py-3">Statut</th>
+                <th className="px-3 py-3">Progression</th>
+                <th className="px-3 py-3"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <ProjectRow
+                  key={p.id}
+                  project={p}
+                  client={clientName(p.client_id)}
+                  owner={ownerName(p.owner_id)}
+                  onStatusChange={(s) => updateStatus.mutate({ id: p.id, status: s })}
+                  onDelete={() => removeProject.mutate(p.id)}
+                  deletePending={removeProject.isPending && removeProject.variables === p.id}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    Aucun projet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </AppShell>
+  );
+}
+
+function ProjectRow({
+  project,
+  client,
+  owner,
+  onStatusChange,
+  onDelete,
+  deletePending,
+}: {
+  project: Project;
+  client: string;
+  owner: string;
+  onStatusChange: (status: ProjectStatus) => void;
+  onDelete: () => void;
+  deletePending: boolean;
+}) {
+  return (
+    <tr className="border-t border-border align-top transition-colors hover:bg-accent/20">
+      <td className="px-3 py-3">
+        <Link
+          to="/projets/$projectId"
+          params={{ projectId: project.id }}
+          className="line-clamp-2 font-medium break-words hover:text-primary hover:underline"
+        >
+          {project.name}
+        </Link>
+      </td>
+      <td className="truncate px-3 py-3 text-xs text-muted-foreground" title={client}>
+        {client}
+      </td>
+      <td className="truncate px-3 py-3 text-xs text-muted-foreground" title={owner}>
+        {owner}
+      </td>
+      <td className="px-3 py-3 text-xs whitespace-nowrap text-muted-foreground">
+        {new Date(project.end_date).toLocaleDateString("fr-FR")}
+      </td>
+      <td className="overflow-hidden px-3 py-3 pr-4">
+        <PillSelect
+          value={project.status}
+          options={PROJECT_STATUS_LABELS}
+          tone={projectTone}
+          onChange={(v) => onStatusChange(v as ProjectStatus)}
+        />
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex items-center gap-2">
+          <Progress value={project.progress} className="h-2 w-full" />
+          <span className="shrink-0 text-xs font-semibold">{project.progress}%</span>
+        </div>
+      </td>
+      <td className="px-3 py-3 pl-2">
+        <div className="flex items-center justify-end gap-2.5">
+          <EditProjectDialog project={project} iconOnly />
+          <ConfirmDeleteButton
+            iconOnly
+            title={`Supprimer ${project.name} ?`}
+            description="Le projet sera retiré de la liste. Cette action est irréversible."
+            pending={deletePending}
+            onConfirm={onDelete}
+          />
+        </div>
+      </td>
+    </tr>
   );
 }

@@ -86,7 +86,12 @@ export const clients: Client[] = [
     address: "Casablanca, Maroc",
     status: "actif",
     contacts: [
-      { id: "ct1", name: "Omar Benjelloun", email: "omar@atlasretail.com", position: "DirMarketing" },
+      {
+        id: "ct1",
+        name: "Omar Benjelloun",
+        email: "omar@atlasretail.com",
+        position: "DirMarketing",
+      },
     ],
     created_at: "2024-05-21",
   },
@@ -98,7 +103,9 @@ export const clients: Client[] = [
     phone: "+212 5 37 88 12 45",
     address: "Rabat, Maroc",
     status: "actif",
-    contacts: [{ id: "ct2", name: "Leila Cherkaoui", email: "leila@novafinance.io", position: "CMO" }],
+    contacts: [
+      { id: "ct2", name: "Leila Cherkaoui", email: "leila@novafinance.io", position: "CMO" },
+    ],
     created_at: "2024-06-14",
   },
   {
@@ -227,7 +234,7 @@ export const missions: Mission[] = [
     objective: "Créer de l'attente avant le lancement.",
     strategy: "Tournage 1 jour, montage dynamique, sous-titres.",
     resources: "Équipe vidéo, studio, 3 jours",
-    priority: "critique",
+    priority: "urgente",
     assignee_id: "u3",
     project_id: "p3",
     client_id: "c3",
@@ -360,13 +367,17 @@ export const comments: Comment[] = [
   },
 ];
 
-export const calendarEvents: CalendarEvent[] = missions.map((m) => ({
-  id: `ev-${m.id}`,
-  title: m.title,
-  date: m.deadline,
-  type: "mission",
-  mission_id: m.id,
-}));
+/** Réunions créées manuellement depuis le calendrier (les événements mission/livrable sont dérivés à la volée par le service). */
+export const meetings: CalendarEvent[] = [
+  {
+    id: "meet-1",
+    title: "Point hebdo agence",
+    date: new Date().toISOString().slice(0, 10),
+    time: "10:00",
+    description: "Revue des priorités de la semaine.",
+    type: "reunion",
+  },
+];
 
 export const notifications: Notification[] = [
   {
@@ -415,3 +426,76 @@ export const monthlyEvolution = [
   { month: "Juin", missions: 27, livrables: 21 },
   { month: "Juil", missions: 31, livrables: 24 },
 ];
+
+/**
+ * Persistance locale (navigateur) du jeu de données de démonstration.
+ *
+ * Tant qu'aucun backend n'est branché, l'état vit en mémoire côté serveur de
+ * dev : un redémarrage du serveur (ou un HMR "program reload") le réinitialise,
+ * ce qui donne l'impression que les actions ne sont pas prises en compte. On
+ * sauvegarde donc une copie dans le localStorage du navigateur et on la
+ * réhydrate au chargement, pour que les modifications survivent aux
+ * rafraîchissements de page et aux redémarrages du serveur.
+ */
+const STORAGE_KEY = "beba.mock-state.v1";
+
+interface PersistedState {
+  users: User[];
+  clients: Client[];
+  projects: Project[];
+  missions: Mission[];
+  deliverables: Deliverable[];
+  comments: Comment[];
+  meetings: CalendarEvent[];
+  notifications: Notification[];
+}
+
+function loadPersistedState(): PersistedState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as PersistedState) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** À appeler après chaque mutation des services pour sauvegarder l'état courant. */
+export function persistMockState() {
+  if (typeof window === "undefined") return;
+  try {
+    const snapshot: PersistedState = {
+      users,
+      clients,
+      projects,
+      missions,
+      deliverables,
+      comments,
+      meetings,
+      notifications,
+    };
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  } catch {
+    /* stockage indisponible (mode privé, quota...) : on continue sans persister */
+  }
+}
+
+const persisted = loadPersistedState();
+if (persisted) {
+  users.length = 0;
+  users.push(...persisted.users);
+  clients.length = 0;
+  clients.push(...persisted.clients);
+  projects.length = 0;
+  projects.push(...persisted.projects);
+  missions.length = 0;
+  missions.push(...persisted.missions);
+  deliverables.length = 0;
+  deliverables.push(...persisted.deliverables);
+  comments.length = 0;
+  comments.push(...persisted.comments);
+  meetings.length = 0;
+  meetings.push(...persisted.meetings);
+  notifications.length = 0;
+  notifications.push(...persisted.notifications);
+}

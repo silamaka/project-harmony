@@ -14,7 +14,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -43,7 +42,6 @@ import {
 } from "@/services";
 import type { Mission } from "@/types";
 
-
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
@@ -57,7 +55,10 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-  const { data: stats } = useQuery({ queryKey: ["dashboard", "stats"], queryFn: dashboardService.stats });
+  const { data: stats } = useQuery({
+    queryKey: ["dashboard", "stats"],
+    queryFn: dashboardService.stats,
+  });
   const { data: byClient } = useQuery({
     queryKey: ["dashboard", "byClient"],
     queryFn: dashboardService.missionsByClient,
@@ -175,6 +176,41 @@ function DashboardPage() {
         />
       </div>
 
+      <h2 className="mt-6 text-sm font-semibold text-muted-foreground">Alertes</h2>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Échéance dans 24 h"
+          value={alerts?.in24h.length ?? 0}
+          icon={Clock}
+          tone="danger"
+          delay={0}
+          onClick={() => setDrill("in24h")}
+        />
+        <StatCard
+          label="Échéance dans 48 h"
+          value={alerts?.in48h.length ?? 0}
+          icon={Clock}
+          tone="warning"
+          delay={0.04}
+          onClick={() => setDrill("in48h")}
+        />
+        <StatCard
+          label="Missions bloquées"
+          value={alerts?.blocked.length ?? 0}
+          icon={AlertTriangle}
+          tone="danger"
+          delay={0.08}
+          onClick={() => setDrill("blocked")}
+        />
+        <StatCard
+          label="Livrables en attente"
+          value={alerts?.pendingDeliverables.length ?? 0}
+          icon={Package}
+          tone="info"
+          delay={0.12}
+          onClick={() => setDrill("pendingDeliverables")}
+        />
+      </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5 lg:col-span-2">
@@ -193,8 +229,18 @@ function DashboardPage() {
                     color: "var(--color-popover-foreground)",
                   }}
                 />
-                <Line type="monotone" dataKey="missions" stroke="var(--color-chart-1)" strokeWidth={2} />
-                <Line type="monotone" dataKey="livrables" stroke="var(--color-chart-3)" strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="missions"
+                  stroke="var(--color-chart-1)"
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="livrables"
+                  stroke="var(--color-chart-3)"
+                  strokeWidth={2}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -215,27 +261,43 @@ function DashboardPage() {
           </div>
           <p className="mt-4 text-xs text-muted-foreground">Missions validées ou terminées</p>
         </div>
+      </div>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Missions par client</h2>
-          <div className="mt-4 h-56">
+          <div className="mt-4 h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byClient ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="name" stroke="var(--color-muted-foreground)" fontSize={11} />
+              <BarChart data={byClient ?? []} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="name"
+                  stroke="var(--color-muted-foreground)"
+                  fontSize={11}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={48}
+                />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
                 <Tooltip
+                  cursor={{ fill: "var(--color-muted)" }}
                   contentStyle={{
                     background: "var(--color-popover)",
                     border: "1px solid var(--color-border)",
                     borderRadius: 12,
                   }}
                 />
-                <Bar dataKey="missions" radius={[6, 6, 0, 0]}>
-                  {(byClient ?? []).map((_, i) => (
-                    <Cell key={i} fill={`var(--color-chart-${(i % 5) + 1})`} />
-                  ))}
-                </Bar>
+                <Bar
+                  dataKey="missions"
+                  fill="var(--color-chart-1)"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={40}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -243,60 +305,41 @@ function DashboardPage() {
 
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Missions par collaborateur</h2>
-          <div className="mt-4 h-56">
+          <div className="mt-4 h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byCollab ?? []} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis type="number" stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
-                <YAxis
-                  type="category"
+              <BarChart data={byCollab ?? []} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
+                <XAxis
                   dataKey="name"
                   stroke="var(--color-muted-foreground)"
                   fontSize={11}
-                  width={110}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={48}
                 />
+                <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
                 <Tooltip
+                  cursor={{ fill: "var(--color-muted)" }}
                   contentStyle={{
                     background: "var(--color-popover)",
                     border: "1px solid var(--color-border)",
                     borderRadius: 12,
                   }}
                 />
-                <Bar dataKey="missions" fill="var(--color-chart-1)" radius={[0, 6, 6, 0]} />
+                <Bar
+                  dataKey="missions"
+                  fill="var(--color-chart-1)"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={40}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-
-        <div className="surface-card p-5">
-          <h2 className="text-sm font-semibold">Alertes</h2>
-          <ul className="mt-4 space-y-3 text-sm">
-            <AlertRow
-              icon={<Clock className="h-4 w-4 text-destructive" />}
-              label="Échéance dans 24 h"
-              count={alerts?.in24h.length ?? 0}
-              onClick={() => setDrill("in24h")}
-            />
-            <AlertRow
-              icon={<Clock className="h-4 w-4 text-warning" />}
-              label="Échéance dans 48 h"
-              count={alerts?.in48h.length ?? 0}
-              onClick={() => setDrill("in48h")}
-            />
-            <AlertRow
-              icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
-              label="Missions bloquées"
-              count={alerts?.blocked.length ?? 0}
-              onClick={() => setDrill("blocked")}
-            />
-            <AlertRow
-              icon={<Package className="h-4 w-4 text-info" />}
-              label="Livrables en attente"
-              count={alerts?.pendingDeliverables.length ?? 0}
-              onClick={() => setDrill("pendingDeliverables")}
-            />
-
-          </ul>
         </div>
       </div>
 
@@ -321,7 +364,11 @@ function DashboardPage() {
               {(missions ?? []).slice(0, 5).map((m) => (
                 <tr key={m.id} className="border-b border-border/60 last:border-0">
                   <td className="py-3 pr-4 font-medium">
-                    <Link to="/missions/$missionId" params={{ missionId: m.id }} className="hover:text-primary">
+                    <Link
+                      to="/missions/$missionId"
+                      params={{ missionId: m.id }}
+                      className="hover:text-primary"
+                    >
                       {m.title}
                     </Link>
                   </td>
@@ -355,7 +402,9 @@ function DashboardPage() {
               {drill === "blocked" && "Missions bloquées (corrections)"}
               {drill === "pendingDeliverables" && "Livrables en attente de validation"}
             </DialogTitle>
-            <DialogDescription>Cliquez sur une ligne pour ouvrir la fiche détaillée.</DialogDescription>
+            <DialogDescription>
+              Cliquez sur une ligne pour ouvrir la fiche détaillée.
+            </DialogDescription>
           </DialogHeader>
 
           {drill === "clients" && (
@@ -390,7 +439,9 @@ function DashboardPage() {
                 >
                   <span className="flex-1 font-medium">{p.name}</span>
                   <span className="text-xs text-muted-foreground">{clientName(p.client_id)}</span>
-                  <span className="text-xs text-muted-foreground">Chef : {userName(p.owner_id)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Chef : {userName(p.owner_id)}
+                  </span>
                   <span className="text-xs font-semibold text-primary">{p.progress}%</span>
                 </Link>
               ))}
@@ -430,7 +481,9 @@ function DashboardPage() {
                   className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
                 >
                   <span className="flex-1 font-medium">{d.name}</span>
-                  <span className="text-xs text-muted-foreground">{missionTitle(d.mission_id)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {missionTitle(d.mission_id)}
+                  </span>
                   <span className="text-xs text-muted-foreground">v{d.version}</span>
                   <span className="text-xs text-muted-foreground">{userName(d.uploaded_by)}</span>
                 </Link>
@@ -447,31 +500,4 @@ function DashboardPage() {
       </Dialog>
     </AppShell>
   );
-}
-
-function AlertRow({
-  icon,
-  label,
-  count,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  count: number;
-  onClick?: () => void;
-}) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={onClick}
-        className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left transition hover:border-primary/50 hover:bg-muted/50"
-      >
-        {icon}
-        <span className="flex-1">{label}</span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold">{count}</span>
-      </button>
-    </li>
-  );
-
 }

@@ -55,21 +55,44 @@ export function ConfirmDeleteButton({
   description,
   onConfirm,
   pending = false,
+  iconOnly = false,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
 }: {
   label?: string;
   title: string;
   description: string;
   onConfirm: () => void;
   pending?: boolean;
+  iconOnly?: boolean;
+  /** Fournir open/onOpenChange pour piloter le dialog depuis l'extérieur et masquer le bouton déclencheur intégré. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = controlledOpen !== undefined && setControlledOpen !== undefined;
+  const open = controlled ? controlledOpen : internalOpen;
+  const setOpen = controlled ? setControlledOpen : setInternalOpen;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-          <Trash2 className="mr-1 h-3.5 w-3.5" /> {label}
-        </Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          {iconOnly ? (
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={label}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+              <Trash2 className="mr-1 h-3.5 w-3.5" /> {label}
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -177,7 +200,10 @@ export function EditClientDialog({ client }: { client: Client }) {
           </Field>
         </div>
         <DialogFooter>
-          <Button disabled={!form.name.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button
+            disabled={!form.name.trim() || mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
             {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </DialogFooter>
@@ -187,7 +213,13 @@ export function EditClientDialog({ client }: { client: Client }) {
 }
 
 /* --------------------------------- Projet --------------------------------- */
-export function EditProjectDialog({ project }: { project: Project }) {
+export function EditProjectDialog({
+  project,
+  iconOnly = false,
+}: {
+  project: Project;
+  iconOnly?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const managers = (users ?? []).filter((u) => u.role === "admin" || u.role === "chef_projet");
@@ -216,9 +248,15 @@ export function EditProjectDialog({ project }: { project: Project }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Pencil className="mr-1 h-3.5 w-3.5" /> Modifier
-        </Button>
+        {iconOnly ? (
+          <Button variant="outline" size="icon" aria-label="Modifier">
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm">
+            <Pencil className="mr-1 h-3.5 w-3.5" /> Modifier
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -228,7 +266,10 @@ export function EditProjectDialog({ project }: { project: Project }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Field label="Nom du projet">
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
             </Field>
           </div>
           <Field label="Chef de projet">
@@ -291,7 +332,10 @@ export function EditProjectDialog({ project }: { project: Project }) {
           </div>
         </div>
         <DialogFooter>
-          <Button disabled={!form.name.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button
+            disabled={!form.name.trim() || mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
             {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </DialogFooter>
@@ -301,8 +345,20 @@ export function EditProjectDialog({ project }: { project: Project }) {
 }
 
 /* -------------------------------- Mission --------------------------------- */
-export function EditMissionDialog({ mission }: { mission: Mission }) {
-  const [open, setOpen] = useState(false);
+export function EditMissionDialog({
+  mission,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+}: {
+  mission: Mission;
+  /** Fournir open/onOpenChange pour piloter le dialog depuis l'extérieur (ex. menu contextuel de tableau) et masquer le bouton déclencheur intégré. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = controlledOpen !== undefined && setControlledOpen !== undefined;
+  const open = controlled ? controlledOpen : internalOpen;
+  const setOpen = controlled ? setControlledOpen : setInternalOpen;
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
@@ -335,11 +391,13 @@ export function EditMissionDialog({ mission }: { mission: Mission }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Pencil className="mr-1 h-3.5 w-3.5" /> Modifier
-        </Button>
-      </DialogTrigger>
+      {!controlled && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Pencil className="mr-1 h-3.5 w-3.5" /> Modifier
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Modifier la mission</DialogTitle>
@@ -445,7 +503,10 @@ export function EditMissionDialog({ mission }: { mission: Mission }) {
           </div>
         </div>
         <DialogFooter>
-          <Button disabled={!form.title.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button
+            disabled={!form.title.trim() || mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
             {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
           </Button>
         </DialogFooter>

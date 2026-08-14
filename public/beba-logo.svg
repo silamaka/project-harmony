@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Logo BEBA EMPIRE">
+  <defs>
+    <linearGradient id="beba-brand-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1877F2" />
+      <stop offset="100%" stop-color="#4F9DFF" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#beba-brand-gradient)" />
+  <text
+    x="50%"
+    y="53%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    font-family="'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif"
+    font-weight="800"
+    font-size="52"
+    fill="#FFFFFF"
+  >BE</text>
+</svg>

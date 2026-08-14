@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download } from "lucide-react";
+import type ExcelJS from "exceljs";
+import { Download, FileSpreadsheet, Printer } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -125,6 +126,92 @@ function StatisticsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const exportExcel = async () => {
+    const { default: ExcelJSLib } = await import("exceljs");
+    const wb = new ExcelJSLib.Workbook();
+    wb.creator = "BEBA EMPIRE";
+    wb.created = new Date();
+
+    const styleHeader = (row: ExcelJS.Row) => {
+      row.font = { bold: true };
+      row.eachCell((cell) => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EEF9" } };
+      });
+    };
+
+    const kpiSheet = wb.addWorksheet("Indicateurs");
+    kpiSheet.columns = [
+      { header: "Indicateur", key: "label", width: 32 },
+      { header: "Valeur", key: "value", width: 16 },
+    ];
+    kpiSheet.addRows([
+      { label: "Missions totales", value: missionList.length },
+      { label: "Missions terminées/validées", value: done },
+      { label: "Missions en retard", value: late },
+      { label: "Taux d'achèvement (%)", value: completion },
+      { label: "Respect des délais (%)", value: onTimeRate },
+      { label: "Livrables", value: (deliverables ?? []).length },
+      { label: "Livrables validés (%)", value: validationRate },
+      { label: "Projets", value: (projects ?? []).length },
+    ]);
+    styleHeader(kpiSheet.getRow(1));
+
+    const clientSheet = wb.addWorksheet("Missions par client");
+    clientSheet.columns = [
+      { header: "Client", key: "name", width: 28 },
+      { header: "Missions", key: "missions", width: 14 },
+    ];
+    clientSheet.addRows(byClient ?? []);
+    styleHeader(clientSheet.getRow(1));
+
+    const collabSheet = wb.addWorksheet("Charge par collaborateur");
+    collabSheet.columns = [
+      { header: "Collaborateur", key: "name", width: 28 },
+      { header: "Missions", key: "missions", width: 14 },
+    ];
+    collabSheet.addRows(byCollab ?? []);
+    styleHeader(collabSheet.getRow(1));
+
+    const monthlySheet = wb.addWorksheet("Évolution mensuelle");
+    monthlySheet.columns = [
+      { header: "Mois", key: "month", width: 14 },
+      { header: "Missions", key: "missions", width: 14 },
+      { header: "Livrables", key: "livrables", width: 14 },
+    ];
+    monthlySheet.addRows(monthly ?? []);
+    styleHeader(monthlySheet.getRow(1));
+
+    const statusSheet = wb.addWorksheet("Missions par statut");
+    statusSheet.columns = [
+      { header: "Statut", key: "name", width: 28 },
+      { header: "Nombre", key: "value", width: 14 },
+    ];
+    statusSheet.addRows(statusData);
+    styleHeader(statusSheet.getRow(1));
+
+    const projectSheet = wb.addWorksheet("Portefeuille projets");
+    projectSheet.columns = [
+      { header: "Statut projet", key: "name", width: 28 },
+      { header: "Nombre", key: "value", width: 14 },
+    ];
+    projectSheet.addRows(projectStatusData);
+    styleHeader(projectSheet.getRow(1));
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const url = URL.createObjectURL(
+      new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "beba-statistiques.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = () => window.print();
+
   const kpis = [
     { label: "Taux d'achèvement", value: completion },
     { label: "Respect des délais", value: onTimeRate },
@@ -137,9 +224,17 @@ function StatisticsPage() {
       subtitle="Performance de l'agence, des clients et des collaborateurs"
       allow={["admin", "chef_projet"]}
       actions={
-        <Button variant="outline" size="sm" onClick={exportCsv}>
-          <Download className="mr-1 h-4 w-4" /> Exporter CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download className="mr-1 h-4 w-4" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void exportExcel()}>
+            <FileSpreadsheet className="mr-1 h-4 w-4" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <Printer className="mr-1 h-4 w-4" /> PDF
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-3 sm:grid-cols-3">
@@ -159,7 +254,14 @@ function StatisticsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byClient ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} height={50} angle={-15} textAnchor="end" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  interval={0}
+                  height={50}
+                  angle={-15}
+                  textAnchor="end"
+                />
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip />
                 <Bar dataKey="missions" fill="var(--primary)" radius={[6, 6, 0, 0]} />

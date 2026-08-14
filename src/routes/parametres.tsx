@@ -1,15 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Moon, Sun } from "lucide-react";
+import { Briefcase, CheckCircle2, Search, ShieldCheck, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateUserDialog, EditUserDialog } from "@/components/shared/create-dialogs";
+import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { useTheme } from "@/hooks/use-theme";
-import { API_BASE_URL } from "@/lib/api";
 import { userService } from "@/services";
-import { ROLE_LABELS } from "@/types";
+import { ROLE_LABELS, type Role } from "@/types";
+
+const ROLE_FILTERS = ["tous", "admin", "chef_projet", "collaborateur", "client"] as const;
+const STATUS_FILTERS = ["tous", "actif", "inactif"] as const;
+const SORTS = ["recent", "ancien", "nom"] as const;
+const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
+  recent: "Inscription récente",
+  ancien: "Inscription ancienne",
+  nom: "Nom A-Z",
+};
+const PAGE_SIZES = [10, 20, 50] as const;
 
 export const Route = createFileRoute("/parametres")({
   head: () => ({
@@ -27,51 +35,131 @@ export const Route = createFileRoute("/parametres")({
 });
 
 function SettingsPage() {
-  const { theme, toggle } = useTheme();
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<(typeof ROLE_FILTERS)[number]>("tous");
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
+  const [sort, setSort] = useState<(typeof SORTS)[number]>("recent");
+  const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20);
+  const [page, setPage] = useState(1);
+
+  const stats = useMemo(
+    () => ({
+      total: (users ?? []).length,
+      admins: (users ?? []).filter((u) => u.role === "admin").length,
+      staff: (users ?? []).filter((u) => u.role === "chef_projet").length,
+      actifs: (users ?? []).filter((u) => u.is_active).length,
+    }),
+    [users],
+  );
+
+  const filtered = useMemo(() => {
+    const list = (users ?? []).filter(
+      (u) =>
+        (roleFilter === "tous" || u.role === roleFilter) &&
+        (statusFilter === "tous" || (statusFilter === "actif" ? u.is_active : !u.is_active)) &&
+        `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(query.toLowerCase()),
+    );
+    return [...list].sort((a, b) => {
+      if (sort === "nom")
+        return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+      const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return sort === "recent" ? diff : -diff;
+    });
+  }, [users, query, roleFilter, statusFilter, sort]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const updateFilter =
+    <T,>(setter: (v: T) => void) =>
+    (v: T) => {
+      setter(v);
+      setPage(1);
+    };
 
   return (
-    <AppShell
-      title="Paramètres"
-      subtitle="Administration de la plateforme"
-      allow={["admin"]}
-    >
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="surface-card p-5">
-          <h2 className="text-sm font-semibold">Apparence</h2>
-          <div className="mt-4 flex items-center justify-between gap-4">
-            <div>
-              <Label className="text-sm">Mode sombre</Label>
-              <p className="text-xs text-muted-foreground">
-                Bascule le thème clair / sombre de l'interface.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-              <Switch checked={theme === "dark"} onCheckedChange={toggle} />
-            </div>
-          </div>
-        </div>
-
-        <div className="surface-card p-5">
-          <h2 className="text-sm font-semibold">Connexion API</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            URL de base de l'API Django REST Framework (variable VITE_API_URL).
-          </p>
-          <div className="mt-4 space-y-2">
-            <Label htmlFor="api-url" className="text-xs">
-              Base URL
-            </Label>
-            <Input id="api-url" value={API_BASE_URL} readOnly />
-          </div>
-        </div>
+    <AppShell title="Paramètres" subtitle="Administration de la plateforme" allow={["admin"]}>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Total" value={stats.total} icon={Users} />
+        <StatCard label="Admins" value={stats.admins} icon={ShieldCheck} tone="info" />
+        <StatCard label="Chefs de projet" value={stats.staff} icon={Briefcase} tone="warning" />
+        <StatCard label="Actifs" value={stats.actifs} icon={CheckCircle2} tone="success" />
       </div>
 
       <div className="surface-card mt-4 p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="min-w-0 flex-1 text-sm font-semibold">Utilisateurs et rôles</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold">Gestion des utilisateurs</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Filtrez, modifiez les rôles et gérez la sécurité des comptes.
+            </p>
+          </div>
           <CreateUserDialog triggerLabel="Inviter un utilisateur" />
         </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-48 flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher utilisateur..."
+              value={query}
+              onChange={(e) => updateFilter(setQuery)(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={roleFilter}
+            onChange={(e) =>
+              updateFilter(setRoleFilter)(e.target.value as (typeof ROLE_FILTERS)[number])
+            }
+          >
+            <option value="tous">Tous les rôles</option>
+            {ROLE_FILTERS.filter((r) => r !== "tous").map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r as Role]}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={statusFilter}
+            onChange={(e) =>
+              updateFilter(setStatusFilter)(e.target.value as (typeof STATUS_FILTERS)[number])
+            }
+          >
+            <option value="tous">Tous</option>
+            <option value="actif">Actif</option>
+            <option value="inactif">Inactif</option>
+          </select>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as (typeof SORTS)[number])}
+          >
+            {SORTS.map((s) => (
+              <option key={s} value={s}>
+                {SORT_LABELS[s]}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            value={pageSize}
+            onChange={(e) =>
+              updateFilter(setPageSize)(Number(e.target.value) as (typeof PAGE_SIZES)[number])
+            }
+          >
+            {PAGE_SIZES.map((n) => (
+              <option key={n} value={n}>
+                {n} / page
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
@@ -84,7 +172,7 @@ function SettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {(users ?? []).map((u) => (
+              {pageItems.map((u) => (
                 <tr key={u.id} className="border-b border-border/60 last:border-0">
                   <td className="py-2.5 font-medium">
                     {u.first_name} {u.last_name}
@@ -107,9 +195,40 @@ function SettingsPage() {
                   </td>
                 </tr>
               ))}
+              {pageItems.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                    Aucun utilisateur ne correspond à ces filtres.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+
+        {filtered.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+            <p>
+              {filtered.length} utilisateur(s) · page {currentPage} sur {pageCount}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="rounded-md border border-input px-3 py-1.5 font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+              >
+                Précédent
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={currentPage >= pageCount}
+                className="rounded-md border border-input px-3 py-1.5 font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </AppShell>
   );

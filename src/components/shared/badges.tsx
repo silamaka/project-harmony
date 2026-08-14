@@ -11,7 +11,7 @@ import {
 const base =
   "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap";
 
-const missionTone: Record<MissionStatus, string> = {
+export const missionTone: Record<MissionStatus, string> = {
   a_faire: "bg-muted text-muted-foreground",
   en_cours: "bg-primary/10 text-primary",
   livrable_depose: "bg-info/15 text-info",
@@ -26,7 +26,7 @@ export function MissionStatusBadge({ status }: { status: MissionStatus }) {
   return <span className={cn(base, missionTone[status])}>{MISSION_STATUS_LABELS[status]}</span>;
 }
 
-const projectTone: Record<ProjectStatus, string> = {
+export const projectTone: Record<ProjectStatus, string> = {
   brouillon: "bg-muted text-muted-foreground",
   en_preparation: "bg-info/15 text-info",
   en_cours: "bg-primary/10 text-primary",
@@ -39,12 +39,11 @@ export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
   return <span className={cn(base, projectTone[status])}>{PROJECT_STATUS_LABELS[status]}</span>;
 }
 
-const priorityTone: Record<Priority, string> = {
+export const priorityTone: Record<Priority, string> = {
   faible: "bg-muted text-muted-foreground",
   normale: "bg-info/15 text-info",
   haute: "bg-warning/20 text-warning",
-  urgente: "bg-destructive/12 text-destructive",
-  critique: "bg-destructive text-destructive-foreground",
+  urgente: "bg-destructive text-destructive-foreground",
 };
 
 export function PriorityBadge({ priority }: { priority: Priority }) {

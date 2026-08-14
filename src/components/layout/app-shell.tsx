@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import logo from "@/assets/beba-logo.png.asset.json";
+import { UserAvatar } from "@/components/shared/avatar";
 import { useAuth } from "@/context/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
@@ -138,12 +138,12 @@ export function AppShell({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 md:sticky md:top-0 md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 print:hidden md:sticky md:top-0 md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex items-center gap-3 px-5 py-5">
-          <img src={logo.url} alt="Logo BEBA EMPIRE" className="h-10 w-10 rounded-full" />
+          <img src="/beba-logo.svg" alt="Logo BEBA EMPIRE" className="h-10 w-10 rounded-full" />
           <div className="leading-tight">
             <p className="text-sm font-extrabold tracking-tight text-sidebar-foreground">
               BEBA EMPIRE
@@ -189,10 +189,7 @@ export function AppShell({
 
         <div className="border-t border-sidebar-border p-3">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-              {user.first_name[0]}
-              {user.last_name[0]}
-            </div>
+            <UserAvatar user={user} className="h-9 w-9 text-xs" />
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-sm font-semibold">
                 {user.first_name} {user.last_name}
@@ -222,15 +219,19 @@ export function AppShell({
 
       {/* Contenu */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/80 px-4 py-4 backdrop-blur lg:px-8">
-          <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Ouvrir le menu">
+        <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/80 px-4 py-4 backdrop-blur print:static lg:px-8">
+          <button
+            className="md:hidden print:hidden"
+            onClick={() => setOpen(true)}
+            aria-label="Ouvrir le menu"
+          >
             <Menu className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold tracking-tight lg:text-xl">{title}</h1>
             {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print:hidden">
             {actions}
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Changer de thème">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

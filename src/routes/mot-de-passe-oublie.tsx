@@ -4,7 +4,6 @@ import { ArrowLeft, MailCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import logo from "@/assets/beba-logo.png.asset.json";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,7 +34,7 @@ function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <img src={logo.url} alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
+        <img src="/beba-logo.svg" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
         {sent ? (
           <div className="mt-6">
             <MailCheck className="h-8 w-8 text-success" />

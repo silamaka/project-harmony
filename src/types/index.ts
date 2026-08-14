@@ -56,12 +56,7 @@ export interface Client {
 }
 
 export type ProjectStatus =
-  | "brouillon"
-  | "en_preparation"
-  | "en_cours"
-  | "en_attente"
-  | "termine"
-  | "archive";
+  "brouillon" | "en_preparation" | "en_cours" | "en_attente" | "termine" | "archive";
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   brouillon: "Brouillon",
@@ -118,15 +113,17 @@ export const MISSION_WORKFLOW: MissionStatus[] = [
   "termine",
 ];
 
-export type Priority = "faible" | "normale" | "haute" | "urgente" | "critique";
+export type Priority = "faible" | "normale" | "haute" | "urgente";
 
 export const PRIORITY_LABELS: Record<Priority, string> = {
   faible: "Faible",
   normale: "Normale",
   haute: "Haute",
   urgente: "Urgente",
-  critique: "Critique",
 };
+
+/** Ordre du plus urgent au moins urgent, pour trier les listes de missions. */
+export const PRIORITY_ORDER: Priority[] = ["urgente", "haute", "normale", "faible"];
 
 export interface Mission {
   id: string;
@@ -174,6 +171,8 @@ export interface CalendarEvent {
   id: string;
   title: string;
   date: string;
+  time?: string;
+  description?: string;
   type: "mission" | "livrable" | "reunion";
   mission_id?: string;
   color?: string;

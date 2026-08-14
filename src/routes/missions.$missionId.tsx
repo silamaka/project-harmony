@@ -3,12 +3,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckCircle2,
-  Download,
+  Eye,
   FileText,
   Film,
   ImageIcon,
   LinkIcon,
-  Paperclip,
   Send,
   Trash2,
   Upload,
@@ -20,16 +19,19 @@ import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
 import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
-import {
-  commentService,
-  deliverableService,
-  missionService,
-  userService,
-} from "@/services";
+import { commentService, deliverableService, missionService, userService } from "@/services";
 import {
   MISSION_WORKFLOW,
   MISSION_STATUS_LABELS,
@@ -63,6 +65,7 @@ function MissionDetailPage() {
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
   const [newLink, setNewLink] = useState("");
+  const [pendingStatus, setPendingStatus] = useState<MissionStatus | null>(null);
 
   const { data: mission } = useQuery({
     queryKey: ["missions", missionId],
@@ -91,7 +94,11 @@ function MissionDetailPage() {
 
   const commentMutation = useMutation({
     mutationFn: (body: string) =>
-      commentService.create({ mission_id: missionId, author_id: user?.id ?? "", body }),
+      commentService.create({
+        mission_id: missionId,
+        author_id: user?.id ?? "",
+        body,
+      }),
     onSuccess: () => {
       refresh([["comments", missionId]]);
       setDraft("");
@@ -100,12 +107,13 @@ function MissionDetailPage() {
   });
 
   const deliverableMutation = useMutation({
-    mutationFn: (url: string) =>
+    mutationFn: (payload: { name: string; url: string; type: DeliverableType; size_kb?: number }) =>
       deliverableService.create({
         mission_id: missionId,
-        name: url.split("/").filter(Boolean).pop() ?? "Livrable",
-        type: "lien",
-        url,
+        name: payload.name,
+        type: payload.type,
+        url: payload.url,
+        ...(payload.size_kb !== undefined ? { size_kb: payload.size_kb } : {}),
         version: ((deliverables ?? []).length || 0) + 1,
         uploaded_by: user?.id ?? "",
         status: "en_attente",
@@ -115,6 +123,7 @@ function MissionDetailPage() {
       setNewLink("");
       toast.success("Livrable ajouté.");
     },
+    onError: () => toast.error("Dépôt impossible."),
   });
 
   const deliverableStatus = useMutation({
@@ -153,6 +162,13 @@ function MissionDetailPage() {
   const currentIndex = mission ? MISSION_WORKFLOW.indexOf(mission.status) : -1;
   const canManage = user?.role === "admin" || user?.role === "chef_projet";
 
+  const requestStatusChange = (status: MissionStatus) => {
+    if (!mission || status === mission.status) return;
+    const distance = Math.abs(MISSION_WORKFLOW.indexOf(status) - currentIndex);
+    if (distance > 1) setPendingStatus(status);
+    else statusMutation.mutate(status);
+  };
+
   return (
     <AppShell
       title={mission?.title ?? "Mission"}
@@ -180,28 +196,78 @@ function MissionDetailPage() {
 
       {/* Workflow */}
       <div className="surface-card mt-4 overflow-x-auto p-4">
-        <div className="flex min-w-[760px] items-center gap-2">
-          {MISSION_WORKFLOW.map((s, i) => (
-            <div key={s} className="flex flex-1 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => statusMutation.mutate(s)}
-                disabled={statusMutation.isPending || mission?.status === s}
-                aria-current={mission?.status === s}
-                className={cn(
-                  "flex-1 rounded-lg px-3 py-2 text-center text-[11px] font-semibold transition-colors",
-                  i <= currentIndex
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-accent",
-                  mission?.status === s && "ring-2 ring-ring",
-                )}
-              >
-                {MISSION_STATUS_LABELS[s]}
-              </button>
-            </div>
+        <div className="flex min-w-[760px] items-stretch gap-2">
+          {MISSION_WORKFLOW.slice(0, 5).map((s, i) => (
+            <StepButton
+              key={s}
+              label={MISSION_STATUS_LABELS[s]}
+              active={mission?.status === s}
+              filled={i <= currentIndex}
+              disabled={statusMutation.isPending}
+              onClick={() => requestStatusChange(s)}
+            />
           ))}
+
+          <div className="flex flex-1 flex-col gap-1">
+            <p className="text-center text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Décision client
+            </p>
+            <div className="flex flex-1 gap-1">
+              <StepButton
+                label="Validé"
+                active={mission?.status === "valide"}
+                filled={mission?.status === "valide" || mission?.status === "termine"}
+                disabled={statusMutation.isPending}
+                onClick={() => requestStatusChange("valide")}
+                tone="success"
+              />
+              <StepButton
+                label="Corrections"
+                active={mission?.status === "corrections"}
+                filled={mission?.status === "corrections"}
+                disabled={statusMutation.isPending}
+                onClick={() => requestStatusChange("corrections")}
+                tone="warning"
+              />
+            </div>
+          </div>
+
+          <StepButton
+            label="Terminé"
+            active={mission?.status === "termine"}
+            filled={mission?.status === "termine"}
+            disabled={statusMutation.isPending}
+            onClick={() => requestStatusChange("termine")}
+          />
         </div>
       </div>
+
+      <Dialog open={pendingStatus !== null} onOpenChange={(o) => !o && setPendingStatus(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Passer directement à "{pendingStatus ? MISSION_STATUS_LABELS[pendingStatus] : ""}" ?
+            </DialogTitle>
+            <DialogDescription>
+              Les étapes intermédiaires du workflow seront ignorées. Confirme si c'est bien voulu.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingStatus(null)}>
+              Annuler
+            </Button>
+            <Button
+              disabled={statusMutation.isPending}
+              onClick={() => {
+                if (pendingStatus) statusMutation.mutate(pendingStatus);
+                setPendingStatus(null);
+              }}
+            >
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5 lg:col-span-2">
@@ -219,23 +285,43 @@ function MissionDetailPage() {
         </div>
 
         <div className="surface-card p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Livrables</h2>
+          <h2 className="text-sm font-semibold">Livrables</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Colle le lien du fichier (Drive, Figma, S3...), puis clique sur Déposer.
+          </p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <Input
+              value={newLink}
+              onChange={(e) => setNewLink(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newLink.trim() && !deliverableMutation.isPending) {
+                  deliverableMutation.mutate({
+                    name: newLink.trim().split("/").filter(Boolean).pop() ?? "Livrable",
+                    url: newLink.trim(),
+                    type: "lien",
+                  });
+                }
+              }}
+              placeholder="Lien du livrable (Drive, Figma, S3...)"
+              className="h-9"
+            />
             <Button
               size="sm"
-              variant="outline"
+              variant={newLink.trim() ? "default" : "outline"}
               disabled={!newLink.trim() || deliverableMutation.isPending}
-              onClick={() => deliverableMutation.mutate(newLink.trim())}
+              onClick={() =>
+                deliverableMutation.mutate({
+                  name: newLink.trim().split("/").filter(Boolean).pop() ?? "Livrable",
+                  url: newLink.trim(),
+                  type: "lien",
+                })
+              }
+              className="shrink-0"
             >
-              <Upload className="mr-1 h-3.5 w-3.5" /> Déposer
+              Déposer
             </Button>
           </div>
-          <Input
-            value={newLink}
-            onChange={(e) => setNewLink(e.target.value)}
-            placeholder="Lien du livrable (Drive, Figma, S3...)"
-            className="mt-3 h-9"
-          />
           <ul className="mt-4 space-y-2">
             {(deliverables ?? []).map((d) => {
               const Icon = typeIcon[d.type];
@@ -248,7 +334,12 @@ function MissionDetailPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{d.name}</p>
                     <p className="text-[11px] text-muted-foreground">
-                      v{d.version} · {d.size_kb ? `${Math.round(d.size_kb / 1024)} Mo` : "lien"}
+                      v{d.version} ·{" "}
+                      {d.size_kb === undefined
+                        ? "lien"
+                        : d.size_kb >= 1024
+                          ? `${(d.size_kb / 1024).toFixed(1)} Mo`
+                          : `${d.size_kb} Ko`}
                     </p>
                   </div>
                   <button
@@ -271,10 +362,10 @@ function MissionDetailPage() {
                     href={d.url}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`Ouvrir ${d.name}`}
+                    aria-label={`Voir ${d.name}`}
                     className="text-muted-foreground hover:text-primary"
                   >
-                    <Download className="h-4 w-4" />
+                    <Eye className="h-4 w-4" />
                   </a>
                   {canManage && (
                     <button
@@ -325,23 +416,15 @@ function MissionDetailPage() {
           )}
         </ul>
 
-        <div className="mt-4 flex items-end gap-2">
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={1000}
-            placeholder={`Écrire un commentaire en tant que ${user?.first_name}... (@mention possible)`}
-            className="min-h-20"
-          />
-          <div className="flex flex-col gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Joindre un fichier"
-              onClick={() => setDraft((d) => `${d}${d ? " " : ""}[pièce jointe] `)}
-            >
-              <Paperclip className="h-4 w-4" />
-            </Button>
+        <div className="mt-4">
+          <div className="flex items-end gap-2">
+            <Textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={1000}
+              placeholder={`Écrire un commentaire en tant que ${user?.first_name}... (@mention possible)`}
+              className="min-h-20"
+            />
             <Button
               size="icon"
               aria-label="Envoyer"
@@ -365,5 +448,43 @@ function Section({ title, body }: { title: string; body?: string | undefined }) 
       </h3>
       <p className="mt-1.5 text-sm">{body ?? "—"}</p>
     </div>
+  );
+}
+
+function StepButton({
+  label,
+  active,
+  filled,
+  disabled,
+  onClick,
+  tone = "default",
+}: {
+  label: string;
+  active: boolean;
+  filled: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  tone?: "default" | "success" | "warning";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || active}
+      aria-current={active}
+      className={cn(
+        "flex-1 rounded-lg px-3 py-2 text-center text-[11px] font-semibold transition-colors",
+        filled
+          ? tone === "success"
+            ? "bg-success text-success-foreground"
+            : tone === "warning"
+              ? "bg-warning text-warning-foreground"
+              : "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground hover:bg-accent",
+        active && "ring-2 ring-ring",
+      )}
+    >
+      {label}
+    </button>
   );
 }
