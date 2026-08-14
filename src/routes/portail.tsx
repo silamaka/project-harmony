@@ -8,12 +8,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
-import {
-  clientService,
-  deliverableService,
-  missionService,
-  projectService,
-} from "@/services";
+import { clientService, deliverableService, missionService, projectService } from "@/services";
 import type { Deliverable } from "@/types";
 
 export const Route = createFileRoute("/portail")({

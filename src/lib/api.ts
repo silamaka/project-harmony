@@ -4,8 +4,7 @@ import axios, { type AxiosInstance } from "axios";
  * Client HTTP prêt à être branché sur l'API Django REST Framework.
  * Base URL configurable via VITE_API_URL (défaut: /api/v1).
  */
-export const API_BASE_URL =
-  (import.meta.env['VITE_API_URL'] as string | undefined) ?? "/api/v1";
+export const API_BASE_URL = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "/api/v1";
 
 export const TOKEN_KEY = "beba.access_token";
 export const REFRESH_KEY = "beba.refresh_token";

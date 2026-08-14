@@ -45,7 +45,10 @@ function NotificationsPage() {
   const { data } = useQuery({ queryKey: ["notifications"], queryFn: notificationService.list });
   const items = data ?? [];
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["notifications"] });
-  const markAll = useMutation({ mutationFn: notificationService.markAllRead, onSuccess: invalidate });
+  const markAll = useMutation({
+    mutationFn: notificationService.markAllRead,
+    onSuccess: invalidate,
+  });
   const markOne = useMutation({ mutationFn: notificationService.markRead, onSuccess: invalidate });
 
   const unread = items.filter((n) => !n.read).length;

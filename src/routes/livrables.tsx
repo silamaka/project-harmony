@@ -66,9 +66,7 @@ function DeliverablesPage() {
       deliverableService.updateStatus(id, status),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["deliverables"] });
-      toast.success(
-        variables.status === "valide" ? "Livrable validé." : "Corrections demandées.",
-      );
+      toast.success(variables.status === "valide" ? "Livrable validé." : "Corrections demandées.");
     },
   });
 
