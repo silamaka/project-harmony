@@ -71,6 +71,7 @@ export const users: User[] = [
     phone: "+212 5 22 11 00 99",
     role: "client",
     job_title: "Directeur marketing",
+    client_id: "c1",
     is_active: true,
     created_at: "2024-05-21",
   },

@@ -1,15 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateMissionDialog } from "@/components/shared/create-dialogs";
-import {
-  ConfirmDeleteButton,
-  EditClientDialog,
-  EditMissionDialog,
-} from "@/components/shared/edit-dialogs";
+import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
 import { MissionsTable } from "@/components/shared/missions-table";
 import { cn } from "@/lib/utils";
@@ -46,21 +42,10 @@ const STATUS_FILTERS = ["tous", ...MISSION_WORKFLOW] as const;
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
-
-  const removeClient = useMutation({
-    mutationFn: () => clientService.remove(clientId),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["clients"] });
-      toast.success("Client supprimé.");
-      void navigate({ to: "/clients" });
-    },
-    onError: () => toast.error("Suppression impossible."),
-  });
 
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
@@ -148,20 +133,7 @@ function ClientDetailPage() {
       title={client?.name ?? "Client"}
       subtitle={client ? `${client.industry} · ${clientMissions.length} mission(s)` : undefined}
       allow={["admin", "chef_projet"]}
-      actions={
-        client ? (
-          <div className="flex items-center gap-2">
-            <CreateMissionDialog clientId={client.id} />
-            <EditClientDialog key={client.id} client={client} />
-            <ConfirmDeleteButton
-              title="Supprimer ce client ?"
-              description="Le compte client sera retiré du portefeuille. Cette action est irréversible."
-              pending={removeClient.isPending}
-              onConfirm={() => removeClient.mutate()}
-            />
-          </div>
-        ) : undefined
-      }
+      actions={client ? <CreateMissionDialog clientId={client.id} /> : undefined}
     >
       <Link
         to="/clients"

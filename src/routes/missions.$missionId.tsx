@@ -147,9 +147,11 @@ function MissionDetailPage() {
   const removeMission = useMutation({
     mutationFn: () => missionService.remove(missionId),
     onSuccess: () => {
-      refresh([["missions"]]);
       toast.success("Mission supprimée.");
-      void navigate({ to: "/missions" });
+      // On invalide "missions" seulement une fois la navigation terminée : sinon la requête
+      // ["missions", missionId] encore montée se refetch sur une fiche déjà supprimée et échoue
+      // (queryFn qui retourne undefined), ce qui laisse la page dans un état incohérent.
+      void navigate({ to: "/missions" }).then(() => refresh([["missions"]]));
     },
     onError: () => toast.error("Suppression impossible."),
   });

@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
 import { AvatarPicker } from "@/components/shared/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ import {
   MISSION_WORKFLOW,
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
+  type Client,
   type MissionStatus,
   type Priority,
   type ProjectStatus,
@@ -63,99 +65,6 @@ function useCreate(keys: string[][], onDone: () => void) {
     toast.success(message);
     onDone();
   };
-}
-
-/* --------------------------------- Client --------------------------------- */
-export function CreateClientDialog() {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    industry: "",
-    email: "",
-    phone: "",
-    status: "prospect",
-  });
-  const done = useCreate([["clients"]], () => setOpen(false));
-
-  const mutation = useMutation({
-    mutationFn: () =>
-      clientService.create({
-        name: form.name.trim(),
-        industry: form.industry.trim() || "Non renseigné",
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        status: form.status as "actif" | "inactif" | "prospect",
-      }),
-    onSuccess: () => {
-      done("Client créé.");
-      setForm({ name: "", industry: "", email: "", phone: "", status: "prospect" });
-    },
-    onError: () => toast.error("Création impossible."),
-  });
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="mr-1 h-4 w-4" /> Nouveau client
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Nouveau client</DialogTitle>
-          <DialogDescription>Ajoutez un compte au portefeuille de l'agence.</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Nom">
-            <Input
-              value={form.name}
-              maxLength={120}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </Field>
-          <Field label="Secteur">
-            <Input
-              value={form.industry}
-              maxLength={80}
-              onChange={(e) => setForm({ ...form, industry: e.target.value })}
-            />
-          </Field>
-          <Field label="E-mail">
-            <Input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </Field>
-          <Field label="Téléphone">
-            <Input
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </Field>
-          <Field label="Statut">
-            <select
-              className={selectClass}
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="prospect">Prospect</option>
-              <option value="actif">Actif</option>
-              <option value="inactif">Inactif</option>
-            </select>
-          </Field>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!form.name.trim() || !form.email.trim() || mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? "Création..." : "Créer le client"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 /* --------------------------------- Projet --------------------------------- */
@@ -461,6 +370,7 @@ export function CreateUserDialog({
   /** Limite le sélecteur au rôle fourni (aucun autre rôle proposé). */
   lockRole?: boolean;
 }) {
+  const today = new Date().toISOString().slice(0, 10);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     first_name: "",
@@ -470,21 +380,37 @@ export function CreateUserDialog({
     job_title: "",
     password: "",
     role,
+    company_name: "",
     is_active: true,
     workload: 0,
     avatar_url: "",
+    created_at: today,
   });
-  const done = useCreate([["users"], ["collaborators"]], () => setOpen(false));
+  const done = useCreate([["users"], ["collaborators"], ["clients"]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () => {
-      const { password: _password, ...rest } = form;
+    mutationFn: async () => {
+      const { password: _password, company_name, ...rest } = form;
+      let client_id: string | undefined;
+      // Un utilisateur "Client" crée directement sa fiche entreprise : pas besoin
+      // de passer d'abord par Clients > Nouveau client.
+      if (form.role === "client" && company_name.trim()) {
+        const client = await clientService.create({
+          name: company_name.trim(),
+          industry: "Non renseigné",
+          email: form.email.trim(),
+          phone: form.phone.trim(),
+          status: "actif",
+        });
+        client_id = client.id;
+      }
       return userService.create({
         ...rest,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         role: form.role,
+        ...(client_id ? { client_id } : {}),
       });
     },
     onSuccess: () => {
@@ -497,9 +423,11 @@ export function CreateUserDialog({
         job_title: "",
         password: "",
         role,
+        company_name: "",
         is_active: true,
         workload: 0,
         avatar_url: "",
+        created_at: today,
       });
     },
     onError: () => toast.error("Ajout impossible."),
@@ -552,7 +480,7 @@ export function CreateUserDialog({
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
           </Field>
-          <Field label="Poste">
+          <Field label="Poste/Secteur">
             <Input
               value={form.job_title}
               onChange={(e) => setForm({ ...form, job_title: e.target.value })}
@@ -576,6 +504,16 @@ export function CreateUserDialog({
               )}
             </select>
           </Field>
+          {form.role === "client" && (
+            <div className="sm:col-span-2">
+              <Field label="Nom de l'entreprise">
+                <Input
+                  value={form.company_name}
+                  onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                />
+              </Field>
+            </div>
+          )}
           <Field label="Mot de passe">
             <Input
               type="password"
@@ -594,6 +532,13 @@ export function CreateUserDialog({
               <option value="0">Inactif</option>
             </select>
           </Field>
+          <Field label="Date de création">
+            <Input
+              type="date"
+              value={form.created_at}
+              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
+            />
+          </Field>
         </div>
         <DialogFooter>
           <Button
@@ -601,6 +546,7 @@ export function CreateUserDialog({
               !form.first_name.trim() ||
               !form.email.trim() ||
               form.password.trim().length < 4 ||
+              (form.role === "client" && !form.company_name.trim()) ||
               mutation.isPending
             }
             onClick={() => mutation.mutate()}
@@ -615,8 +561,12 @@ export function CreateUserDialog({
 
 /* ----------------------------- Édition utilisateur (admin) ---------------- */
 export function EditUserDialog({ user }: { user: User }) {
+  const { user: currentUser } = useAuth();
+  const isSelf = user.id === currentUser?.id;
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
+  const linkedClient = clients?.find((c) => c.id === user.client_id);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+  const buildForm = () => ({
     first_name: user.first_name,
     last_name: user.last_name,
     email: user.email,
@@ -624,21 +574,54 @@ export function EditUserDialog({ user }: { user: User }) {
     job_title: user.job_title ?? "",
     password: "",
     role: user.role,
+    company_name: linkedClient?.name ?? "",
+    company_industry: linkedClient?.industry ?? "",
+    company_status: linkedClient?.status ?? ("actif" as Client["status"]),
     is_active: user.is_active,
     avatar_url: user.avatar_url ?? "",
+    created_at: user.created_at.slice(0, 10),
   });
-  const done = useCreate([["users"], ["collaborators"]], () => setOpen(false));
+  const [form, setForm] = useState(buildForm);
+  const done = useCreate([["users"], ["collaborators"], ["clients"]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () => {
-      const { password: _password, ...rest } = form;
-      return userService.update(user.id, { ...rest, role: form.role });
+    mutationFn: async () => {
+      const { password: _password, company_name, company_industry, company_status, ...rest } = form;
+      const patch: Partial<User> = { ...rest, role: form.role };
+      // Un utilisateur "Client" crée/rattache directement sa fiche entreprise :
+      // pas besoin de passer par une page dédiée.
+      if (form.role === "client" && company_name.trim()) {
+        const clientPatch = {
+          name: company_name.trim(),
+          industry: company_industry.trim() || "Non renseigné",
+          status: company_status,
+        };
+        if (user.client_id) {
+          await clientService.update(user.client_id, clientPatch);
+        } else {
+          const client = await clientService.create({
+            ...clientPatch,
+            email: form.email.trim(),
+            phone: form.phone.trim(),
+          });
+          patch.client_id = client.id;
+        }
+      }
+      return userService.update(user.id, patch);
     },
     onSuccess: () => done("Utilisateur mis à jour."),
   });
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        // Recalcule les champs entreprise à l'ouverture : la requête "clients"
+        // peut ne pas être encore résolue au tout premier rendu du composant.
+        if (o) setForm(buildForm());
+        setOpen(o);
+      }}
+    >
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           Modifier
@@ -686,7 +669,7 @@ export function EditUserDialog({ user }: { user: User }) {
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
             />
           </Field>
-          <Field label="Poste">
+          <Field label="Poste/Secteur">
             <Input
               value={form.job_title}
               onChange={(e) => setForm({ ...form, job_title: e.target.value })}
@@ -705,6 +688,37 @@ export function EditUserDialog({ user }: { user: User }) {
               ))}
             </select>
           </Field>
+          {form.role === "client" && (
+            <>
+              <div className="sm:col-span-2">
+                <Field label="Nom de l'entreprise">
+                  <Input
+                    value={form.company_name}
+                    onChange={(e) => setForm({ ...form, company_name: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field label="Secteur de l'entreprise">
+                <Input
+                  value={form.company_industry}
+                  onChange={(e) => setForm({ ...form, company_industry: e.target.value })}
+                />
+              </Field>
+              <Field label="Statut de l'entreprise">
+                <select
+                  className={selectClass}
+                  value={form.company_status}
+                  onChange={(e) =>
+                    setForm({ ...form, company_status: e.target.value as Client["status"] })
+                  }
+                >
+                  <option value="prospect">Prospect</option>
+                  <option value="actif">Actif</option>
+                  <option value="inactif">Inactif</option>
+                </select>
+              </Field>
+            </>
+          )}
           <Field label="Mot de passe">
             <Input
               type="password"
@@ -718,11 +732,20 @@ export function EditUserDialog({ user }: { user: User }) {
             <select
               className={selectClass}
               value={form.is_active ? "1" : "0"}
+              disabled={isSelf}
+              title={isSelf ? "Vous ne pouvez pas désactiver votre propre compte." : undefined}
               onChange={(e) => setForm({ ...form, is_active: e.target.value === "1" })}
             >
               <option value="1">Actif</option>
               <option value="0">Inactif</option>
             </select>
+          </Field>
+          <Field label="Date de création">
+            <Input
+              type="date"
+              value={form.created_at}
+              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
+            />
           </Field>
         </div>
         <DialogFooter>

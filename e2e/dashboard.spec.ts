@@ -12,6 +12,9 @@ test.beforeEach(async ({ page }) => {
   await login(page);
   await page.waitForURL(/\/dashboard/, { timeout: 15000 });
   await expect(page.getByTestId("kpi-missions")).toBeVisible();
+  // Le premier rendu affiche "0" (données pas encore résolues) avant la vraie
+  // valeur : on laisse le temps au fetch mocké (~120ms) de se terminer.
+  await page.waitForTimeout(500);
 });
 
 test("affiche les cartes KPI et le panneau de filtre de période", async ({ page }) => {

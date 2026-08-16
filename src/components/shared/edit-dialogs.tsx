@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { cloneElement, isValidElement, useId, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
+import { AvatarPicker } from "@/components/shared/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -136,12 +137,18 @@ export function EditClientDialog({ client }: { client: Client }) {
     email: client.email,
     phone: client.phone ?? "",
     address: client.address ?? "",
+    password: "",
     status: client.status,
+    logo_url: client.logo_url ?? "",
+    created_at: client.created_at.slice(0, 10),
   });
   const done = useSaved([["clients"], ["clients", client.id]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () => clientService.update(client.id, { ...form, name: form.name.trim() }),
+    mutationFn: () => {
+      const { password: _password, ...rest } = form;
+      return clientService.update(client.id, { ...rest, name: form.name.trim() });
+    },
     onSuccess: () => done("Client mis à jour."),
     onError: () => toast.error("Mise à jour impossible."),
   });
@@ -159,6 +166,15 @@ export function EditClientDialog({ client }: { client: Client }) {
           <DialogDescription>Mettez à jour la fiche du compte client.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <Field label="Logo">
+              <AvatarPicker
+                value={form.logo_url}
+                onChange={(logo_url) => setForm({ ...form, logo_url })}
+                fallbackInitials={form.name.slice(0, 2).toUpperCase()}
+              />
+            </Field>
+          </div>
           <Field label="Nom">
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
@@ -187,6 +203,15 @@ export function EditClientDialog({ client }: { client: Client }) {
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
           </Field>
+          <Field label="Mot de passe">
+            <Input
+              type="password"
+              autoComplete="new-password"
+              placeholder="Laisser vide pour ne pas changer"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </Field>
           <Field label="Statut">
             <select
               className={selectClass}
@@ -197,6 +222,13 @@ export function EditClientDialog({ client }: { client: Client }) {
               <option value="actif">Actif</option>
               <option value="inactif">Inactif</option>
             </select>
+          </Field>
+          <Field label="Date de création">
+            <Input
+              type="date"
+              value={form.created_at}
+              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
+            />
           </Field>
         </div>
         <DialogFooter>

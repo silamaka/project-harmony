@@ -85,9 +85,12 @@ export function MissionsTable({
           ? COLUMN_WIDTHS.clientOnlyActions
           : COLUMN_WIDTHS.clientOnly;
   const columnCount = 6 + (showClient ? 1 : 0) + (showResponsable ? 1 : 0) + (showActions ? 1 : 0);
-  const sortedMissions = [...missions].sort(
-    (a, b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority),
-  );
+  const sortedMissions = [...missions].sort((a, b) => {
+    const priorityDiff = PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority);
+    if (priorityDiff !== 0) return priorityDiff;
+    // À priorité égale, la deadline la plus proche remonte en premier.
+    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+  });
 
   return (
     <div className="surface-card overflow-hidden">
@@ -272,13 +275,17 @@ function MissionRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {onEdit && (
-                <DropdownMenuItem onSelect={onEdit}>
+                // L'ouverture du dialog est différée d'un tick : sinon, ouvrir un Dialog
+                // depuis le onSelect d'un DropdownMenuItem (dans la même passe que la
+                // fermeture du menu) peut laisser `pointer-events: none` bloqué sur
+                // <body> côté Radix, rendant la page injouable jusqu'au rechargement.
+                <DropdownMenuItem onSelect={() => setTimeout(onEdit, 0)}>
                   <Pencil className="h-3.5 w-3.5" /> Modifier
                 </DropdownMenuItem>
               )}
               {onDelete && (
                 <DropdownMenuItem
-                  onSelect={onDelete}
+                  onSelect={() => setTimeout(onDelete, 0)}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Supprimer

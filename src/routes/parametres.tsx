@@ -1,11 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Briefcase, CheckCircle2, Search, ShieldCheck, Users } from "lucide-react";
+import { Briefcase, Building2, Search, ShieldCheck, Users } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateUserDialog, EditUserDialog } from "@/components/shared/create-dialogs";
+import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
+import { PillSelect } from "@/components/shared/pill-select";
 import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/auth-context";
 import { userService } from "@/services";
 import { ROLE_LABELS, type Role } from "@/types";
 
@@ -18,6 +22,12 @@ const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
   nom: "Nom A-Z",
 };
 const PAGE_SIZES = [10, 20, 50] as const;
+
+const ACTIVE_OPTIONS: Record<"1" | "0", string> = { "1": "Actif", "0": "Inactif" };
+const ACTIVE_TONE: Record<"1" | "0", string> = {
+  "1": "bg-success/15 text-success",
+  "0": "bg-muted text-muted-foreground",
+};
 
 export const Route = createFileRoute("/parametres")({
   head: () => ({
@@ -35,6 +45,8 @@ export const Route = createFileRoute("/parametres")({
 });
 
 function SettingsPage() {
+  const qc = useQueryClient();
+  const { user: currentUser } = useAuth();
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<(typeof ROLE_FILTERS)[number]>("tous");
@@ -43,12 +55,34 @@ function SettingsPage() {
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20);
   const [page, setPage] = useState(1);
 
+  const removeUser = useMutation({
+    mutationFn: (id: string) => userService.remove(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["users"] });
+      void qc.invalidateQueries({ queryKey: ["collaborators"] });
+      void qc.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Utilisateur supprimé.");
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
+  const updateActive = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      userService.update(id, { is_active }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["users"] });
+      void qc.invalidateQueries({ queryKey: ["collaborators"] });
+      toast.success("Statut mis à jour.");
+    },
+    onError: () => toast.error("Mise à jour impossible."),
+  });
+
   const stats = useMemo(
     () => ({
-      total: (users ?? []).length,
+      clients: (users ?? []).filter((u) => u.role === "client").length,
       admins: (users ?? []).filter((u) => u.role === "admin").length,
       staff: (users ?? []).filter((u) => u.role === "chef_projet").length,
-      actifs: (users ?? []).filter((u) => u.is_active).length,
+      collaborateurs: (users ?? []).filter((u) => u.role === "collaborateur").length,
     }),
     [users],
   );
@@ -82,10 +116,10 @@ function SettingsPage() {
   return (
     <AppShell title="Paramètres" subtitle="Administration de la plateforme" allow={["admin"]}>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total" value={stats.total} icon={Users} />
+        <StatCard label="Clients" value={stats.clients} icon={Building2} />
         <StatCard label="Admins" value={stats.admins} icon={ShieldCheck} tone="info" />
         <StatCard label="Chefs de projet" value={stats.staff} icon={Briefcase} tone="warning" />
-        <StatCard label="Actifs" value={stats.actifs} icon={CheckCircle2} tone="success" />
+        <StatCard label="Collaborateurs" value={stats.collaborateurs} icon={Users} tone="success" />
       </div>
 
       <div className="surface-card mt-4 p-5">
@@ -180,18 +214,35 @@ function SettingsPage() {
                   <td className="py-2.5 text-muted-foreground">{u.email}</td>
                   <td className="py-2.5">{ROLE_LABELS[u.role]}</td>
                   <td className="py-2.5">
-                    <span
-                      className={
-                        u.is_active
-                          ? "rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success"
-                          : "rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground"
-                      }
-                    >
-                      {u.is_active ? "Actif" : "Inactif"}
-                    </span>
+                    {u.id === currentUser?.id ? (
+                      <span
+                        title="Vous ne pouvez pas désactiver votre propre compte."
+                        className="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success"
+                      >
+                        Actif
+                      </span>
+                    ) : (
+                      <PillSelect
+                        value={u.is_active ? "1" : "0"}
+                        options={ACTIVE_OPTIONS}
+                        tone={ACTIVE_TONE}
+                        onChange={(v) => updateActive.mutate({ id: u.id, is_active: v === "1" })}
+                      />
+                    )}
                   </td>
                   <td className="py-2.5 text-right">
-                    <EditUserDialog user={u} />
+                    <div className="flex items-center justify-end gap-2">
+                      <EditUserDialog user={u} />
+                      {u.id !== currentUser?.id && (
+                        <ConfirmDeleteButton
+                          iconOnly
+                          title={`Supprimer ${u.first_name} ${u.last_name} ?`}
+                          description="Le compte utilisateur sera définitivement supprimé. Cette action est irréversible."
+                          pending={removeUser.isPending && removeUser.variables === u.id}
+                          onConfirm={() => removeUser.mutate(u.id)}
+                        />
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

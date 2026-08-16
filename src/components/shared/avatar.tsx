@@ -34,6 +34,35 @@ export function UserAvatar({
   );
 }
 
+/** Logo client carré : photo si disponible, sinon initiales du nom de l'entreprise. */
+export function ClientLogo({
+  client,
+  className,
+}: {
+  client: { name: string; logo_url?: string | undefined };
+  className?: string;
+}) {
+  if (client.logo_url) {
+    return (
+      <img
+        src={client.logo_url}
+        alt={client.name}
+        className={cn("shrink-0 rounded-lg object-cover", className)}
+      />
+    );
+  }
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-lg bg-primary/10 font-bold text-primary",
+        className,
+      )}
+    >
+      {client.name.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
 /** Redimensionne l'image côté client (max 256px, JPEG) avant stockage en data URL. */
 function resizeImageToDataUrl(file: File, maxSize = 256, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {

@@ -76,9 +76,13 @@ function ProjectDetailPage() {
   const removeProject = useMutation({
     mutationFn: () => projectService.remove(projectId),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success("Projet supprimé.");
-      void navigate({ to: "/projets" });
+      // On invalide "projects" seulement une fois la navigation terminée : sinon la requête
+      // ["projects", projectId] encore montée se refetch sur une fiche déjà supprimée et échoue
+      // (queryFn qui retourne undefined), ce qui laisse la page dans un état incohérent.
+      void navigate({ to: "/projets" }).then(() =>
+        qc.invalidateQueries({ queryKey: ["projects"] }),
+      );
     },
     onError: () => toast.error("Suppression impossible."),
   });

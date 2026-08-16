@@ -45,7 +45,10 @@ export const clientService = {
   get: (id: string) => delay<Client | undefined>(clients.find((c) => c.id === id)),
   /** POST /api/v1/clients/ */
   create: (
-    payload: Omit<Client, "id" | "created_at" | "contacts"> & { contacts?: Client["contacts"] },
+    payload: Omit<Client, "id" | "created_at" | "contacts"> & {
+      contacts?: Client["contacts"];
+      created_at?: string;
+    },
   ) => {
     const client: Client = { id: uid("cli"), created_at: now(), contacts: [], ...payload };
     clients.unshift(client);
@@ -61,6 +64,11 @@ export const clientService = {
   remove: (id: string) => {
     const i = clients.findIndex((x) => x.id === id);
     if (i >= 0) clients.splice(i, 1);
+    // Détache tout compte utilisateur (rôle "client") encore lié à cette entreprise,
+    // pour ne pas laisser de client_id fantôme pointant vers une fiche supprimée.
+    users.forEach((u) => {
+      if (u.client_id === id) delete u.client_id;
+    });
     return delay(true);
   },
 };
@@ -69,7 +77,12 @@ export const clientService = {
 export const userService = {
   list: () => delay<User[]>([...users]),
   /** POST /api/v1/users/ */
-  create: (payload: Omit<User, "id" | "created_at" | "is_active"> & { is_active?: boolean }) => {
+  create: (
+    payload: Omit<User, "id" | "created_at" | "is_active"> & {
+      is_active?: boolean;
+      created_at?: string;
+    },
+  ) => {
     const user: User = { id: uid("usr"), created_at: now(), is_active: true, ...payload };
     users.push(user);
     return delay(user);
@@ -90,7 +103,14 @@ export const userService = {
   /** DELETE /api/v1/users/:id/ */
   remove: (id: string) => {
     const i = users.findIndex((x) => x.id === id);
+    const removed = users[i];
     if (i >= 0) users.splice(i, 1);
+    // La gestion des fiches entreprise passe entièrement par le compte utilisateur
+    // "Client" : le supprimer supprime aussi l'entreprise qui lui était associée.
+    if (removed?.client_id) {
+      const ci = clients.findIndex((c) => c.id === removed.client_id);
+      if (ci >= 0) clients.splice(ci, 1);
+    }
     return delay(true);
   },
 };

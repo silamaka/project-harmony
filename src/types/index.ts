@@ -30,6 +30,8 @@ export interface User {
   avatar_url?: string;
   job_title?: string;
   workload?: number; // charge de travail en %
+  /** Entreprise associée, uniquement pertinent pour un compte de rôle "client". */
+  client_id?: string;
   is_active: boolean;
   created_at: string;
 }

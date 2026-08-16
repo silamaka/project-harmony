@@ -38,9 +38,7 @@ function ClientPortalPage() {
     queryFn: deliverableService.list,
   });
 
-  // Rattachement démo : le client connecté est associé au premier client actif.
-  const client =
-    clients?.find((c) => c.contacts.some((ct) => ct.email === user?.email)) ?? clients?.[0];
+  const client = clients?.find((c) => c.id === user?.client_id);
 
   const myProjects = (projects ?? []).filter((p) => p.client_id === client?.id);
   const myMissions = (missions ?? []).filter((m) => m.client_id === client?.id);
@@ -60,6 +58,19 @@ function ClientPortalPage() {
       );
     },
   });
+
+  if (clients !== undefined && !client) {
+    return (
+      <AppShell title="Portail client" allow={["client"]}>
+        <div className="surface-card p-8 text-center">
+          <h2 className="text-sm font-semibold">Aucune entreprise associée à votre compte</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Contactez votre chef de projet pour rattacher votre compte à votre entreprise.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title="Portail client" subtitle={client?.name} allow={["client"]}>
