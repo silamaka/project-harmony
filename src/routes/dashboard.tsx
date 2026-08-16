@@ -1,15 +1,33 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  endOfDay,
+  endOfMonth,
+  endOfQuarter,
+  endOfWeek,
+  endOfYear,
+  format,
+  isWithinInterval,
+  startOfDay,
+  startOfMonth,
+  startOfQuarter,
+  startOfWeek,
+  startOfYear,
+} from "date-fns";
+import { fr } from "date-fns/locale";
 import {
   AlertTriangle,
   Building2,
+  CalendarDays,
   Clock,
   FolderKanban,
   ListChecks,
   Package,
   Users,
 } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 import {
   Bar,
   BarChart,
@@ -22,8 +40,9 @@ import {
   YAxis,
 } from "recharts";
 import { AppShell } from "@/components/layout/app-shell";
-import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
 import { StatCard } from "@/components/shared/stat-card";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -31,8 +50,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
+import { MissionsTable } from "@/components/shared/missions-table";
+import { usePersistedState } from "@/hooks/use-persisted-state";
+import { cn } from "@/lib/utils";
 import {
   clientService,
+  commentService,
   dashboardService,
   deliverableService,
   isLate,
@@ -40,7 +65,19 @@ import {
   projectService,
   userService,
 } from "@/services";
-import type { Mission } from "@/types";
+import type { Mission, MissionStatus, Priority } from "@/types";
+
+const PERIODS = ["tout", "jour", "semaine", "mois", "trimestre", "annee", "personnalise"] as const;
+type Period = (typeof PERIODS)[number];
+const PERIOD_LABELS: Record<Period, string> = {
+  tout: "Tout",
+  jour: "Aujourd'hui",
+  semaine: "Cette semaine",
+  mois: "Ce mois-ci",
+  trimestre: "Ce trimestre",
+  annee: "Cette année",
+  personnalise: "Personnalisé",
+};
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -55,25 +92,9 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-  const { data: stats } = useQuery({
-    queryKey: ["dashboard", "stats"],
-    queryFn: dashboardService.stats,
-  });
-  const { data: byClient } = useQuery({
-    queryKey: ["dashboard", "byClient"],
-    queryFn: dashboardService.missionsByClient,
-  });
-  const { data: byCollab } = useQuery({
-    queryKey: ["dashboard", "byCollab"],
-    queryFn: dashboardService.missionsByCollaborator,
-  });
   const { data: monthly } = useQuery({
     queryKey: ["dashboard", "monthly"],
     queryFn: dashboardService.monthly,
-  });
-  const { data: rate } = useQuery({
-    queryKey: ["dashboard", "rate"],
-    queryFn: dashboardService.completionRate,
   });
   const { data: alerts } = useQuery({
     queryKey: ["dashboard", "alerts"],
@@ -87,8 +108,42 @@ function DashboardPage() {
     queryKey: ["deliverables"],
     queryFn: deliverableService.list,
   });
+  const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
 
+  const qc = useQueryClient();
   const [drill, setDrill] = useState<null | string>(null);
+  const [editingMission, setEditingMission] = useState<Mission | null>(null);
+  const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
+  const [period, setPeriod] = usePersistedState<Period>("beba.dashboard-period", "tout");
+  const [customStart, setCustomStart] = usePersistedState("beba.dashboard-custom-start", "");
+  const [customEnd, setCustomEnd] = usePersistedState("beba.dashboard-custom-end", "");
+
+  const range = useMemo(() => {
+    const now = new Date();
+    switch (period) {
+      case "jour":
+        return { start: startOfDay(now), end: endOfDay(now) };
+      case "semaine":
+        return {
+          start: startOfWeek(now, { weekStartsOn: 1 }),
+          end: endOfWeek(now, { weekStartsOn: 1 }),
+        };
+      case "mois":
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "trimestre":
+        return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "annee":
+        return { start: startOfYear(now), end: endOfYear(now) };
+      case "personnalise": {
+        if (!customStart || !customEnd) return null;
+        const start = startOfDay(new Date(customStart));
+        const end = endOfDay(new Date(customEnd));
+        return start <= end ? { start, end } : null;
+      }
+      default:
+        return null;
+    }
+  }, [period, customStart, customEnd]);
 
   const clientName = (id: string) => clients?.find((c) => c.id === id)?.name ?? "—";
   const projectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? "—";
@@ -98,31 +153,106 @@ function DashboardPage() {
   };
   const missionTitle = (id: string) => missions?.find((m) => m.id === id)?.title ?? "—";
 
-  const lateMissions = (missions ?? []).filter(isLate);
-  const collaborators = (users ?? []).filter((u) => u.role === "collaborateur");
-
-  const MissionRows = ({ items }: { items: Mission[] }) => (
-    <div className="space-y-2">
-      {items.length === 0 && <p className="text-sm text-muted-foreground">Aucun élément.</p>}
-      {items.map((m) => (
-        <Link
-          key={m.id}
-          to="/missions/$missionId"
-          params={{ missionId: m.id }}
-          onClick={() => setDrill(null)}
-          className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
-        >
-          <span className="flex-1 font-medium">{m.title}</span>
-          <span className="text-xs text-muted-foreground">{clientName(m.client_id)}</span>
-          <PriorityBadge priority={m.priority} />
-          <MissionStatusBadge status={m.status} />
-          <span className="text-xs text-muted-foreground">
-            {new Date(m.deadline).toLocaleDateString("fr-FR")}
-          </span>
-        </Link>
-      ))}
-    </div>
+  const filteredMissions = useMemo(
+    () => (missions ?? []).filter((m) => !range || isWithinInterval(new Date(m.deadline), range)),
+    [missions, range],
   );
+  const filteredDeliverables = useMemo(
+    () =>
+      (deliverables ?? []).filter((d) => !range || isWithinInterval(new Date(d.created_at), range)),
+    [deliverables, range],
+  );
+
+  const collaborators = (users ?? []).filter((u) => u.role === "collaborateur");
+  const lateMissions = filteredMissions.filter(isLate);
+
+  const byClient = useMemo(
+    () =>
+      (clients ?? []).map((c) => ({
+        name: c.name,
+        missions: filteredMissions.filter((m) => m.client_id === c.id).length,
+      })),
+    [clients, filteredMissions],
+  );
+  const byCollab = useMemo(
+    () =>
+      collaborators.map((u) => ({
+        name: `${u.first_name} ${u.last_name}`,
+        missions: filteredMissions.filter((m) => m.assignee_id === u.id).length,
+      })),
+    [collaborators, filteredMissions],
+  );
+  const completedInPeriod = filteredMissions.filter(
+    (m) => m.status === "termine" || m.status === "valide",
+  ).length;
+  const rate = filteredMissions.length
+    ? Math.round((completedInPeriod / filteredMissions.length) * 100)
+    : 0;
+
+  const stats = {
+    clients: (clients ?? []).length,
+    projects: (projects ?? []).length,
+    missions: filteredMissions.length,
+    collaborators: collaborators.length,
+    deliverables: filteredDeliverables.length,
+    late_missions: lateMissions.length,
+  };
+
+  const assigneeOptions: Record<string, string> = Object.fromEntries(
+    collaborators.map((u) => [u.id, `${u.first_name} ${u.last_name}`]),
+  );
+  const assigneeTone: Record<string, string> = Object.fromEntries(
+    collaborators.map((u) => [u.id, "bg-accent text-accent-foreground"]),
+  );
+  const missionDeliverables = (missionId: string) =>
+    (deliverables ?? []).filter((d) => d.mission_id === missionId);
+  const lastComment = (missionId: string) => {
+    const list = (comments ?? [])
+      .filter((c) => c.mission_id === missionId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return list[0]?.body ?? "";
+  };
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: MissionStatus }) =>
+      missionService.updateStatus(id, status),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
+    onError: () => toast.error("Mise à jour du statut impossible."),
+  });
+  const updatePriority = useMutation({
+    mutationFn: ({ id, priority }: { id: string; priority: Priority }) =>
+      missionService.update(id, { priority }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
+    onError: () => toast.error("Mise à jour de la priorité impossible."),
+  });
+  const updateAssignee = useMutation({
+    mutationFn: ({ id, assignee_id }: { id: string; assignee_id: string }) =>
+      missionService.update(id, { assignee_id }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
+    onError: () => toast.error("Réassignation impossible."),
+  });
+  const removeMission = useMutation({
+    mutationFn: (id: string) => missionService.remove(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["missions"] });
+      toast.success("Mission supprimée.");
+      setDeletingMission(null);
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
+  const drillMissions: Mission[] | null =
+    drill === "missions"
+      ? filteredMissions
+      : drill === "late"
+        ? lateMissions
+        : drill === "in24h"
+          ? (alerts?.in24h ?? [])
+          : drill === "in48h"
+            ? (alerts?.in48h ?? [])
+            : drill === "blocked"
+              ? (alerts?.blocked ?? [])
+              : null;
 
   return (
     <AppShell
@@ -130,45 +260,117 @@ function DashboardPage() {
       subtitle="Vue d'ensemble de l'activité de l'agence"
       allow={["admin", "chef_projet"]}
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="surface-card flex flex-wrap items-center gap-3 p-3">
+        <div className="flex items-center gap-1.5 pl-1 text-sm font-semibold text-muted-foreground">
+          <CalendarDays className="h-4 w-4" />
+          Période
+        </div>
+        <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-1">
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                period === p
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-background hover:text-foreground",
+              )}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+        {period === "personnalise" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {customStart && customEnd
+                  ? `${format(new Date(customStart), "d MMM yyyy", { locale: fr })} – ${format(new Date(customEnd), "d MMM yyyy", { locale: fr })}`
+                  : "Choisir une période"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                locale={fr}
+                numberOfMonths={2}
+                {...(customStart ? { defaultMonth: new Date(customStart) } : {})}
+                selected={
+                  customStart
+                    ? {
+                        from: new Date(customStart),
+                        to: customEnd ? new Date(customEnd) : undefined,
+                      }
+                    : undefined
+                }
+                onSelect={(r: DateRange | undefined) => {
+                  setCustomStart(r?.from ? format(r.from, "yyyy-MM-dd") : "");
+                  setCustomEnd(r?.to ? format(r.to, "yyyy-MM-dd") : "");
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
+        {range && period !== "personnalise" && (
+          <span className="ml-auto flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
+            {format(range.start, "d MMM yyyy", { locale: fr })} –{" "}
+            {format(range.end, "d MMM yyyy", { locale: fr })}
+          </span>
+        )}
+        {!range && period !== "personnalise" && (
+          <span className="ml-auto text-xs text-muted-foreground">
+            Toutes les données, sans limite de date
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
+          testId="kpi-clients"
           label="Clients"
-          value={stats?.clients ?? 0}
+          value={stats.clients}
           icon={Building2}
           delay={0}
           onClick={() => setDrill("clients")}
         />
         <StatCard
+          testId="kpi-projects"
           label="Projets"
-          value={stats?.projects ?? 0}
+          value={stats.projects}
           icon={FolderKanban}
           delay={0.04}
           onClick={() => setDrill("projects")}
         />
         <StatCard
+          testId="kpi-missions"
           label="Missions"
-          value={stats?.missions ?? 0}
+          value={stats.missions}
           icon={ListChecks}
           delay={0.08}
           onClick={() => setDrill("missions")}
         />
         <StatCard
+          testId="kpi-collaborators"
           label="Collaborateurs"
-          value={stats?.collaborators ?? 0}
+          value={stats.collaborators}
           icon={Users}
           delay={0.12}
           onClick={() => setDrill("collaborators")}
         />
         <StatCard
+          testId="kpi-deliverables"
           label="Livrables"
-          value={stats?.deliverables ?? 0}
+          value={stats.deliverables}
           icon={Package}
           delay={0.16}
           onClick={() => setDrill("deliverables")}
         />
         <StatCard
+          testId="kpi-late-missions"
           label="Missions en retard"
-          value={stats?.late_missions ?? 0}
+          value={stats.late_missions}
           icon={AlertTriangle}
           tone="danger"
           delay={0.2}
@@ -176,7 +378,12 @@ function DashboardPage() {
         />
       </div>
 
-      <h2 className="mt-6 text-sm font-semibold text-muted-foreground">Alertes</h2>
+      <div className="mt-6 flex items-baseline gap-2">
+        <h2 className="text-sm font-semibold text-muted-foreground">Alertes</h2>
+        <span className="text-xs text-muted-foreground">
+          (toujours en temps réel, hors filtre de période)
+        </span>
+      </div>
       <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Échéance dans 24 h"
@@ -215,6 +422,9 @@ function DashboardPage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5 lg:col-span-2">
           <h2 className="text-sm font-semibold">Évolution mensuelle</h2>
+          <p className="text-xs text-muted-foreground">
+            Tendance globale, indépendante du filtre de période.
+          </p>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthly ?? []}>
@@ -252,11 +462,11 @@ function DashboardPage() {
             <div
               className="absolute inset-0 rounded-full"
               style={{
-                background: `conic-gradient(var(--color-primary) ${(rate ?? 0) * 3.6}deg, transparent 0)`,
+                background: `conic-gradient(var(--color-primary) ${rate * 3.6}deg, transparent 0)`,
               }}
             />
             <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-card">
-              <span className="text-3xl font-extrabold">{rate ?? 0}%</span>
+              <span className="text-3xl font-extrabold">{rate}%</span>
             </div>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">Missions validées ou terminées</p>
@@ -268,7 +478,7 @@ function DashboardPage() {
           <h2 className="text-sm font-semibold">Missions par client</h2>
           <div className="mt-4 h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byClient ?? []} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+              <BarChart data={byClient} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="var(--color-border)"
@@ -307,7 +517,7 @@ function DashboardPage() {
           <h2 className="text-sm font-semibold">Missions par collaborateur</h2>
           <div className="mt-4 h-60">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byCollab ?? []} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
+              <BarChart data={byCollab} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="var(--color-border)"
@@ -343,52 +553,37 @@ function DashboardPage() {
         </div>
       </div>
 
-      <div className="surface-card mt-6 p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Missions récentes</h2>
-          <Link to="/missions" className="text-xs font-medium text-primary hover:underline">
-            Voir tout
-          </Link>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
-                <th className="pb-2 font-medium">Mission</th>
-                <th className="pb-2 font-medium">Priorité</th>
-                <th className="pb-2 font-medium">Statut</th>
-                <th className="pb-2 font-medium">Deadline</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(missions ?? []).slice(0, 5).map((m) => (
-                <tr key={m.id} className="border-b border-border/60 last:border-0">
-                  <td className="py-3 pr-4 font-medium">
-                    <Link
-                      to="/missions/$missionId"
-                      params={{ missionId: m.id }}
-                      className="hover:text-primary"
-                    >
-                      {m.title}
-                    </Link>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <PriorityBadge priority={m.priority} />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <MissionStatusBadge status={m.status} />
-                  </td>
-                  <td className="py-3 text-muted-foreground">
-                    {new Date(m.deadline).toLocaleDateString("fr-FR")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="mt-6 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Missions récentes</h2>
+        <Link to="/missions" className="text-xs font-medium text-primary hover:underline">
+          Voir tout
+        </Link>
+      </div>
+      <div className="mt-3">
+        <MissionsTable
+          missions={filteredMissions.slice(0, 5)}
+          showClient
+          clientName={clientName}
+          showResponsable
+          assigneeOptions={assigneeOptions}
+          assigneeTone={assigneeTone}
+          deliverablesFor={missionDeliverables}
+          commentFor={lastComment}
+          onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+          onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
+          onAssigneeChange={(id, assignee_id) => updateAssignee.mutate({ id, assignee_id })}
+          onEditMission={setEditingMission}
+          onDeleteMission={setDeletingMission}
+          emptyMessage="Aucune mission sur cette période."
+        />
       </div>
       <Dialog open={drill !== null} onOpenChange={(o) => !o && setDrill(null)}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent
+          className={cn(
+            "max-h-[80vh] overflow-y-auto",
+            drillMissions ? "sm:max-w-5xl" : "sm:max-w-2xl",
+          )}
+        >
           <DialogHeader>
             <DialogTitle>
               {drill === "clients" && "Tous les clients"}
@@ -470,7 +665,7 @@ function DashboardPage() {
           {(drill === "deliverables" || drill === "pendingDeliverables") && (
             <div className="space-y-2">
               {(drill === "deliverables"
-                ? (deliverables ?? [])
+                ? filteredDeliverables
                 : (alerts?.pendingDeliverables ?? [])
               ).map((d) => (
                 <Link
@@ -491,13 +686,48 @@ function DashboardPage() {
             </div>
           )}
 
-          {drill === "missions" && <MissionRows items={missions ?? []} />}
-          {drill === "late" && <MissionRows items={lateMissions} />}
-          {drill === "in24h" && <MissionRows items={alerts?.in24h ?? []} />}
-          {drill === "in48h" && <MissionRows items={alerts?.in48h ?? []} />}
-          {drill === "blocked" && <MissionRows items={alerts?.blocked ?? []} />}
+          {drillMissions && (
+            <MissionsTable
+              missions={drillMissions}
+              showClient
+              clientName={clientName}
+              showResponsable
+              assigneeOptions={assigneeOptions}
+              assigneeTone={assigneeTone}
+              deliverablesFor={missionDeliverables}
+              commentFor={lastComment}
+              onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+              onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
+              onAssigneeChange={(id, assignee_id) => updateAssignee.mutate({ id, assignee_id })}
+              onEditMission={(m) => {
+                setDrill(null);
+                setEditingMission(m);
+              }}
+              onDeleteMission={(m) => {
+                setDrill(null);
+                setDeletingMission(m);
+              }}
+              emptyMessage="Aucun élément."
+            />
+          )}
         </DialogContent>
       </Dialog>
+
+      {editingMission && (
+        <EditMissionDialog
+          mission={editingMission}
+          open
+          onOpenChange={(o) => !o && setEditingMission(null)}
+        />
+      )}
+      <ConfirmDeleteButton
+        open={deletingMission !== null}
+        onOpenChange={(o) => !o && setDeletingMission(null)}
+        title={`Supprimer "${deletingMission?.title ?? ""}" ?`}
+        description="La mission sera définitivement retirée. Cette action est irréversible."
+        pending={removeMission.isPending}
+        onConfirm={() => deletingMission && removeMission.mutate(deletingMission.id)}
+      />
     </AppShell>
   );
 }

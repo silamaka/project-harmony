@@ -11,6 +11,7 @@ export function StatCard({
   tone = "default",
   delay = 0,
   onClick,
+  testId,
 }: {
   label: string;
   value: number | string;
@@ -19,6 +20,7 @@ export function StatCard({
   tone?: "default" | "danger" | "warning" | "info" | "success";
   delay?: number;
   onClick?: () => void;
+  testId?: string;
 }) {
   const interactive = typeof onClick === "function";
   return (
@@ -32,6 +34,7 @@ export function StatCard({
         return (
           <Tag
             {...(interactive ? { type: "button", onClick } : {})}
+            {...(testId ? { "data-testid": testId } : {})}
             className={cn(
               "surface-card w-full p-5 text-left transition",
               interactive &&
