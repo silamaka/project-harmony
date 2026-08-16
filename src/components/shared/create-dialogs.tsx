@@ -222,6 +222,7 @@ export function CreateMissionDialog({
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
     assignee_id: "",
+    created_at: today,
     deadline: today,
   });
   const done = useCreate([["missions"], ["notifications"]], () => setOpen(false));
@@ -317,6 +318,13 @@ export function CreateMissionDialog({
               ))}
             </select>
           </Field>
+          <Field label="Date de création">
+            <Input
+              type="date"
+              value={form.created_at}
+              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
+            />
+          </Field>
           <Field label="Deadline">
             <Input
               type="date"
@@ -339,12 +347,20 @@ export function CreateMissionDialog({
               onChange={(e) => setForm({ ...form, objective: e.target.value })}
             />
           </Field>
-          <Field label="Ressources">
+          <Field label="Stratégie">
             <Input
-              value={form.resources}
-              onChange={(e) => setForm({ ...form, resources: e.target.value })}
+              value={form.strategy}
+              onChange={(e) => setForm({ ...form, strategy: e.target.value })}
             />
           </Field>
+          <div className="sm:col-span-2">
+            <Field label="Ressources">
+              <Input
+                value={form.resources}
+                onChange={(e) => setForm({ ...form, resources: e.target.value })}
+              />
+            </Field>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -364,11 +380,14 @@ export function CreateUserDialog({
   role = "collaborateur",
   triggerLabel = "Ajouter",
   lockRole = false,
+  excludeRoles = [],
 }: {
   role?: "collaborateur" | "chef_projet" | "admin" | "client";
   triggerLabel?: string;
   /** Limite le sélecteur au rôle fourni (aucun autre rôle proposé). */
   lockRole?: boolean;
+  /** Masque ces rôles du sélecteur (ex. "collaborateur" quand ce rôle a déjà sa propre page de création dédiée). */
+  excludeRoles?: ("collaborateur" | "chef_projet" | "admin" | "client")[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const [open, setOpen] = useState(false);
@@ -496,11 +515,13 @@ export function CreateUserDialog({
               {lockRole ? (
                 <option value={role}>{ROLE_OPTIONS[role]}</option>
               ) : (
-                Object.entries(ROLE_OPTIONS).map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))
+                Object.entries(ROLE_OPTIONS)
+                  .filter(([v]) => !excludeRoles.includes(v as typeof role))
+                  .map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))
               )}
             </select>
           </Field>

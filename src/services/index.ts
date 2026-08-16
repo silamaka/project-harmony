@@ -144,7 +144,7 @@ export const projectService = {
 export const missionService = {
   list: () => delay<Mission[]>([...missions]),
   /** POST /api/v1/missions/ */
-  create: (payload: Omit<Mission, "id" | "created_at">) => {
+  create: (payload: Omit<Mission, "id" | "created_at"> & { created_at?: string }) => {
     const mission: Mission = { id: uid("mis"), created_at: now(), ...payload };
     missions.unshift(mission);
     notifications.unshift({
