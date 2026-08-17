@@ -163,6 +163,8 @@ function MissionDetailPage() {
 
   const currentIndex = mission ? MISSION_WORKFLOW.indexOf(mission.status) : -1;
   const canManage = user?.role === "admin" || user?.role === "chef_projet";
+  /** Le client ne pilote que sa décision (Validé / Corrections), pas le pipeline interne. */
+  const isClient = user?.role === "client";
 
   const requestStatusChange = (status: MissionStatus) => {
     if (!mission || status === mission.status) return;
@@ -199,7 +201,7 @@ function MissionDetailPage() {
                 active={mission?.status === s}
                 filled={i <= currentIndex}
                 done={i < currentIndex}
-                disabled={statusMutation.isPending}
+                disabled={statusMutation.isPending || isClient}
                 onClick={() => requestStatusChange(s)}
               />
               <StepConnector filled={i < currentIndex} />
@@ -241,7 +243,7 @@ function MissionDetailPage() {
             active={mission?.status === "publie"}
             filled={mission?.status === "publie" || mission?.status === "termine"}
             done={mission?.status === "termine"}
-            disabled={statusMutation.isPending}
+            disabled={statusMutation.isPending || isClient}
             onClick={() => requestStatusChange("publie")}
           />
 
@@ -252,7 +254,7 @@ function MissionDetailPage() {
             active={mission?.status === "termine"}
             filled={mission?.status === "termine"}
             done={false}
-            disabled={statusMutation.isPending}
+            disabled={statusMutation.isPending || isClient}
             onClick={() => requestStatusChange("termine")}
           />
         </div>

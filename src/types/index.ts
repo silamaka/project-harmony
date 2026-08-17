@@ -198,6 +198,8 @@ export interface Notification {
   read: boolean;
   created_at: string;
   link?: string;
+  /** Mission concernée, utilisée pour ne montrer aux collaborateurs que ce qui les concerne. */
+  mission_id?: string;
 }
 
 export interface DashboardStats {

@@ -23,7 +23,7 @@ import { UserAvatar } from "@/components/shared/avatar";
 import { useAuth } from "@/context/auth-context";
 import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
-import { notificationService } from "@/services";
+import { missionService, notificationService } from "@/services";
 import { ROLE_LABELS, type Role } from "@/types";
 import { Button } from "@/components/ui/button";
 
@@ -105,7 +105,20 @@ export function AppShell({
     queryKey: ["notifications"],
     queryFn: notificationService.list,
   });
-  const unread = (notifs ?? []).filter((n) => !n.read).length;
+  const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
+  /** Un collaborateur ou un client ne voit que les alertes liées à ses propres missions. */
+  const scopedToSelf = user?.role === "collaborateur" || user?.role === "client";
+  const ownMissionIds = new Set(
+    (missions ?? [])
+      .filter((m) =>
+        user?.role === "client" ? m.client_id === user.client_id : m.assignee_id === user?.id,
+      )
+      .map((m) => m.id),
+  );
+  const unread = (notifs ?? []).filter(
+    (n) =>
+      !n.read && (!scopedToSelf || (n.mission_id !== undefined && ownMissionIds.has(n.mission_id))),
+  ).length;
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login" });

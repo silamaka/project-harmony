@@ -155,6 +155,7 @@ export const missionService = {
       read: false,
       created_at: now(),
       link: `/missions/${mission.id}`,
+      mission_id: mission.id,
     });
     return delay(mission);
   },

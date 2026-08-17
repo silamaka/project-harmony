@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
-import { notificationService } from "@/services";
+import { useAuth } from "@/context/auth-context";
+import { missionService, notificationService } from "@/services";
 import type { Notification } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -42,8 +43,21 @@ const ICONS: Record<Notification["type"], typeof Bell> = {
 
 function NotificationsPage() {
   const qc = useQueryClient();
+  const { user, hasRole } = useAuth();
   const { data } = useQuery({ queryKey: ["notifications"], queryFn: notificationService.list });
-  const items = data ?? [];
+  const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
+  /** Un collaborateur ou un client ne voit que les alertes liées à ses propres missions. */
+  const scopedToSelf = hasRole("collaborateur", "client");
+  const ownMissionIds = new Set(
+    (missions ?? [])
+      .filter((m) =>
+        user?.role === "client" ? m.client_id === user.client_id : m.assignee_id === user?.id,
+      )
+      .map((m) => m.id),
+  );
+  const items = (data ?? []).filter(
+    (n) => !scopedToSelf || (n.mission_id !== undefined && ownMissionIds.has(n.mission_id)),
+  );
   const invalidate = () => void qc.invalidateQueries({ queryKey: ["notifications"] });
   const markAll = useMutation({
     mutationFn: notificationService.markAllRead,

@@ -46,10 +46,9 @@ const STATUS_LABEL: Record<Deliverable["status"], string> = {
   corrections: "Corrections",
 };
 
-const FILTERS = ["tous", "mes", "en_attente", "valide", "corrections"] as const;
+const FILTERS = ["tous", "en_attente", "valide", "corrections"] as const;
 const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
   tous: "Tous",
-  mes: "Mes livrables",
   en_attente: "En attente",
   valide: "Validé",
   corrections: "Corrections",
@@ -60,6 +59,8 @@ function DeliverablesPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
   const { user, hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
+  /** Un collaborateur ne voit que ses propres dépôts, pas ceux de toute l'agence. */
+  const scopedToSelf = hasRole("collaborateur");
   const queryClient = useQueryClient();
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
@@ -77,16 +78,17 @@ function DeliverablesPage() {
     },
   });
 
-  const list = (deliverables ?? []).filter(
+  const visible = (deliverables ?? []).filter((d) => !scopedToSelf || d.uploaded_by === user?.id);
+  const list = visible.filter(
     (d) =>
       d.name.toLowerCase().includes(q.trim().toLowerCase()) &&
-      (filter === "tous" || (filter === "mes" ? d.uploaded_by === user?.id : d.status === filter)),
+      (filter === "tous" || d.status === filter),
   );
 
   return (
     <AppShell
       title="Livrables"
-      subtitle={`${deliverables?.length ?? 0} fichier(s) déposé(s)`}
+      subtitle={`${visible.length} fichier(s) déposé(s)`}
       allow={["admin", "chef_projet", "collaborateur"]}
     >
       <div className="flex flex-wrap items-center gap-3">

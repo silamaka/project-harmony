@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, Eye, FolderKanban, ListChecks, Package } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
@@ -111,13 +111,15 @@ function ClientPortalPage() {
           <h2 className="text-sm font-semibold">Missions en cours</h2>
           <div className="mt-4 space-y-2">
             {myMissions.slice(0, 8).map((m) => (
-              <div
+              <Link
                 key={m.id}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2"
+                to="/missions/$missionId"
+                params={{ missionId: m.id }}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/20"
               >
                 <span className="min-w-0 flex-1 truncate text-sm">{m.title}</span>
                 <MissionStatusBadge status={m.status} />
-              </div>
+              </Link>
             ))}
             {myMissions.length === 0 && (
               <p className="text-xs text-muted-foreground">Aucune mission.</p>

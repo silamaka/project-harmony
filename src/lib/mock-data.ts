@@ -389,6 +389,7 @@ export const notifications: Notification[] = [
     read: false,
     created_at: "2026-07-30T16:10:00Z",
     link: "/livrables",
+    mission_id: "m2",
   },
   {
     id: "n2",
@@ -398,6 +399,7 @@ export const notifications: Notification[] = [
     read: false,
     created_at: "2026-07-30T08:00:00Z",
     link: "/missions",
+    mission_id: "m3",
   },
   {
     id: "n3",
@@ -407,6 +409,7 @@ export const notifications: Notification[] = [
     read: true,
     created_at: "2026-07-29T11:22:00Z",
     link: "/missions",
+    mission_id: "m2",
   },
   {
     id: "n4",
@@ -416,6 +419,7 @@ export const notifications: Notification[] = [
     read: true,
     created_at: "2026-07-28T17:45:00Z",
     link: "/livrables",
+    mission_id: "m6",
   },
 ];
 
@@ -437,8 +441,13 @@ export const monthlyEvolution = [
  * sauvegarde donc une copie dans le localStorage du navigateur et on la
  * réhydrate au chargement, pour que les modifications survivent aux
  * rafraîchissements de page et aux redémarrages du serveur.
+ *
+ * Incrémenter STORAGE_KEY à chaque changement non-trivial du jeu de données
+ * de démo (nouveau champ, nouvelle relation...) : sinon les navigateurs ayant
+ * déjà un snapshot persisté restent bloqués indéfiniment sur l'ancienne forme
+ * des données, invisibles aux mises à jour du code source.
  */
-const STORAGE_KEY = "beba.mock-state.v1";
+const STORAGE_KEY = "beba.mock-state.v2";
 
 interface PersistedState {
   users: User[];

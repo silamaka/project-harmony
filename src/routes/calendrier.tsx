@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import { calendarService, missionService } from "@/services";
 import type { CalendarEvent } from "@/types";
@@ -84,7 +85,9 @@ const TYPE_LABEL: Record<EventType, string> = {
 
 function CalendarPage() {
   const qc = useQueryClient();
+  const { user, hasRole } = useAuth();
   const { data: events } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
+  const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const [view, setView] = useState<ViewMode>("mois");
   const [cursor, setCursor] = useState(() => new Date());
   const [query, setQuery] = useState("");
@@ -132,12 +135,29 @@ function CalendarPage() {
     });
   };
 
+  /** Un collaborateur ou un client ne voit que les événements liés à ses propres missions. */
+  const scopedToSelf = hasRole("collaborateur", "client");
+  const ownMissionIds = useMemo(
+    () =>
+      new Set(
+        (missions ?? [])
+          .filter((m) =>
+            user?.role === "client" ? m.client_id === user.client_id : m.assignee_id === user?.id,
+          )
+          .map((m) => m.id),
+      ),
+    [missions, user],
+  );
+
   const visibleEvents = useMemo(
     () =>
       (events ?? []).filter(
-        (e) => activeTypes.has(e.type) && e.title.toLowerCase().includes(query.toLowerCase()),
+        (e) =>
+          activeTypes.has(e.type) &&
+          e.title.toLowerCase().includes(query.toLowerCase()) &&
+          (!scopedToSelf || e.mission_id === undefined || ownMissionIds.has(e.mission_id)),
       ),
-    [events, activeTypes, query],
+    [events, activeTypes, query, scopedToSelf, ownMissionIds],
   );
 
   const eventsOn = (date: Date) => visibleEvents.filter((e) => isSameDay(parseISO(e.date), date));
