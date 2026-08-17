@@ -23,11 +23,25 @@ import type {
 } from "@/types";
 
 /**
- * Couche services.
+ * Couche services — point de bascule unique vers le backend.
  *
- * Chaque fonction est asynchrone et retourne la même forme que l'API Django.
- * Pour brancher le backend, remplacer le corps par l'appel Axios commenté :
+ * Chaque fonction est asynchrone et retourne la même forme que l'API Django ;
+ * chacune porte en commentaire l'appel REST exact qui doit la remplacer,
+ * par ex. :
  *   const { data } = await api.get<Client[]>(endpoints.clients); return data;
+ *
+ * Trois catégories de logique vivent ici UNIQUEMENT parce qu'il n'y a pas
+ * encore de backend, et doivent être réécrites côté serveur (pas recopiées
+ * telles quelles) au moment du branchement :
+ *  1. Effets de bord en cascade (ex. supprimer un utilisateur "client" supprime
+ *     l'entreprise liée, supprimer une entreprise détache le compte utilisateur).
+ *  2. Génération d'événements dérivés (notification créée à la création d'une
+ *     mission, événements de calendrier calculés depuis missions/livrables).
+ *  3. Filtrage par utilisateur connecté (notifications, calendrier — ce qui
+ *     est aujourd'hui un filtre appliqué après coup côté frontend doit devenir
+ *     un filtre côté serveur basé sur l'utilisateur authentifié, à la fois
+ *     pour la sécurité et pour éviter de transférer des données non destinées
+ *     à l'utilisateur).
  */
 
 const delay = <T>(data: T, ms = 120): Promise<T> => {
@@ -41,7 +55,9 @@ const now = () => new Date().toISOString();
 
 /* -------------------------------- Clients -------------------------------- */
 export const clientService = {
+  /** GET /api/v1/clients/ */
   list: () => delay<Client[]>([...clients]),
+  /** GET /api/v1/clients/:id/ */
   get: (id: string) => delay<Client | undefined>(clients.find((c) => c.id === id)),
   /** POST /api/v1/clients/ */
   create: (
@@ -60,12 +76,14 @@ export const clientService = {
     if (c) Object.assign(c, patch);
     return delay(c);
   },
-  /** DELETE /api/v1/clients/:id/ */
+  /**
+   * DELETE /api/v1/clients/:id/
+   * Le détachement du compte utilisateur lié (cascade ci-dessous) doit être géré
+   * côté serveur, ex. via un signal post_delete ou une contrainte on_delete=SET_NULL.
+   */
   remove: (id: string) => {
     const i = clients.findIndex((x) => x.id === id);
     if (i >= 0) clients.splice(i, 1);
-    // Détache tout compte utilisateur (rôle "client") encore lié à cette entreprise,
-    // pour ne pas laisser de client_id fantôme pointant vers une fiche supprimée.
     users.forEach((u) => {
       if (u.client_id === id) delete u.client_id;
     });
@@ -75,6 +93,7 @@ export const clientService = {
 
 /* ------------------------------ Utilisateurs ------------------------------ */
 export const userService = {
+  /** GET /api/v1/users/ */
   list: () => delay<User[]>([...users]),
   /** POST /api/v1/users/ */
   create: (
@@ -87,6 +106,7 @@ export const userService = {
     users.push(user);
     return delay(user);
   },
+  /** GET /api/v1/users/?role=collaborateur */
   collaborators: () => delay<User[]>(users.filter((u) => u.role === "collaborateur")),
   /** PATCH /api/v1/users/:id/ */
   update: (id: string, patch: Partial<User>) => {
@@ -94,19 +114,23 @@ export const userService = {
     if (u) Object.assign(u, patch);
     return delay(u);
   },
+  /** PATCH /api/v1/users/:id/ (is_active) */
   toggleActive: (id: string) => {
     const u = users.find((x) => x.id === id);
     if (u) u.is_active = !u.is_active;
     return delay(u);
   },
+  /** GET /api/v1/users/:id/ */
   get: (id: string) => delay<User | undefined>(users.find((u) => u.id === id)),
-  /** DELETE /api/v1/users/:id/ */
+  /**
+   * DELETE /api/v1/users/:id/
+   * La suppression en cascade de l'entreprise liée (rôle "client") doit être
+   * gérée côté serveur, pas recopiée telle quelle.
+   */
   remove: (id: string) => {
     const i = users.findIndex((x) => x.id === id);
     const removed = users[i];
     if (i >= 0) users.splice(i, 1);
-    // La gestion des fiches entreprise passe entièrement par le compte utilisateur
-    // "Client" : le supprimer supprime aussi l'entreprise qui lui était associée.
     if (removed?.client_id) {
       const ci = clients.findIndex((c) => c.id === removed.client_id);
       if (ci >= 0) clients.splice(ci, 1);
@@ -117,6 +141,7 @@ export const userService = {
 
 /* -------------------------------- Projets -------------------------------- */
 export const projectService = {
+  /** GET /api/v1/projects/ */
   list: () => delay<Project[]>([...projects]),
   /** POST /api/v1/projects/ */
   create: (payload: Omit<Project, "id" | "created_at">) => {
@@ -124,12 +149,15 @@ export const projectService = {
     projects.unshift(project);
     return delay(project);
   },
+  /** PATCH /api/v1/projects/:id/ */
   update: (id: string, patch: Partial<Project>) => {
     const p = projects.find((x) => x.id === id);
     if (p) Object.assign(p, patch);
     return delay(p);
   },
+  /** GET /api/v1/projects/:id/ */
   get: (id: string) => delay<Project | undefined>(projects.find((p) => p.id === id)),
+  /** GET /api/v1/projects/?client=:clientId */
   byClient: (clientId: string) =>
     delay<Project[]>(projects.filter((p) => p.client_id === clientId)),
   /** DELETE /api/v1/projects/:id/ */
@@ -142,8 +170,13 @@ export const projectService = {
 
 /* ------------------------------- Missions -------------------------------- */
 export const missionService = {
+  /** GET /api/v1/missions/ */
   list: () => delay<Mission[]>([...missions]),
-  /** POST /api/v1/missions/ */
+  /**
+   * POST /api/v1/missions/
+   * La création de la notification "mission_creee" associée doit être un
+   * effet de bord serveur (signal post_save), pas dupliquée côté frontend.
+   */
   create: (payload: Omit<Mission, "id" | "created_at"> & { created_at?: string }) => {
     const mission: Mission = { id: uid("mis"), created_at: now(), ...payload };
     missions.unshift(mission);
@@ -159,6 +192,7 @@ export const missionService = {
     });
     return delay(mission);
   },
+  /** PATCH /api/v1/missions/:id/ (status) */
   updateStatus: (id: string, status: Mission["status"]) => {
     const m = missions.find((x) => x.id === id);
     if (m) m.status = status;
@@ -176,29 +210,36 @@ export const missionService = {
     if (i >= 0) missions.splice(i, 1);
     return delay(true);
   },
+  /** GET /api/v1/missions/:id/ */
   get: (id: string) => delay<Mission | undefined>(missions.find((m) => m.id === id)),
+  /** GET /api/v1/missions/?assignee=:userId */
   byAssignee: (userId: string) =>
     delay<Mission[]>(missions.filter((m) => m.assignee_id === userId)),
+  /** GET /api/v1/missions/?project=:projectId */
   byProject: (projectId: string) =>
     delay<Mission[]>(missions.filter((m) => m.project_id === projectId)),
 };
 
 /* ------------------------------- Livrables -------------------------------- */
 export const deliverableService = {
+  /** GET /api/v1/deliverables/ */
   list: () => delay<Deliverable[]>([...deliverables]),
+  /** POST /api/v1/deliverables/ */
   create: (payload: Omit<Deliverable, "id" | "created_at">) => {
     const d: Deliverable = { id: uid("dlv"), created_at: now(), ...payload };
     deliverables.unshift(d);
     return delay(d);
   },
+  /** PATCH /api/v1/deliverables/:id/ (status) */
   updateStatus: (id: string, status: Deliverable["status"]) => {
     const d = deliverables.find((x) => x.id === id);
     if (d) d.status = status;
     return delay(d);
   },
+  /** GET /api/v1/deliverables/?mission=:missionId */
   byMission: (missionId: string) =>
     delay<Deliverable[]>(deliverables.filter((d) => d.mission_id === missionId)),
-  /** DELETE /api/v1/files/:id/ */
+  /** DELETE /api/v1/deliverables/:id/ */
   remove: (id: string) => {
     const i = deliverables.findIndex((x) => x.id === id);
     if (i >= 0) deliverables.splice(i, 1);
@@ -208,10 +249,17 @@ export const deliverableService = {
 
 /* ------------------------------ Commentaires ------------------------------ */
 export const commentService = {
+  /** GET /api/v1/comments/ */
   list: () => delay<Comment[]>([...comments]),
+  /** GET /api/v1/comments/?mission=:missionId */
   byMission: (missionId: string) =>
     delay<Comment[]>(comments.filter((c) => c.mission_id === missionId)),
-  /** POST /api/v1/comments/ */
+  /**
+   * POST /api/v1/comments/
+   * L'extraction des @mentions peut rester une simple regex client pour l'UI,
+   * mais le backend doit refaire sa propre extraction pour les notifications
+   * de mention (ne pas faire confiance au tableau `mentions` envoyé par le client).
+   */
   create: (payload: Omit<Comment, "id" | "created_at" | "mentions"> & { mentions?: string[] }) => {
     const comment: Comment = {
       id: uid("cmt"),
@@ -226,7 +274,14 @@ export const commentService = {
 
 /* ------------------------------- Calendrier ------------------------------- */
 export const calendarService = {
-  /** Fusionne les échéances de missions, les dépôts de livrables et les réunions créées manuellement. */
+  /**
+   * GET /api/v1/calendar/
+   * Fusionne les échéances de missions, les dépôts de livrables et les réunions
+   * créées manuellement. Côté backend, cette fusion (et le filtrage par
+   * utilisateur connecté — un collaborateur ou un client ne doit recevoir que
+   * les événements de ses propres missions, plus les réunions génériques)
+   * doit être faite dans la vue elle-même, pas après coup côté client.
+   */
   list: () => {
     const missionEvents: CalendarEvent[] = missions.map((m) => ({
       id: `ev-${m.id}`,
@@ -244,18 +299,19 @@ export const calendarService = {
     }));
     return delay<CalendarEvent[]>([...missionEvents, ...deliverableEvents, ...meetings]);
   },
-  /** POST — crée une réunion (seul type d'événement créable directement depuis le calendrier). */
+  /** POST /api/v1/meetings/ — seul type d'événement créable directement depuis le calendrier. */
   createMeeting: (payload: Omit<CalendarEvent, "id" | "type">) => {
     const event: CalendarEvent = { id: uid("meet"), type: "reunion", ...payload };
     meetings.push(event);
     return delay(event);
   },
-  /** PATCH — déplacer (drag & drop) ou modifier une réunion. */
+  /** PATCH /api/v1/meetings/:id/ — déplacer (drag & drop) ou modifier une réunion. */
   updateMeeting: (id: string, patch: Partial<CalendarEvent>) => {
     const e = meetings.find((x) => x.id === id);
     if (e) Object.assign(e, patch);
     return delay(e);
   },
+  /** DELETE /api/v1/meetings/:id/ */
   removeMeeting: (id: string) => {
     const i = meetings.findIndex((x) => x.id === id);
     if (i >= 0) meetings.splice(i, 1);
@@ -265,18 +321,28 @@ export const calendarService = {
 
 /* ----------------------------- Notifications ------------------------------ */
 export const notificationService = {
+  /**
+   * GET /api/v1/notifications/
+   * Doit renvoyer uniquement les notifications de l'utilisateur connecté
+   * (filtre serveur sur `mission_id` selon assignation/entreprise) — le
+   * filtrage actuellement fait côté frontend (voir routes/notifications.tsx
+   * et app-shell.tsx) disparaît une fois ce filtrage fait par l'API.
+   */
   list: () => delay<Notification[]>([...notifications]),
+  /** PATCH /api/v1/notifications/:id/ (read=true) */
   markRead: (id: string) => {
     const n = notifications.find((x) => x.id === id);
     if (n) n.read = true;
     return delay(n);
   },
+  /** POST /api/v1/notifications/mark-all-read/ */
   markAllRead: () => {
     notifications.forEach((n) => {
       n.read = true;
     });
     return delay([...notifications]);
   },
+  /** DELETE /api/v1/notifications/:id/ */
   remove: (id: string) => {
     const i = notifications.findIndex((x) => x.id === id);
     if (i >= 0) notifications.splice(i, 1);
@@ -289,6 +355,7 @@ const isLate = (m: Mission) =>
   new Date(m.deadline).getTime() < Date.now() && m.status !== "termine" && m.status !== "valide";
 
 export const dashboardService = {
+  /** GET /api/v1/dashboard/ */
   stats: (): Promise<DashboardStats> =>
     delay({
       clients: clients.length,
@@ -298,6 +365,7 @@ export const dashboardService = {
       deliverables: deliverables.length,
       late_missions: missions.filter(isLate).length,
     }),
+  /** GET /api/v1/dashboard/missions-by-client/ */
   missionsByClient: () =>
     delay(
       clients.map((c) => ({
@@ -305,6 +373,7 @@ export const dashboardService = {
         missions: missions.filter((m) => m.client_id === c.id).length,
       })),
     ),
+  /** GET /api/v1/dashboard/missions-by-collaborator/ */
   missionsByCollaborator: () =>
     delay(
       users
@@ -314,7 +383,9 @@ export const dashboardService = {
           missions: missions.filter((m) => m.assignee_id === u.id).length,
         })),
     ),
+  /** GET /api/v1/dashboard/monthly/ */
   monthly: () => delay(monthlyEvolution),
+  /** GET /api/v1/dashboard/completion-rate/ */
   completionRate: () =>
     delay(
       Math.round(
@@ -323,6 +394,7 @@ export const dashboardService = {
           100,
       ),
     ),
+  /** GET /api/v1/dashboard/alerts/ */
   alerts: () => {
     const now = Date.now();
     const within = (h: number) =>
