@@ -19,6 +19,7 @@ export const missionTone: Record<MissionStatus, string> = {
   envoye_client: "bg-accent text-accent-foreground",
   valide: "bg-success/15 text-success",
   corrections: "bg-destructive/12 text-destructive",
+  publie: "bg-secondary text-secondary-foreground",
   termine: "bg-success/20 text-success",
 };
 

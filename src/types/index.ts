@@ -90,6 +90,7 @@ export type MissionStatus =
   | "envoye_client"
   | "valide"
   | "corrections"
+  | "publie"
   | "termine";
 
 export const MISSION_STATUS_LABELS: Record<MissionStatus, string> = {
@@ -100,6 +101,7 @@ export const MISSION_STATUS_LABELS: Record<MissionStatus, string> = {
   envoye_client: "Envoyé au client",
   valide: "Validé",
   corrections: "Corrections demandées",
+  publie: "Publié",
   termine: "Terminé",
 };
 
@@ -112,6 +114,7 @@ export const MISSION_WORKFLOW: MissionStatus[] = [
   "envoye_client",
   "valide",
   "corrections",
+  "publie",
   "termine",
 ];
 

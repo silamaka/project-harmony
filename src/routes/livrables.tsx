@@ -46,12 +46,19 @@ const STATUS_LABEL: Record<Deliverable["status"], string> = {
   corrections: "Corrections",
 };
 
-const FILTERS = ["tous", "en_attente", "valide", "corrections"] as const;
+const FILTERS = ["tous", "mes", "en_attente", "valide", "corrections"] as const;
+const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
+  tous: "Tous",
+  mes: "Mes livrables",
+  en_attente: "En attente",
+  valide: "Validé",
+  corrections: "Corrections",
+};
 
 function DeliverablesPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
   const queryClient = useQueryClient();
   const { data: deliverables } = useQuery({
@@ -73,7 +80,7 @@ function DeliverablesPage() {
   const list = (deliverables ?? []).filter(
     (d) =>
       d.name.toLowerCase().includes(q.trim().toLowerCase()) &&
-      (filter === "tous" || d.status === filter),
+      (filter === "tous" || (filter === "mes" ? d.uploaded_by === user?.id : d.status === filter)),
   );
 
   return (
@@ -101,7 +108,7 @@ function DeliverablesPage() {
                   : "text-muted-foreground hover:bg-accent",
               )}
             >
-              {f === "tous" ? "Tous" : STATUS_LABEL[f]}
+              {FILTER_LABELS[f]}
             </button>
           ))}
         </div>

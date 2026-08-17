@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+  Check,
   CheckCircle2,
   Eye,
   FileText,
@@ -12,7 +13,7 @@ import {
   Upload,
   FileArchive,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
@@ -190,46 +191,67 @@ function MissionDetailPage() {
     >
       {/* Workflow */}
       <div className="surface-card mt-4 overflow-x-auto p-4">
-        <div className="flex min-w-[760px] items-stretch gap-2">
+        <div className="flex min-w-[860px] items-center gap-1">
           {MISSION_WORKFLOW.slice(0, 5).map((s, i) => (
-            <StepButton
-              key={s}
-              label={MISSION_STATUS_LABELS[s]}
-              active={mission?.status === s}
-              filled={i <= currentIndex}
-              disabled={statusMutation.isPending}
-              onClick={() => requestStatusChange(s)}
-            />
+            <Fragment key={s}>
+              <StepButton
+                label={MISSION_STATUS_LABELS[s]}
+                active={mission?.status === s}
+                filled={i <= currentIndex}
+                done={i < currentIndex}
+                disabled={statusMutation.isPending}
+                onClick={() => requestStatusChange(s)}
+              />
+              <StepConnector filled={i < currentIndex} />
+            </Fragment>
           ))}
 
-          <div className="flex flex-1 flex-col gap-1">
-            <p className="text-center text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Décision client
-            </p>
-            <div className="flex flex-1 gap-1">
-              <StepButton
-                label="Validé"
-                active={mission?.status === "valide"}
-                filled={mission?.status === "valide" || mission?.status === "termine"}
-                disabled={statusMutation.isPending}
-                onClick={() => requestStatusChange("valide")}
-                tone="success"
-              />
-              <StepButton
-                label="Corrections"
-                active={mission?.status === "corrections"}
-                filled={mission?.status === "corrections"}
-                disabled={statusMutation.isPending}
-                onClick={() => requestStatusChange("corrections")}
-                tone="warning"
-              />
-            </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed border-border p-1">
+            <StepButton
+              label="Validé"
+              active={mission?.status === "valide"}
+              filled={
+                mission?.status === "valide" ||
+                mission?.status === "publie" ||
+                mission?.status === "termine"
+              }
+              done={mission?.status === "publie" || mission?.status === "termine"}
+              disabled={statusMutation.isPending}
+              onClick={() => requestStatusChange("valide")}
+              tone="success"
+              className="flex-none px-3"
+            />
+            <span className="text-[10px] font-medium text-muted-foreground">ou</span>
+            <StepButton
+              label="Corrections"
+              active={mission?.status === "corrections"}
+              filled={mission?.status === "corrections"}
+              done={false}
+              disabled={statusMutation.isPending}
+              onClick={() => requestStatusChange("corrections")}
+              tone="warning"
+              className="flex-none px-3"
+            />
           </div>
+
+          <StepConnector filled={currentIndex >= MISSION_WORKFLOW.indexOf("publie")} />
+
+          <StepButton
+            label="Publié"
+            active={mission?.status === "publie"}
+            filled={mission?.status === "publie" || mission?.status === "termine"}
+            done={mission?.status === "termine"}
+            disabled={statusMutation.isPending}
+            onClick={() => requestStatusChange("publie")}
+          />
+
+          <StepConnector filled={mission?.status === "termine"} />
 
           <StepButton
             label="Terminé"
             active={mission?.status === "termine"}
             filled={mission?.status === "termine"}
+            done={false}
             disabled={statusMutation.isPending}
             onClick={() => requestStatusChange("termine")}
           />
@@ -449,17 +471,35 @@ function StepButton({
   label,
   active,
   filled,
+  done,
   disabled,
   onClick,
   tone = "default",
+  className,
 }: {
   label: string;
   active: boolean;
   filled: boolean;
+  /** Étape déjà dépassée (par opposition à l'étape courante). */
+  done: boolean;
   disabled: boolean;
   onClick: () => void;
   tone?: "default" | "success" | "warning";
+  className?: string;
 }) {
+  const toneSolid =
+    tone === "success"
+      ? "bg-success text-success-foreground shadow-sm"
+      : tone === "warning"
+        ? "bg-warning text-warning-foreground shadow-sm"
+        : "bg-primary text-primary-foreground shadow-sm";
+  const toneSoft =
+    tone === "success"
+      ? "bg-success/12 text-success"
+      : tone === "warning"
+        ? "bg-warning/15 text-warning"
+        : "bg-primary/12 text-primary";
+
   return (
     <button
       type="button"
@@ -467,18 +507,29 @@ function StepButton({
       disabled={disabled || active}
       aria-current={active}
       className={cn(
-        "flex-1 rounded-lg px-3 py-2 text-center text-[11px] font-semibold transition-colors",
-        filled
-          ? tone === "success"
-            ? "bg-success text-success-foreground"
-            : tone === "warning"
-              ? "bg-warning text-warning-foreground"
-              : "bg-primary text-primary-foreground"
-          : "bg-muted text-muted-foreground hover:bg-accent",
-        active && "ring-2 ring-ring",
+        "flex-1 rounded-lg px-3 py-2 text-center text-[11px] font-semibold whitespace-nowrap transition-all",
+        active && toneSolid,
+        !active && filled && toneSoft,
+        !filled && "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+        active && "scale-[1.03] ring-2 ring-ring ring-offset-1 ring-offset-card",
+        className,
       )}
     >
-      {label}
+      <span className="inline-flex items-center gap-1">
+        {done && <Check className="h-3 w-3" />}
+        {label}
+      </span>
     </button>
+  );
+}
+
+function StepConnector({ filled }: { filled: boolean }) {
+  return (
+    <div
+      className={cn(
+        "h-0.5 w-4 shrink-0 rounded-full transition-colors",
+        filled ? "bg-primary" : "bg-border",
+      )}
+    />
   );
 }

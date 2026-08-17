@@ -5,7 +5,11 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateMissionDialog } from "@/components/shared/create-dialogs";
-import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
+import {
+  ConfirmDeleteButton,
+  EditClientDialog,
+  EditMissionDialog,
+} from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
 import { MissionsTable } from "@/components/shared/missions-table";
 import { cn } from "@/lib/utils";
@@ -133,7 +137,14 @@ function ClientDetailPage() {
       title={client?.name ?? "Client"}
       subtitle={client ? `${client.industry} · ${clientMissions.length} mission(s)` : undefined}
       allow={["admin", "chef_projet"]}
-      actions={client ? <CreateMissionDialog clientId={client.id} /> : undefined}
+      actions={
+        client ? (
+          <div className="flex items-center gap-2">
+            <EditClientDialog client={client} />
+            <CreateMissionDialog clientId={client.id} />
+          </div>
+        ) : undefined
+      }
     >
       <Link
         to="/clients"

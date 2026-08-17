@@ -35,10 +35,13 @@ export const Route = createFileRoute("/parametres")({
       { title: "Paramètres — BEBA EMPIRE" },
       {
         name: "description",
-        content: "Administration : utilisateurs, rôles, préférences d'affichage et connexion API.",
+        content: "Administration : gestion des utilisateurs, rôles et statuts de compte.",
       },
       { property: "og:title", content: "Paramètres — BEBA EMPIRE" },
-      { property: "og:description", content: "Réglages administrateur de la plateforme." },
+      {
+        property: "og:description",
+        content: "Gestion des utilisateurs et des rôles de la plateforme.",
+      },
     ],
   }),
   component: SettingsPage,

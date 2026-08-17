@@ -137,7 +137,6 @@ export function EditClientDialog({ client }: { client: Client }) {
     email: client.email,
     phone: client.phone ?? "",
     address: client.address ?? "",
-    password: "",
     status: client.status,
     logo_url: client.logo_url ?? "",
     created_at: client.created_at.slice(0, 10),
@@ -145,10 +144,7 @@ export function EditClientDialog({ client }: { client: Client }) {
   const done = useSaved([["clients"], ["clients", client.id]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () => {
-      const { password: _password, ...rest } = form;
-      return clientService.update(client.id, { ...rest, name: form.name.trim() });
-    },
+    mutationFn: () => clientService.update(client.id, { ...form, name: form.name.trim() }),
     onSuccess: () => done("Client mis à jour."),
     onError: () => toast.error("Mise à jour impossible."),
   });
@@ -201,15 +197,6 @@ export function EditClientDialog({ client }: { client: Client }) {
             <Input
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
-            />
-          </Field>
-          <Field label="Mot de passe">
-            <Input
-              type="password"
-              autoComplete="new-password"
-              placeholder="Laisser vide pour ne pas changer"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
           </Field>
           <Field label="Statut">
