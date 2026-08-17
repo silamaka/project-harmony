@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FileArchive, FileText, Image as ImageIcon, Link2, Video } from "lucide-react";
+import { Eye, FileArchive, FileText, Image as ImageIcon, Link2, Video } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
@@ -133,15 +133,25 @@ function DeliverablesPage() {
                   {STATUS_LABEL[d.status]}
                 </span>
               </div>
-              {mission && (
-                <Link
-                  to="/missions/$missionId"
-                  params={{ missionId: mission.id }}
-                  className="truncate text-xs font-medium text-primary hover:underline"
+              <div className="flex items-center gap-3">
+                {mission && (
+                  <Link
+                    to="/missions/$missionId"
+                    params={{ missionId: mission.id }}
+                    className="min-w-0 truncate text-xs font-medium text-primary hover:underline"
+                  >
+                    {mission.title}
+                  </Link>
+                )}
+                <a
+                  href={d.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
                 >
-                  {mission.title}
-                </Link>
-              )}
+                  <Eye className="h-3.5 w-3.5" /> Ouvrir
+                </a>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}
                 {new Date(d.created_at).toLocaleDateString("fr-FR")}

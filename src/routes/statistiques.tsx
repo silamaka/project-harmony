@@ -1,7 +1,24 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import type ExcelJS from "exceljs";
-import { Download, FileSpreadsheet, Printer } from "lucide-react";
+import {
+  endOfDay,
+  endOfMonth,
+  endOfQuarter,
+  endOfWeek,
+  endOfYear,
+  format,
+  isWithinInterval,
+  startOfDay,
+  startOfMonth,
+  startOfQuarter,
+  startOfWeek,
+  startOfYear,
+} from "date-fns";
+import { fr } from "date-fns/locale";
+import { CalendarDays, Download, FileSpreadsheet, Printer } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import {
   Bar,
   BarChart,
@@ -19,15 +36,33 @@ import {
 } from "recharts";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
+import { usePersistedState } from "@/hooks/use-persisted-state";
+import { cn } from "@/lib/utils";
 import {
+  clientService,
   dashboardService,
   deliverableService,
   missionService,
   projectService,
+  userService,
   isLate,
 } from "@/services";
 import { MISSION_STATUS_LABELS, PROJECT_STATUS_LABELS } from "@/types";
+
+const PERIODS = ["tout", "jour", "semaine", "mois", "trimestre", "annee", "personnalise"] as const;
+type Period = (typeof PERIODS)[number];
+const PERIOD_LABELS: Record<Period, string> = {
+  tout: "Tout",
+  jour: "Aujourd'hui",
+  semaine: "Cette semaine",
+  mois: "Ce mois-ci",
+  trimestre: "Ce trimestre",
+  annee: "Cette année",
+  personnalise: "Personnalisé",
+};
 
 export const Route = createFileRoute("/statistiques")({
   head: () => ({
@@ -60,26 +95,58 @@ const CHART_COLORS = [
 ];
 
 function StatisticsPage() {
-  const { data: byClient } = useQuery({
-    queryKey: ["dashboard", "byClient"],
-    queryFn: dashboardService.missionsByClient,
-  });
-  const { data: byCollab } = useQuery({
-    queryKey: ["dashboard", "byCollab"],
-    queryFn: dashboardService.missionsByCollaborator,
-  });
   const { data: monthly } = useQuery({
     queryKey: ["dashboard", "monthly"],
     queryFn: dashboardService.monthly,
   });
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
+  const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
     queryFn: deliverableService.list,
   });
 
-  const missionList = missions ?? [];
+  const [period, setPeriod] = usePersistedState<Period>("beba.stats-period", "tout");
+  const [customStart, setCustomStart] = usePersistedState("beba.stats-custom-start", "");
+  const [customEnd, setCustomEnd] = usePersistedState("beba.stats-custom-end", "");
+
+  const range = useMemo(() => {
+    const now = new Date();
+    switch (period) {
+      case "jour":
+        return { start: startOfDay(now), end: endOfDay(now) };
+      case "semaine":
+        return {
+          start: startOfWeek(now, { weekStartsOn: 1 }),
+          end: endOfWeek(now, { weekStartsOn: 1 }),
+        };
+      case "mois":
+        return { start: startOfMonth(now), end: endOfMonth(now) };
+      case "trimestre":
+        return { start: startOfQuarter(now), end: endOfQuarter(now) };
+      case "annee":
+        return { start: startOfYear(now), end: endOfYear(now) };
+      case "personnalise": {
+        if (!customStart || !customEnd) return null;
+        const start = startOfDay(new Date(customStart));
+        const end = endOfDay(new Date(customEnd));
+        return start <= end ? { start, end } : null;
+      }
+      default:
+        return null;
+    }
+  }, [period, customStart, customEnd]);
+
+  const collaborators = (users ?? []).filter((u) => u.role === "collaborateur");
+  const missionList = (missions ?? []).filter(
+    (m) => !range || isWithinInterval(new Date(m.deadline), range),
+  );
+  const deliverableList = (deliverables ?? []).filter(
+    (d) => !range || isWithinInterval(new Date(d.created_at), range),
+  );
+
   const statusData = Object.entries(MISSION_STATUS_LABELS)
     .map(([key, label]) => ({
       name: label,
@@ -94,26 +161,43 @@ function StatisticsPage() {
     }))
     .filter((d) => d.value > 0);
 
+  const byClient = (clients ?? []).map((c) => ({
+    name: c.name,
+    missions: missionList.filter((m) => m.client_id === c.id).length,
+  }));
+  const byCollab = collaborators.map((u) => ({
+    name: `${u.first_name} ${u.last_name}`,
+    missions: missionList.filter((m) => m.assignee_id === u.id).length,
+  }));
+
   const late = missionList.filter(isLate).length;
   const done = missionList.filter((m) => m.status === "termine" || m.status === "valide").length;
   const onTimeRate = missionList.length
     ? Math.round(((missionList.length - late) / missionList.length) * 100)
     : 0;
   const completion = missionList.length ? Math.round((done / missionList.length) * 100) : 0;
-  const validatedDeliverables = (deliverables ?? []).filter((d) => d.status === "valide").length;
-  const validationRate = (deliverables ?? []).length
-    ? Math.round((validatedDeliverables / (deliverables ?? []).length) * 100)
+  const validatedDeliverables = deliverableList.filter((d) => d.status === "valide").length;
+  const validationRate = deliverableList.length
+    ? Math.round((validatedDeliverables / deliverableList.length) * 100)
     : 0;
+
+  const periodLabel =
+    period === "personnalise"
+      ? range
+        ? `${format(range.start, "d MMM yyyy", { locale: fr })} – ${format(range.end, "d MMM yyyy", { locale: fr })}`
+        : PERIOD_LABELS.personnalise
+      : PERIOD_LABELS[period];
 
   const exportCsv = () => {
     const rows = [
       ["Indicateur", "Valeur"],
+      ["Période", periodLabel],
       ["Missions totales", String(missionList.length)],
       ["Missions terminées/validées", String(done)],
       ["Missions en retard", String(late)],
       ["Taux d'achèvement (%)", String(completion)],
       ["Respect des délais (%)", String(onTimeRate)],
-      ["Livrables", String((deliverables ?? []).length)],
+      ["Livrables", String(deliverableList.length)],
       ["Livrables validés (%)", String(validationRate)],
       ["Projets", String((projects ?? []).length)],
     ];
@@ -145,12 +229,13 @@ function StatisticsPage() {
       { header: "Valeur", key: "value", width: 16 },
     ];
     kpiSheet.addRows([
+      { label: "Période", value: periodLabel },
       { label: "Missions totales", value: missionList.length },
       { label: "Missions terminées/validées", value: done },
       { label: "Missions en retard", value: late },
       { label: "Taux d'achèvement (%)", value: completion },
       { label: "Respect des délais (%)", value: onTimeRate },
-      { label: "Livrables", value: (deliverables ?? []).length },
+      { label: "Livrables", value: deliverableList.length },
       { label: "Livrables validés (%)", value: validationRate },
       { label: "Projets", value: (projects ?? []).length },
     ]);
@@ -161,7 +246,7 @@ function StatisticsPage() {
       { header: "Client", key: "name", width: 28 },
       { header: "Missions", key: "missions", width: 14 },
     ];
-    clientSheet.addRows(byClient ?? []);
+    clientSheet.addRows(byClient);
     styleHeader(clientSheet.getRow(1));
 
     const collabSheet = wb.addWorksheet("Charge par collaborateur");
@@ -169,7 +254,7 @@ function StatisticsPage() {
       { header: "Collaborateur", key: "name", width: 28 },
       { header: "Missions", key: "missions", width: 14 },
     ];
-    collabSheet.addRows(byCollab ?? []);
+    collabSheet.addRows(byCollab);
     styleHeader(collabSheet.getRow(1));
 
     const monthlySheet = wb.addWorksheet("Évolution mensuelle");
@@ -237,7 +322,73 @@ function StatisticsPage() {
         </div>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="surface-card flex flex-wrap items-center gap-3 p-3">
+        <div className="flex items-center gap-1.5 pl-1 text-sm font-semibold text-muted-foreground">
+          <CalendarDays className="h-4 w-4" />
+          Période
+        </div>
+        <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-1">
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                period === p
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-background hover:text-foreground",
+              )}
+            >
+              {PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+        {period === "personnalise" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 gap-2 text-xs">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {customStart && customEnd
+                  ? `${format(new Date(customStart), "d MMM yyyy", { locale: fr })} – ${format(new Date(customEnd), "d MMM yyyy", { locale: fr })}`
+                  : "Choisir une période"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                locale={fr}
+                numberOfMonths={2}
+                {...(customStart ? { defaultMonth: new Date(customStart) } : {})}
+                selected={
+                  customStart
+                    ? {
+                        from: new Date(customStart),
+                        to: customEnd ? new Date(customEnd) : undefined,
+                      }
+                    : undefined
+                }
+                onSelect={(r: DateRange | undefined) => {
+                  setCustomStart(r?.from ? format(r.from, "yyyy-MM-dd") : "");
+                  setCustomEnd(r?.to ? format(r.to, "yyyy-MM-dd") : "");
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
+        {range && period !== "personnalise" && (
+          <span className="ml-auto flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
+            {format(range.start, "d MMM yyyy", { locale: fr })} –{" "}
+            {format(range.end, "d MMM yyyy", { locale: fr })}
+          </span>
+        )}
+        {!range && period !== "personnalise" && (
+          <span className="ml-auto text-xs text-muted-foreground">
+            Toutes les données, sans limite de date
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {kpis.map((k) => (
           <div key={k.label} className="surface-card p-5">
             <p className="text-xs text-muted-foreground">{k.label}</p>
@@ -252,7 +403,7 @@ function StatisticsPage() {
           <h2 className="text-sm font-semibold">Missions par client</h2>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byClient ?? []}>
+              <BarChart data={byClient}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="name"
@@ -274,7 +425,7 @@ function StatisticsPage() {
           <h2 className="text-sm font-semibold">Charge par collaborateur</h2>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byCollab ?? []} layout="vertical">
+              <BarChart data={byCollab} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
@@ -287,6 +438,9 @@ function StatisticsPage() {
 
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Évolution mensuelle</h2>
+          <p className="text-xs text-muted-foreground">
+            Tendance globale, indépendante du filtre de période.
+          </p>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthly ?? []}>
@@ -327,6 +481,9 @@ function StatisticsPage() {
 
       <div className="surface-card mt-4 p-5">
         <h2 className="text-sm font-semibold">Portefeuille de projets</h2>
+        <p className="text-xs text-muted-foreground">
+          État actuel du portefeuille, indépendant du filtre de période.
+        </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {projectStatusData.map((s) => (
             <li

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
-  ArrowLeft,
   CheckCircle2,
   Eye,
   FileText,
@@ -189,13 +188,6 @@ function MissionDetailPage() {
         ) : undefined
       }
     >
-      <Link
-        to="/missions"
-        className="inline-flex items-center gap-2 text-xs font-medium text-primary hover:underline"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> Retour aux missions
-      </Link>
-
       {/* Workflow */}
       <div className="surface-card mt-4 overflow-x-auto p-4">
         <div className="flex min-w-[760px] items-stretch gap-2">

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { CheckCircle2, FolderKanban, ListChecks, Package } from "lucide-react";
+import { CheckCircle2, Eye, FolderKanban, ListChecks, Package } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, ProjectStatusBadge } from "@/components/shared/badges";
@@ -141,6 +141,14 @@ function ClientPortalPage() {
                 <span className="text-xs text-muted-foreground">
                   {new Date(d.created_at).toLocaleDateString("fr-FR")}
                 </span>
+                <a
+                  href={d.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Ouvrir
+                </a>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
