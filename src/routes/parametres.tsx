@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Briefcase, Building2, Search, ShieldCheck, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -130,8 +130,7 @@ function SettingsPage() {
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold">Gestion des utilisateurs</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Filtrez, modifiez les rôles et gérez la sécurité des comptes. Les collaborateurs se
-              gèrent depuis leur page dédiée.
+              Filtrez, modifiez les rôles et gérez la sécurité des comptes de tous les utilisateurs.
             </p>
           </div>
           <CreateUserDialog
@@ -239,28 +238,18 @@ function SettingsPage() {
                     )}
                   </td>
                   <td className="py-2.5 text-right">
-                    {u.role === "collaborateur" ? (
-                      <Link
-                        to="/collaborateurs/$userId"
-                        params={{ userId: u.id }}
-                        className="text-xs font-medium text-primary hover:underline"
-                      >
-                        Voir dans Collaborateurs
-                      </Link>
-                    ) : (
-                      <div className="flex items-center justify-end gap-2">
-                        <EditUserDialog user={u} />
-                        {u.id !== currentUser?.id && (
-                          <ConfirmDeleteButton
-                            iconOnly
-                            title={`Supprimer ${u.first_name} ${u.last_name} ?`}
-                            description="Le compte utilisateur sera définitivement supprimé. Cette action est irréversible."
-                            pending={removeUser.isPending && removeUser.variables === u.id}
-                            onConfirm={() => removeUser.mutate(u.id)}
-                          />
-                        )}
-                      </div>
-                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      <EditUserDialog user={u} />
+                      {u.id !== currentUser?.id && (
+                        <ConfirmDeleteButton
+                          iconOnly
+                          title={`Supprimer ${u.first_name} ${u.last_name} ?`}
+                          description="Le compte utilisateur sera définitivement supprimé. Cette action est irréversible."
+                          pending={removeUser.isPending && removeUser.variables === u.id}
+                          onConfirm={() => removeUser.mutate(u.id)}
+                        />
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
