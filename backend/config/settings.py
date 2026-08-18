@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     "missions",
     "deliverables",
     "comments",
+    "calendar_app",
+    "notifications",
     "core",
 ]
 

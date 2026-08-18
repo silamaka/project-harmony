@@ -39,8 +39,19 @@ Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
   client (tenter d'injecter de fausses mentions est ignoré silencieusement).
   Un collaborateur ne peut pas auto-valider son propre livrable (statut) —
   seuls admin/chef de projet/client (propriétaire) le peuvent.
-- Restent à faire : Calendrier + Notifications (Phase 4), Dashboard +
-  Statistiques (Phase 5). Frontend pas encore branché sur ce backend.
+- **Phase 4 — Calendrier + Notifications** : `GET /api/v1/calendar/` fusionne
+  échéances de missions, dépôts de livrables et réunions (comme déjà fait
+  côté frontend), mais la portée mission/livrable est désormais imposée
+  côté serveur via `missions_visible_to` — les réunions génériques restent
+  visibles à tous. CRUD `/api/v1/meetings/` réservé à
+  admin/chef de projet/collaborateur (mêmes rôles qui voient la page
+  Calendrier côté frontend). `/api/v1/notifications/` : portée dérivée de
+  la mission liée, tout est en lecture seule sauf `read` (marquer lu),
+  action `mark-all-read`, suppression admin uniquement. La création d'une
+  notification "mission créée" est désormais un vrai effet de bord serveur
+  (signal `post_save` sur Mission), plus une simulation frontend.
+- Reste à faire : Dashboard + Statistiques (Phase 5). Frontend pas encore
+  branché sur ce backend.
 
 ## Installation
 

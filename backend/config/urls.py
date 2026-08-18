@@ -10,4 +10,6 @@ urlpatterns = [
     path("api/v1/", include("missions.urls")),
     path("api/v1/", include("deliverables.urls")),
     path("api/v1/", include("comments.urls")),
+    path("api/v1/", include("calendar_app.urls")),
+    path("api/v1/", include("notifications.urls")),
 ]
