@@ -21,6 +21,14 @@ dist-ssr
 .env.*
 !.env.example
 
+# Backend (Django)
+backend/.venv/
+backend/venv/
+__pycache__/
+*.pyc
+backend/db.sqlite3
+backend/staticfiles/
+
 # Wrangler / Cloudflare
 .wrangler/
 .dev.vars
