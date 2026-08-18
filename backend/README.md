@@ -16,9 +16,20 @@ Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
   utilisateur "client" ↔ entreprise gérée par signal + `on_delete=SET_NULL`,
   testée dans les deux sens. Pas de pagination pour l'instant (le frontend
   attend des tableaux bruts partout).
-- Restent à faire : Projets + Missions (Phase 2), Livrables + Commentaires
-  (Phase 3), Calendrier + Notifications (Phase 4), Dashboard + Statistiques
-  (Phase 5). Frontend pas encore branché sur ce backend.
+- **Phase 2 — Projets + Missions** : CRUD `/api/v1/projects/` (filtre
+  `?client=`) et `/api/v1/missions/` (filtres `?assignee=`, `?project=`).
+  `client_id` d'une mission déduit automatiquement de son projet si non
+  fourni, comme le fait déjà `CreateMissionDialog` côté frontend.
+  **La portée en lecture des missions est désormais filtrée côté serveur
+  par rôle** (`MissionViewSet.get_queryset`) : un collaborateur ne reçoit
+  que ses missions assignées, un client que celles de son entreprise —
+  hors périmètre = 404, pas de fuite de données. Écriture aussi limitée
+  par rôle sur les missions : collaborateur → statut/priorité de ses
+  missions uniquement, client → statut de celles de son entreprise
+  uniquement (`missions/permissions.py`).
+- Restent à faire : Livrables + Commentaires (Phase 3), Calendrier +
+  Notifications (Phase 4), Dashboard + Statistiques (Phase 5). Frontend
+  pas encore branché sur ce backend.
 
 ## Installation
 

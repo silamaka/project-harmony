@@ -35,6 +35,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts",
     "clients",
+    "projects",
+    "missions",
     "core",
 ]
 
