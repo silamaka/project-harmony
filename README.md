@@ -1,10 +1,11 @@
 # Project Harmony
 
-# Prompt Lovable
-
-Agis comme un développeur Full Stack Senior expert en React, TypeScript, Tailwind CSS, Django REST Framework et PostgreSQL.
-
-Je souhaite développer une plateforme web professionnelle de gestion d'agence de marketing et communication digitale. L'application doit être moderne, rapide, responsive, sécurisée, évolutive et respecter les bonnes pratiques de développement.
+Plateforme web de gestion d'agence de marketing et communication digitale
+(BEBA EMPIRE) : clients, projets, missions, livrables, calendrier,
+notifications, portail client. Frontend React/TypeScript actuellement
+alimenté par des données mock (voir `src/lib/mock-data.ts`) en attendant le
+branchement à un backend Django REST Framework (voir `src/services/index.ts`
+et `src/lib/api.ts` pour le contrat d'API prévu).
 
 ## Stack technique
 
@@ -14,8 +15,8 @@ Frontend :
 - TypeScript
 - Vite
 - Tailwind CSS
-- React Router
-- React Query (TanStack Query)
+- TanStack Router / TanStack Start
+- TanStack Query
 - Axios
 - React Hook Form
 - Zod
@@ -23,419 +24,142 @@ Frontend :
 - Recharts
 - Lucide React
 
-Backend :
+Backend (prévu, non branché) :
 
 - Django
 - Django REST Framework
 - JWT Authentication
 - PostgreSQL
-- Cloudinary (ou Amazon S3) pour le stockage des fichiers
 
-L'architecture doit être modulaire et facilement maintenable.
+## Cahier des charges
 
----
+### Authentification
 
-# Authentification
+Système d'authentification sécurisé avec JWT.
 
-Créer un système d'authentification sécurisé avec JWT.
+Pages : Connexion, Mot de passe oublié, Réinitialisation du mot de passe.
 
-Pages :
-
-- Connexion
-- Mot de passe oublié
-- Réinitialisation du mot de passe
-
-Après connexion, rediriger automatiquement l'utilisateur selon son rôle :
+Après connexion, redirection automatique selon le rôle :
 
 - Administrateur → Dashboard Administrateur
 - Chef de Projet → Dashboard Chef de Projet
 - Collaborateur → Dashboard Collaborateur
 - Client → Portail Client
 
----
+### Gestion des rôles
 
-# Gestion des rôles
+**Administrateur** — gère tous les utilisateurs, clients, projets, missions,
+livrables ; voit toutes les statistiques ; gère les paramètres.
 
-Créer quatre rôles :
+**Chef de projet** — crée un client, un projet, une mission ; affecte les
+collaborateurs ; modifie les missions ; valide les livrables ; répond aux
+commentaires.
 
-## Administrateur
+**Collaborateur** — consulte uniquement ses missions ; modifie leur statut ;
+dépose des livrables ; commente ; consulte son planning.
 
-Peut :
+**Client** — consulte uniquement ses projets et livrables ; commente ;
+demande des corrections ; valide un livrable.
 
-- gérer tous les utilisateurs
-- gérer tous les clients
-- gérer tous les projets
-- gérer toutes les missions
-- gérer tous les livrables
-- voir toutes les statistiques
-- gérer les paramètres
+### Dashboard
 
-## Chef de projet
+KPIs : nombre de clients, projets, missions, collaborateurs, livrables,
+missions en retard.
 
-Peut :
+Graphiques : missions par client, missions par collaborateur, évolution
+mensuelle, taux de réalisation.
 
-- créer un client
-- créer un projet
-- créer une mission
-- affecter les collaborateurs
-- modifier les missions
-- valider les livrables
-- répondre aux commentaires
+Alertes : échéance dans 24 h, échéance dans 48 h, missions bloquées,
+livrables en attente.
 
-## Collaborateur
+### Module Clients
 
-Peut :
+CRUD complet. Chaque client possède : informations générales, contacts,
+projets, missions, livrables, historique.
 
-- consulter uniquement ses missions
-- modifier le statut de ses missions
-- déposer des livrables
-- commenter
-- consulter son planning
+### Module Collaborateurs
 
-## Client
+CRUD complet. Chaque collaborateur possède : photo, nom, prénom, rôle,
+téléphone, email, charge de travail, liste des missions.
 
-Peut :
+### Module Projets
 
-- consulter uniquement ses projets
-- consulter ses livrables
-- commenter
-- demander des corrections
-- valider un livrable
+Chaque projet possède : nom, client, description, date de début, date de
+fin, statut, progression, responsable.
 
----
+Statuts : Brouillon, En préparation, En cours, En attente, Terminé, Archivé.
 
-# Dashboard
+### Module Missions
 
-Créer un tableau de bord moderne avec :
+Chaque mission contient : titre, description, objectif, stratégie,
+ressources, priorité, responsable, deadline, statut.
 
-KPIs
+Priorités : Faible, Normale, Haute, Urgente.
 
-- Nombre de clients
-- Nombre de projets
-- Nombre de missions
-- Nombre de collaborateurs
-- Nombre de livrables
-- Nombre de missions en retard
+Workflow : À faire → En cours → Livrable déposé → Validation interne →
+Envoyé au client → (Validé ou Corrections demandées) → Publié → Terminé.
 
-Graphiques
+### Livrables
 
-- missions par client
-- missions par collaborateur
-- évolution mensuelle
-- taux de réalisation
+Types : PDF, Images, ZIP, Vidéos, Liens.
 
-Alertes
+Fonctionnalités : dépôt, ouverture, historique, versionnage, validation /
+demande de corrections.
 
-- échéance dans 24 heures
-- échéance dans 48 heures
-- missions bloquées
-- livrables en attente
+### Commentaires
 
----
+Chaque mission possède une discussion : réponses, @mention, historique.
 
-# Module Clients
+### Calendrier
 
-Créer un CRUD complet.
+Vues Jour / Semaine / Mois / Agenda. Drag & drop, filtres, recherche.
 
-Chaque client possède :
+### Notifications
 
-- informations générales
-- contacts
-- projets
-- missions
-- livrables
-- historique
+Déclencheurs : mission créée, mission assignée, commentaire, livrable
+déposé, validation, correction demandée, retard.
 
-Actions :
+### Portail Client
 
-- créer
-- modifier
-- supprimer
-- rechercher
-- filtrer
+Dashboard, mes projets, mes livrables, validation, historique, commentaires.
 
----
+### Paramètres
 
-# Module Collaborateurs
+Gestion des utilisateurs et des rôles.
 
-CRUD complet.
+### API REST prévue
 
-Chaque collaborateur possède :
-
-- photo
-- nom
-- prénom
-- rôle
-- téléphone
-- email
-- charge de travail
-- liste des missions
-
----
-
-# Module Projets
-
-Chaque projet possède :
-
-- nom
-- client
-- description
-- date de début
-- date de fin
-- statut
-- progression
-- responsable
-
-Statuts :
-
-- Brouillon
-- En préparation
-- En cours
-- En attente
-- Terminé
-- Archivé
-
----
-
-# Module Missions
-
-Chaque mission contient :
-
-- titre
-- description
-- objectif
-- stratégie
-- ressources
-- priorité
-- responsable
-- deadline
-- statut
-
-Priorités :
-
-- Faible
-- Normale
-- Haute
-- Urgente
-- Critique
-
-Workflow :
-
-À faire
-
-↓
-
-En cours
-
-↓
-
-Livrable déposé
-
-↓
-
-Validation interne
-
-↓
-
-Envoyé au client
-
-↓
-
-Validé
-
-ou
-
-Corrections demandées
-
-↓
-
-Terminé
-
----
-
-# Livrables
-
-Autoriser :
-
-- PDF
-- Images
-- ZIP
-- Vidéos
-- Liens
-
-Fonctionnalités :
-
-- upload
-- téléchargement
-- prévisualisation
-- historique
-- versionnage
-
----
-
-# Commentaires
-
-Chaque mission possède une discussion.
-
-Fonctionnalités :
-
-- répondre
-- joindre un fichier
-- @mention
-- historique
-
----
-
-# Calendrier
-
-Créer un calendrier avec :
-
-- Jour
-- Semaine
-- Mois
-- Agenda
-
-Fonctionnalités :
-
-- Drag & Drop
-- filtres
-- recherche
-
----
-
-# Notifications
-
-Créer un système de notifications en temps réel.
-
-Déclencheurs :
-
-- mission créée
-- mission assignée
-- commentaire
-- livrable déposé
-- validation
-- correction demandée
-- retard
-
-Prévoir :
-
-- notification interne
-- email
-
----
-
-# Portail Client
-
-Créer un espace client contenant :
-
-- Dashboard
-- Mes projets
-- Mes livrables
-- Validation
-- Téléchargements
-- Historique
-- Commentaires
-
----
-
-# Paramètres
-
-Créer un module permettant de gérer :
-
-- entreprise
-- logo
-- utilisateurs
-- permissions
-- emails
-- sauvegardes
-
----
-
-# API REST
-
-Prévoir les endpoints suivants :
-
+```
 /api/v1/auth/
 /api/v1/users/
 /api/v1/clients/
 /api/v1/projects/
-/api/v1/tasks/
+/api/v1/missions/
 /api/v1/comments/
-/api/v1/files/
+/api/v1/deliverables/
 /api/v1/dashboard/
 /api/v1/calendar/
+/api/v1/meetings/
 /api/v1/notifications/
 /api/v1/statistics/
+```
 
----
+### Interface utilisateur
 
-# Interface utilisateur
+Design inspiré de Notion, Linear, ClickUp et Monday.com : moderne,
+minimaliste, professionnel, responsive, fluide. Cartes, tableaux
+interactifs, graphiques, animations discrètes, mode clair/sombre, icônes
+Lucide, composants réutilisables.
 
-Créer une interface premium inspirée de Notion, Linear, ClickUp et Monday.com.
-
-Le design doit être :
-
-- moderne
-- minimaliste
-- professionnel
-- responsive
-- fluide
-- élégant
-
-Utiliser :
-
-- cartes modernes
-- tableaux interactifs
-- tableaux Kanban
-- graphiques
-- animations discrètes
-- mode clair et sombre
-- icônes Lucide
-- couleurs cohérentes
-- composants réutilisables
-
----
-
-# Architecture React
-
-Organiser le projet avec une architecture modulaire utilisant des composants réutilisables, des layouts, des pages, des hooks, des services, des contextes, des routes, des utilitaires, des types et une séparation claire des fonctionnalités.
-
----
-
-# Qualité du code
-
-Le code généré doit être :
-
-- propre
-- fortement typé avec TypeScript
-- modulaire
-- documenté
-- réutilisable
-- évolutif
-- performant
-- sécurisé
-
-Respecter les bonnes pratiques React et Django REST Framework.
-
-Commencer par générer la structure complète de l'application, puis développer progressivement chaque module avec des composants fonctionnels, des interfaces modernes et un code prêt à être connecté à l'API Django.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/2327d852-94d7-43ae-b306-e6318bddc98c).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Développement
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+npm install
+npm run dev              # http://localhost:8080
+npm run build
+npm run lint
+npm run test:e2e
 ```
+
+Copier `.env.example` vers `.env` pour pointer vers un backend local
+(`VITE_API_URL`) ; sans backend, l'app tourne sur les données mock.
