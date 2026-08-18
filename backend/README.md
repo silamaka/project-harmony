@@ -50,8 +50,19 @@ Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
   action `mark-all-read`, suppression admin uniquement. La création d'une
   notification "mission créée" est désormais un vrai effet de bord serveur
   (signal `post_save` sur Mission), plus une simulation frontend.
-- Reste à faire : Dashboard + Statistiques (Phase 5). Frontend pas encore
-  branché sur ce backend.
+- **Phase 5 — Dashboard + Statistiques** : `GET /api/v1/dashboard/` (compteurs
+  globaux), `/missions-by-client/`, `/missions-by-collaborator/`,
+  `/completion-rate/`, `/monthly/` (vide pour l'instant — pas d'historique
+  agrégé stocké, aucune donnée fabriquée), `/alerts/` (échéances à J+1/J+2 —
+  `deadline` est un DateField, la fenêtre "24h/48h" du frontend se traduit
+  au jour près). Réservé à admin/chef de projet (seuls rôles qui atteignent
+  Dashboard/Statistiques côté frontend) ; pas de scope supplémentaire par
+  utilisateur, ces agrégats sont globaux par nature. La page Statistiques
+  n'a pas d'endpoint dédié : elle consomme directement Missions/Clients/
+  Projets/Livrables comme déjà fait côté frontend.
+- **Les 5 phases prévues sont terminées côté backend.** Reste : brancher
+  effectivement le frontend dessus (actuellement toujours sur données
+  mock).
 
 ## Installation
 
