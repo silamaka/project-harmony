@@ -27,9 +27,20 @@ Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
   par rôle sur les missions : collaborateur → statut/priorité de ses
   missions uniquement, client → statut de celles de son entreprise
   uniquement (`missions/permissions.py`).
-- Restent à faire : Livrables + Commentaires (Phase 3), Calendrier +
-  Notifications (Phase 4), Dashboard + Statistiques (Phase 5). Frontend
-  pas encore branché sur ce backend.
+- **Phase 3 — Livrables + Commentaires** : CRUD `/api/v1/deliverables/`
+  (filtre `?mission=`) et `/api/v1/comments/` (filtre `?mission=`, immuables
+  — pas d'édition, suppression admin uniquement). Portée en lecture/écriture
+  dérivée de `missions.scoping.missions_visible_to` (source unique de
+  vérité, réutilisée par Missions/Livrables/Commentaires) : impossible de
+  déposer un livrable ou commenter une mission qu'on n'a pas le droit de
+  voir. `uploaded_by`/`author_id` toujours forcés à l'utilisateur connecté
+  (jamais une valeur du client). Les `mentions` d'un commentaire sont
+  ré-extraites côté serveur depuis `body`, jamais celles envoyées par le
+  client (tenter d'injecter de fausses mentions est ignoré silencieusement).
+  Un collaborateur ne peut pas auto-valider son propre livrable (statut) —
+  seuls admin/chef de projet/client (propriétaire) le peuvent.
+- Restent à faire : Calendrier + Notifications (Phase 4), Dashboard +
+  Statistiques (Phase 5). Frontend pas encore branché sur ce backend.
 
 ## Installation
 

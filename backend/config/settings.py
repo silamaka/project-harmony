@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     "clients",
     "projects",
     "missions",
+    "deliverables",
+    "comments",
     "core",
 ]
 

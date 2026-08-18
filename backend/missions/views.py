@@ -1,29 +1,23 @@
 from rest_framework import viewsets
 
-from accounts.models import Role
-
-from .models import Mission
 from .permissions import MissionPermission
+from .scoping import missions_visible_to
 from .serializers import MissionSerializer
 
 
 class MissionViewSet(viewsets.ModelViewSet):
     """La portée en lecture est restreinte par rôle avant tout filtre de
     requête : un collaborateur ne reçoit jamais les missions d'un·e autre,
-    un client jamais celles d'une autre entreprise — ce filtrage vit ici
-    plutôt que d'être appliqué après coup côté frontend (voir la note dans
-    services/index.ts, notificationService.list)."""
+    un client jamais celles d'une autre entreprise — ce filtrage vit dans
+    missions_visible_to (scoping.py), réutilisé par DeliverableViewSet et
+    CommentViewSet, plutôt que d'être appliqué après coup côté frontend
+    (voir la note dans services/index.ts, notificationService.list)."""
 
     serializer_class = MissionSerializer
     permission_classes = [MissionPermission]
 
     def get_queryset(self):
-        user = self.request.user
-        queryset = Mission.objects.all()
-        if user.role == Role.COLLABORATEUR:
-            queryset = queryset.filter(assignee=user)
-        elif user.role == Role.CLIENT:
-            queryset = queryset.filter(client_id=user.client_id)
+        queryset = missions_visible_to(self.request.user)
         assignee_id = self.request.query_params.get("assignee")
         if assignee_id:
             queryset = queryset.filter(assignee_id=assignee_id)
