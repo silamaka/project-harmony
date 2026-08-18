@@ -388,11 +388,13 @@ export const dashboardService = {
   /** GET /api/v1/dashboard/completion-rate/ */
   completionRate: () =>
     delay(
-      Math.round(
-        (missions.filter((m) => m.status === "termine" || m.status === "valide").length /
-          missions.length) *
-          100,
-      ),
+      missions.length
+        ? Math.round(
+            (missions.filter((m) => m.status === "termine" || m.status === "valide").length /
+              missions.length) *
+              100,
+          )
+        : 0,
     ),
   /** GET /api/v1/dashboard/alerts/ */
   alerts: () => {

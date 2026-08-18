@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { login } from "./utils";
+import { login, seedMission } from "./utils";
 
 /** Lit la valeur numérique affichée sur la carte KPI "Missions" (data-testid="kpi-missions"). */
 async function missionsKpiValue(page: Page) {
@@ -64,6 +64,12 @@ test("une plage personnalisée met à jour le badge de période et les KPI", asy
 });
 
 test("le tableau des missions récentes permet d'ouvrir la fiche d'édition", async ({ page }) => {
+  // L'app démarre sans donnée métier : on seed une mission avant d'interagir avec le tableau.
+  await seedMission(page);
+  await page.goto("/dashboard", { waitUntil: "networkidle" });
+  await expect(page.getByTestId("kpi-missions")).toBeVisible();
+  await page.waitForTimeout(500);
+
   await page.getByRole("button", { name: "Tout", exact: true }).click();
   await page.waitForTimeout(300);
 
