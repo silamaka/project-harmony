@@ -50,8 +50,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     avatar_url = models.URLField(blank=True)
     job_title = models.CharField(max_length=150, blank=True)
     workload = models.PositiveSmallIntegerField(default=0)
-    # Lié à clients.Client une fois cette app créée (Phase 1) : un utilisateur de
-    # rôle "client" porte la fiche entreprise associée, comme côté frontend.
+    # Entreprise associée, uniquement pertinent pour un compte de rôle "client"
+    # (voir User.client_id côté frontend). La cascade de suppression est gérée
+    # par des signaux (accounts/signals.py), pas par on_delete=CASCADE, pour
+    # rester symétrique dans les deux sens (supprimer l'un détache l'autre).
+    client = models.ForeignKey(
+        "clients.Client", null=True, blank=True, on_delete=models.SET_NULL, related_name="users"
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

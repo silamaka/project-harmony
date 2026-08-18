@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "accounts",
+    "clients",
     "core",
 ]
 
@@ -107,8 +108,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 50,
+    # Pas de pagination pour l'instant : le frontend attend un tableau brut
+    # partout (Promise<User[]>, etc.), aucune page n'a de logique de
+    # pagination. À activer plus tard comme un changement coordonné
+    # frontend+backend, pas un défaut silencieux qui casse chaque liste.
 }
 
 SIMPLE_JWT = {

@@ -4,10 +4,21 @@ Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
 
 ## État
 
-Phase 0 — fondations : projet Django, modèle `User` personnalisé (rôles
-admin/chef_projet/collaborateur/client), connexion PostgreSQL, CORS,
-authentification JWT configurée, endpoint de santé. Aucune route métier
-(clients, missions...) pour l'instant — voir les phases suivantes.
+- **Phase 0 — fondations** : projet Django, modèle `User` personnalisé (rôles
+  admin/chef_projet/collaborateur/client), connexion PostgreSQL, CORS,
+  authentification JWT, endpoint de santé.
+- **Phase 1 — Auth + Utilisateurs + Clients** : `POST /api/v1/auth/login/`
+  (retourne `{access, refresh, user}`), `POST /api/v1/auth/refresh/`,
+  `GET/PATCH /api/v1/auth/me/`, CRUD complet `/api/v1/users/` (filtre
+  `?role=`) et `/api/v1/clients/` (avec contacts imbriqués). Permissions
+  calquées sur les règles déjà établies côté frontend cette session (voir
+  `accounts/permissions.py` et `clients/permissions.py`). Cascade
+  utilisateur "client" ↔ entreprise gérée par signal + `on_delete=SET_NULL`,
+  testée dans les deux sens. Pas de pagination pour l'instant (le frontend
+  attend des tableaux bruts partout).
+- Restent à faire : Projets + Missions (Phase 2), Livrables + Commentaires
+  (Phase 3), Calendrier + Notifications (Phase 4), Dashboard + Statistiques
+  (Phase 5). Frontend pas encore branché sur ce backend.
 
 ## Installation
 
