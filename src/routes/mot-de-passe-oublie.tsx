@@ -34,7 +34,7 @@ function ForgotPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <img src="/beba-logo.svg" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
+        <img src="/beba-logo.png" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
         {sent ? (
           <div className="mt-6">
             <MailCheck className="h-8 w-8 text-success" />

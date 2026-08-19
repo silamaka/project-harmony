@@ -144,7 +144,7 @@ export function AppShell({
         )}
       >
         <div className="flex items-center gap-3 px-5 py-5">
-          <img src="/beba-logo.svg" alt="Logo BEBA EMPIRE" className="h-10 w-10 rounded-full" />
+          <img src="/beba-logo.png" alt="Logo BEBA EMPIRE" className="h-10 w-10 rounded-full" />
           <div className="leading-tight">
             <p className="text-sm font-extrabold tracking-tight text-sidebar-foreground">
               BEBA EMPIRE
