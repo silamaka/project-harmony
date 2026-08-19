@@ -96,7 +96,6 @@ function MissionDetailPage() {
     mutationFn: (body: string) =>
       commentService.create({
         mission_id: missionId,
-        author_id: user?.id ?? "",
         body,
       }),
     onSuccess: () => {
@@ -115,7 +114,6 @@ function MissionDetailPage() {
         url: payload.url,
         ...(payload.size_kb !== undefined ? { size_kb: payload.size_kb } : {}),
         version: ((deliverables ?? []).length || 0) + 1,
-        uploaded_by: user?.id ?? "",
         status: "en_attente",
       }),
     onSuccess: () => {

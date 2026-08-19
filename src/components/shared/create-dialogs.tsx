@@ -409,7 +409,7 @@ export function CreateUserDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { password: _password, company_name, ...rest } = form;
+      const { password, company_name, ...rest } = form;
       let client_id: string | undefined;
       // Un utilisateur "Client" crée directement sa fiche entreprise : pas besoin
       // de passer d'abord par Clients > Nouveau client.
@@ -429,6 +429,7 @@ export function CreateUserDialog({
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         role: form.role,
+        password,
         ...(client_id ? { client_id } : {}),
       });
     },

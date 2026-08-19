@@ -1,19 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { TOKEN_KEY } from "@/lib/api";
-import { users } from "@/lib/mock-data";
+import { api, endpoints, REFRESH_KEY, TOKEN_KEY } from "@/lib/api";
 import type { Role, User } from "@/types";
-
-const USER_KEY = "beba.user";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  /** Connexion. Branchement API : POST /api/v1/auth/login/ → { access, refresh, user } */
   login: (email: string, password: string) => Promise<User>;
   logout: () => void;
-  /** Mise à jour du profil courant. Branchement API : PATCH /api/v1/auth/me/ */
-  updateProfile: (patch: Partial<User>) => void;
+  updateProfile: (patch: Partial<User>) => Promise<void>;
   hasRole: (...roles: Role[]) => boolean;
 }
 
@@ -24,41 +19,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(USER_KEY);
-      if (raw) setUser(JSON.parse(raw) as User);
-    } catch {
-      /* stockage indisponible */
+    let cancelled = false;
+    async function restoreSession() {
+      const token = window.localStorage.getItem(TOKEN_KEY);
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const { data } = await api.get<User>(endpoints.auth.me);
+        if (!cancelled) setUser(data);
+      } catch {
+        // Token invalide/expiré et non rafraîchissable (voir lib/api.ts) :
+        // l'intercepteur a déjà nettoyé le storage, on reste déconnecté.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
-    setLoading(false);
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const found = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (!found || password.length < 4) {
-      throw new Error("Identifiants invalides.");
-    }
-    window.localStorage.setItem(USER_KEY, JSON.stringify(found));
-    window.localStorage.setItem(TOKEN_KEY, `demo.${found.id}.jwt`);
-    setUser(found);
-    return found;
+    const { data } = await api.post<{ access: string; refresh: string; user: User }>(
+      endpoints.auth.login,
+      { email: email.trim(), password },
+    );
+    window.localStorage.setItem(TOKEN_KEY, data.access);
+    window.localStorage.setItem(REFRESH_KEY, data.refresh);
+    setUser(data.user);
+    return data.user;
   }, []);
 
   const logout = useCallback(() => {
-    window.localStorage.removeItem(USER_KEY);
     window.localStorage.removeItem(TOKEN_KEY);
+    window.localStorage.removeItem(REFRESH_KEY);
     setUser(null);
   }, []);
 
-  const updateProfile = useCallback((patch: Partial<User>) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev, ...patch };
-      const stored = users.find((u) => u.id === prev.id);
-      if (stored) Object.assign(stored, patch);
-      window.localStorage.setItem(USER_KEY, JSON.stringify(next));
-      return next;
-    });
+  const updateProfile = useCallback(async (patch: Partial<User>) => {
+    const { data } = await api.patch<User>(endpoints.auth.me, patch);
+    setUser(data);
   }, []);
 
   const value = useMemo<AuthContextValue>(
