@@ -57,10 +57,8 @@ const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
 function DeliverablesPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
-  /** Un collaborateur ne voit que ses propres dépôts, pas ceux de toute l'agence. */
-  const scopedToSelf = hasRole("collaborateur");
   const queryClient = useQueryClient();
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
@@ -78,7 +76,8 @@ function DeliverablesPage() {
     },
   });
 
-  const visible = (deliverables ?? []).filter((d) => !scopedToSelf || d.uploaded_by === user?.id);
+  /** Le backend ne renvoie déjà que les livrables visibles pour le rôle courant. */
+  const visible = deliverables ?? [];
   const list = visible.filter(
     (d) =>
       d.name.toLowerCase().includes(q.trim().toLowerCase()) &&

@@ -95,5 +95,4 @@ export const endpoints = {
   calendar: "/calendar/",
   meetings: "/meetings/",
   notifications: "/notifications/",
-  statistics: "/statistics/",
 } as const;

@@ -139,7 +139,6 @@ export function EditClientDialog({ client }: { client: Client }) {
     address: client.address ?? "",
     status: client.status,
     logo_url: client.logo_url ?? "",
-    created_at: client.created_at.slice(0, 10),
   });
   const done = useSaved([["clients"], ["clients", client.id]], () => setOpen(false));
 
@@ -209,13 +208,6 @@ export function EditClientDialog({ client }: { client: Client }) {
               <option value="actif">Actif</option>
               <option value="inactif">Inactif</option>
             </select>
-          </Field>
-          <Field label="Date de création">
-            <Input
-              type="date"
-              value={form.created_at}
-              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
-            />
           </Field>
         </div>
         <DialogFooter>
@@ -391,7 +383,6 @@ export function EditMissionDialog({
     status: mission.status,
     assignee_id: mission.assignee_id,
     project_id: mission.project_id,
-    created_at: mission.created_at.slice(0, 10),
     deadline: mission.deadline.slice(0, 10),
   });
   const done = useSaved([["missions"], ["missions", mission.id]], () => setOpen(false));
@@ -484,13 +475,6 @@ export function EditMissionDialog({
                 </option>
               ))}
             </select>
-          </Field>
-          <Field label="Date de création">
-            <Input
-              type="date"
-              value={form.created_at}
-              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
-            />
           </Field>
           <Field label="Deadline">
             <Input

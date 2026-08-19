@@ -36,8 +36,8 @@ export async function login(page: Page, account: keyof typeof DEMO_ACCOUNTS = "a
 }
 
 /**
- * L'app démarre sans aucune donnée métier (voir mock-data.ts) : les tests qui
- * ont besoin d'au moins une mission doivent la créer eux-mêmes plutôt que de
+ * Le backend ne pré-remplit aucune donnée métier : les tests qui ont besoin
+ * d'au moins une mission doivent la créer eux-mêmes plutôt que de
  * dépendre d'un jeu de données pré-rempli. Crée la chaîne minimale requise
  * (un client, un projet, une mission) via l'UI, en admin, et laisse la page
  * sur /missions. Le titre généré est retourné pour que le test puisse le
@@ -52,6 +52,7 @@ export async function seedMission(page: Page): Promise<{ title: string }> {
   await page.goto("/parametres", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Inviter un utilisateur" }).click();
   await page.getByLabel("Prénom").fill("Client");
+  await page.getByLabel("Nom", { exact: true }).fill(`E2E ${suffix}`);
   await page.getByLabel("E-mail").fill(`client.${suffix}@e2e.test`);
   await page.getByLabel("Mot de passe").fill("demo1234");
   await page.getByLabel("Rôle").selectOption("client");

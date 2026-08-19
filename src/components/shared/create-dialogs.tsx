@@ -222,7 +222,6 @@ export function CreateMissionDialog({
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
     assignee_id: "",
-    created_at: today,
     deadline: today,
   });
   const done = useCreate([["missions"], ["notifications"]], () => setOpen(false));
@@ -318,13 +317,6 @@ export function CreateMissionDialog({
               ))}
             </select>
           </Field>
-          <Field label="Date de création">
-            <Input
-              type="date"
-              value={form.created_at}
-              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
-            />
-          </Field>
           <Field label="Deadline">
             <Input
               type="date"
@@ -389,7 +381,6 @@ export function CreateUserDialog({
   /** Masque ces rôles du sélecteur (ex. "collaborateur" quand ce rôle a déjà sa propre page de création dédiée). */
   excludeRoles?: ("collaborateur" | "chef_projet" | "admin" | "client")[];
 }) {
-  const today = new Date().toISOString().slice(0, 10);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     first_name: "",
@@ -403,7 +394,6 @@ export function CreateUserDialog({
     is_active: true,
     workload: 0,
     avatar_url: "",
-    created_at: today,
   });
   const done = useCreate([["users"], ["collaborators"], ["clients"]], () => setOpen(false));
 
@@ -447,7 +437,6 @@ export function CreateUserDialog({
         is_active: true,
         workload: 0,
         avatar_url: "",
-        created_at: today,
       });
     },
     onError: () => toast.error("Ajout impossible."),
@@ -554,13 +543,6 @@ export function CreateUserDialog({
               <option value="0">Inactif</option>
             </select>
           </Field>
-          <Field label="Date de création">
-            <Input
-              type="date"
-              value={form.created_at}
-              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
-            />
-          </Field>
         </div>
         <DialogFooter>
           <Button
@@ -601,7 +583,6 @@ export function EditUserDialog({ user }: { user: User }) {
     company_status: linkedClient?.status ?? ("actif" as Client["status"]),
     is_active: user.is_active,
     avatar_url: user.avatar_url ?? "",
-    created_at: user.created_at.slice(0, 10),
   });
   const [form, setForm] = useState(buildForm);
   const done = useCreate([["users"], ["collaborators"], ["clients"]], () => setOpen(false));
@@ -761,13 +742,6 @@ export function EditUserDialog({ user }: { user: User }) {
               <option value="1">Actif</option>
               <option value="0">Inactif</option>
             </select>
-          </Field>
-          <Field label="Date de création">
-            <Input
-              type="date"
-              value={form.created_at}
-              onChange={(e) => setForm({ ...form, created_at: e.target.value })}
-            />
           </Field>
         </div>
         <DialogFooter>

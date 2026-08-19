@@ -2,10 +2,9 @@
 
 Plateforme web de gestion d'agence de marketing et communication digitale
 (BEBA EMPIRE) : clients, projets, missions, livrables, calendrier,
-notifications, portail client. Frontend React/TypeScript actuellement
-alimenté par des données mock (voir `src/lib/mock-data.ts`) en attendant le
-branchement à un backend Django REST Framework (voir `src/services/index.ts`
-et `src/lib/api.ts` pour le contrat d'API prévu).
+notifications, portail client. Frontend React/TypeScript (voir
+`src/services/index.ts` et `src/lib/api.ts`) branché sur un backend Django
+REST Framework réel (voir `backend/`), authentification par JWT.
 
 ## Stack technique
 
@@ -24,11 +23,11 @@ Frontend :
 - Recharts
 - Lucide React
 
-Backend (prévu, non branché) :
+Backend (`backend/`) :
 
 - Django
 - Django REST Framework
-- JWT Authentication
+- JWT Authentication (djangorestframework-simplejwt)
 - PostgreSQL
 
 ## Cahier des charges
@@ -127,7 +126,7 @@ Dashboard, mes projets, mes livrables, validation, historique, commentaires.
 
 Gestion des utilisateurs et des rôles.
 
-### API REST prévue
+### API REST
 
 ```
 /api/v1/auth/
@@ -141,7 +140,6 @@ Gestion des utilisateurs et des rôles.
 /api/v1/calendar/
 /api/v1/meetings/
 /api/v1/notifications/
-/api/v1/statistics/
 ```
 
 ### Interface utilisateur
@@ -161,5 +159,7 @@ npm run lint
 npm run test:e2e
 ```
 
-Copier `.env.example` vers `.env` pour pointer vers un backend local
-(`VITE_API_URL`) ; sans backend, l'app tourne sur les données mock.
+Copier `.env.example` vers `.env` pour pointer vers le backend
+(`VITE_API_URL`). Le backend (`backend/`) doit tourner pour que l'app
+fonctionne — voir `backend/README.md` pour le lancer (venv, migrations,
+PostgreSQL).
