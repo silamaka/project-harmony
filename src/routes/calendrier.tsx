@@ -18,7 +18,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -679,6 +679,10 @@ function MeetingFormDialog({
 }) {
   const qc = useQueryClient();
   const isEdit = event !== null;
+  const titleId = useId();
+  const dateId = useId();
+  const timeId = useId();
+  const descriptionId = useId();
   const [form, setForm] = useState({
     title: event?.title ?? "",
     date: event?.date.slice(0, 10) ?? defaultDate ?? format(new Date(), "yyyy-MM-dd"),
@@ -733,32 +737,44 @@ function MeetingFormDialog({
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Titre</Label>
+            <Label htmlFor={titleId} className="text-xs">
+              Titre
+            </Label>
             <Input
+              id={titleId}
               value={form.title}
               maxLength={140}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Date</Label>
+            <Label htmlFor={dateId} className="text-xs">
+              Date
+            </Label>
             <Input
+              id={dateId}
               type="date"
               value={form.date}
               onChange={(e) => setForm({ ...form, date: e.target.value })}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Heure (optionnel)</Label>
+            <Label htmlFor={timeId} className="text-xs">
+              Heure (optionnel)
+            </Label>
             <Input
+              id={timeId}
               type="time"
               value={form.time}
               onChange={(e) => setForm({ ...form, time: e.target.value })}
             />
           </div>
           <div className="sm:col-span-2 space-y-1.5">
-            <Label className="text-xs">Description</Label>
+            <Label htmlFor={descriptionId} className="text-xs">
+              Description
+            </Label>
             <Textarea
+              id={descriptionId}
               value={form.description}
               maxLength={500}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
