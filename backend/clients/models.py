@@ -15,7 +15,9 @@ class Client(models.Model):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=30, blank=True)
     address = models.CharField(max_length=255, blank=True)
-    logo_url = models.URLField(blank=True)
+    # TextField (pas URLField) : même raison que User.avatar_url, une data
+    # URL base64 générée côté client.
+    logo_url = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=ClientStatus.choices, default=ClientStatus.PROSPECT)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -47,7 +47,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=150)
     phone = models.CharField(max_length=30, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.COLLABORATEUR)
-    avatar_url = models.URLField(blank=True)
+    # TextField (pas URLField) : le frontend stocke ici une data URL base64
+    # (photo redimensionnée côté client, pas d'upload backend), bien trop
+    # longue pour un URLField et hors du format que son validateur accepte.
+    avatar_url = models.TextField(blank=True)
     job_title = models.CharField(max_length=150, blank=True)
     workload = models.PositiveSmallIntegerField(default=0)
     # Entreprise associée, uniquement pertinent pour un compte de rôle "client"

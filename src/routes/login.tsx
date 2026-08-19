@@ -30,13 +30,6 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const DEMO = [
-  { email: "admin@bebaempire.com", label: "Administrateur" },
-  { email: "sara@bebaempire.com", label: "Chef de projet" },
-  { email: "yassine@bebaempire.com", label: "Collaborateur" },
-  { email: "omar@atlasretail.com", label: "Client" },
-];
-
 function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -60,88 +53,74 @@ function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="flex items-center justify-center px-6 py-12">
+    <div className="grid min-h-screen lg:h-screen lg:grid-cols-2">
+      <div className="flex items-center justify-center overflow-y-auto px-6 py-12">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
           className="w-full max-w-sm"
         >
-          <img src="/beba-logo.svg" alt="Logo BEBA EMPIRE" className="h-14 w-14 rounded-full" />
-          <h1 className="mt-6 text-2xl font-extrabold tracking-tight">Connexion</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Accédez à votre espace de gestion d'agence.
+          <img
+            src="/beba-logo.svg"
+            alt="Logo BEBA EMPIRE"
+            className="h-14 w-14 rounded-full shadow-sm"
+          />
+          <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Bon retour</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Connectez-vous à votre espace de gestion d'agence.
           </p>
 
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-9 space-y-5">
+            <div className="space-y-1.5">
               <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" autoComplete="email" {...form.register("email")} />
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="vous@agence.com"
+                className="h-11"
+                {...form.register("email")}
+              />
               {form.formState.errors.email && (
                 <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Mot de passe</Label>
+                <Link
+                  to="/mot-de-passe-oublie"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
                 autoComplete="current-password"
+                placeholder="••••••••"
+                className="h-11"
                 {...form.register("password")}
               />
               {form.formState.errors.password && (
                 <p className="text-xs text-destructive">{form.formState.errors.password.message}</p>
               )}
             </div>
-            <div className="flex justify-end">
-              <Link
-                to="/mot-de-passe-oublie"
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                Mot de passe oublié ?
-              </Link>
-            </div>
-            <Button type="submit" className="w-full" disabled={pending}>
+            <Button type="submit" size="lg" className="mt-2 h-11 w-full" disabled={pending}>
               {pending ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
-
-          <div className="mt-8 rounded-lg border border-border bg-muted/50 p-4">
-            <p className="text-xs font-semibold">Comptes de démonstration</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Mot de passe : <span className="font-mono">demo1234</span>
-            </p>
-            <div className="mt-3 grid gap-1.5">
-              {DEMO.map((d) => (
-                <button
-                  key={d.email}
-                  type="button"
-                  onClick={() => {
-                    form.setValue("email", d.email);
-                    form.setValue("password", "demo1234");
-                  }}
-                  className="flex items-center justify-between rounded-md px-2 py-1 text-left text-xs transition-colors hover:bg-accent"
-                >
-                  <span className="font-medium">{d.label}</span>
-                  <span className="text-muted-foreground">{d.email}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </motion.div>
       </div>
 
-      <div className="brand-gradient hidden flex-col justify-end p-12 lg:flex">
-        <blockquote className="max-w-md text-primary-foreground">
-          <p className="text-3xl font-extrabold leading-tight tracking-tight">
-            Toute l'agence, un seul cockpit.
-          </p>
-          <p className="mt-4 text-sm opacity-90">
-            Clients, projets, missions, livrables, validations client et reporting — centralisés,
-            fluides et temps réel.
-          </p>
-        </blockquote>
+      <div className="brand-gradient hidden min-h-0 items-center justify-center lg:flex">
+        <img
+          src="/BEBA_EMPIRE_clean.png"
+          alt="BEBA EMPIRE"
+          className="h-full max-h-full w-full max-w-full object-contain"
+        />
       </div>
     </div>
   );
