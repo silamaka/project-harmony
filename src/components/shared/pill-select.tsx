@@ -20,7 +20,7 @@ export function PillSelect<T extends string>({
         onChange={(e) => onChange(e.target.value as T)}
         title={options[value]}
         className={cn(
-          "h-7 w-full max-w-full cursor-pointer appearance-none truncate rounded-full border-none py-0 pl-2.5 pr-6 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "h-7 w-full max-w-full cursor-pointer appearance-none truncate rounded-full border-none py-0 pl-2.5 pr-6 text-xs font-semibold outline-none transition-[filter] duration-150 hover:brightness-95 active:brightness-90 focus-visible:ring-2 focus-visible:ring-ring",
           tone[value],
         )}
       >
