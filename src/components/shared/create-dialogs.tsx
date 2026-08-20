@@ -82,7 +82,6 @@ export function CreateProjectDialog({ clientId }: { clientId?: string }) {
     start_date: today,
     end_date: today,
     status: "en_preparation" as ProjectStatus,
-    progress: 0,
   });
   const done = useCreate([["projects"], ["clients"]], () => setOpen(false));
 
@@ -200,9 +199,12 @@ export function CreateProjectDialog({ clientId }: { clientId?: string }) {
 export function CreateMissionDialog({
   projectId,
   clientId,
+  assigneeId,
 }: {
   projectId?: string;
   clientId?: string;
+  /** Pré-sélectionne le responsable (ex. depuis la fiche d'un collaborateur). */
+  assigneeId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const { data: allProjects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
@@ -221,7 +223,7 @@ export function CreateMissionDialog({
     priority: "normale" as Priority,
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
-    assignee_id: "",
+    assignee_id: assigneeId ?? "",
     deadline: today,
   });
   const done = useCreate([["missions"], ["notifications"]], () => setOpen(false));
@@ -410,6 +412,7 @@ export function CreateUserDialog({
           email: form.email.trim(),
           phone: form.phone.trim(),
           status: "actif",
+          logo_url: form.avatar_url,
         });
         client_id = client.id;
       }
@@ -598,6 +601,7 @@ export function EditUserDialog({ user }: { user: User }) {
           name: company_name.trim(),
           industry: company_industry.trim() || "Non renseigné",
           status: company_status,
+          logo_url: form.avatar_url,
         };
         if (user.client_id) {
           await clientService.update(user.client_id, clientPatch);

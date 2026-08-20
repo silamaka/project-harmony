@@ -239,7 +239,6 @@ export function EditProjectDialog({
     description: project.description,
     owner_id: project.owner_id,
     status: project.status,
-    progress: project.progress,
     start_date: project.start_date.slice(0, 10),
     end_date: project.end_date.slice(0, 10),
   });
@@ -250,7 +249,6 @@ export function EditProjectDialog({
       projectService.update(project.id, {
         ...form,
         name: form.name.trim(),
-        progress: Math.max(0, Math.min(100, Number(form.progress) || 0)),
       }),
     onSuccess: () => done("Projet mis à jour."),
     onError: () => toast.error("Mise à jour impossible."),
@@ -272,7 +270,7 @@ export function EditProjectDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Modifier le projet</DialogTitle>
-          <DialogDescription>Responsable, statut, progression et échéances.</DialogDescription>
+          <DialogDescription>Responsable, statut et échéances.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -308,15 +306,6 @@ export function EditProjectDialog({
                 </option>
               ))}
             </select>
-          </Field>
-          <Field label="Progression (%)">
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={form.progress}
-              onChange={(e) => setForm({ ...form, progress: Number(e.target.value) })}
-            />
           </Field>
           <Field label="Début">
             <Input

@@ -21,6 +21,12 @@ class MissionStatus(models.TextChoices):
     TERMINE = "termine", "Terminé"
 
 
+# Une mission "Publiée" a déjà été validée par le client (elle vient après
+# "Validé" dans le workflow) : elle compte comme terminée au même titre que
+# "Validé"/"Terminé" pour les taux d'achèvement et le calcul des retards.
+DONE_STATUSES = (MissionStatus.VALIDE, MissionStatus.PUBLIE, MissionStatus.TERMINE)
+
+
 class Mission(models.Model):
     """Correspond au type `Mission` du frontend (src/types/index.ts)."""
 

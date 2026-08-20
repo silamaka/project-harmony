@@ -22,7 +22,10 @@ class Deliverable(models.Model):
     mission = models.ForeignKey("missions.Mission", related_name="deliverables", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=10, choices=DeliverableType.choices)
-    url = models.URLField()
+    # TextField (pas URLField) : les liens Drive/Figma/S3 réels dépassent
+    # souvent les 200 caractères par défaut d'un URLField (paramètres de
+    # partage, node-id...), comme constaté pour User.avatar_url.
+    url = models.TextField()
     version = models.PositiveSmallIntegerField(default=1)
     size_kb = models.PositiveIntegerField(null=True, blank=True)
     uploaded_by = models.ForeignKey(

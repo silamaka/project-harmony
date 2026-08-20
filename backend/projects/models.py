@@ -20,7 +20,6 @@ class Project(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
     status = models.CharField(max_length=20, choices=ProjectStatus.choices, default=ProjectStatus.BROUILLON)
-    progress = models.PositiveSmallIntegerField(default=0)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="owned_projects", on_delete=models.PROTECT
     )
@@ -31,3 +30,15 @@ class Project(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def progress(self) -> int:
+        """Calculée à partir des missions du projet (pas saisie à la main) :
+        pourcentage de missions au statut Validé/Publié/Terminé."""
+        from missions.models import DONE_STATUSES
+
+        total = self.missions.count()
+        if not total:
+            return 0
+        done = self.missions.filter(status__in=DONE_STATUSES).count()
+        return round(done / total * 100)

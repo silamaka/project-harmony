@@ -3,11 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   Check,
   CheckCircle2,
+  Clock,
   Eye,
   FileText,
   Film,
   ImageIcon,
   LinkIcon,
+  RefreshCcw,
   Send,
   Trash2,
   Upload,
@@ -171,6 +173,10 @@ function MissionDetailPage() {
     else statusMutation.mutate(status);
   };
 
+  /** Le client ne peut valider / demander des corrections qu'une fois la
+   * mission effectivement envoyée par l'agence — pas avant. */
+  const clientTurnToAct = isClient && mission?.status === "envoye_client";
+
   return (
     <AppShell
       title={mission?.title ?? "Mission"}
@@ -190,73 +196,162 @@ function MissionDetailPage() {
       }
     >
       {/* Workflow */}
-      <div className="surface-card mt-4 overflow-x-auto p-4">
-        <div className="flex min-w-[860px] items-center gap-1">
-          {MISSION_WORKFLOW.slice(0, 5).map((s, i) => (
-            <Fragment key={s}>
-              <StepButton
-                label={MISSION_STATUS_LABELS[s]}
-                active={mission?.status === s}
-                filled={i <= currentIndex}
-                done={i < currentIndex}
-                disabled={statusMutation.isPending || isClient}
-                onClick={() => requestStatusChange(s)}
-              />
-              <StepConnector filled={i < currentIndex} />
-            </Fragment>
-          ))}
-
-          <div className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed border-border p-1">
-            <StepButton
-              label="Validé"
-              active={mission?.status === "valide"}
-              filled={
-                mission?.status === "valide" ||
+      {isClient ? (
+        <>
+          {clientTurnToAct ? (
+            <div className="surface-card mt-4 border-2 border-primary/30 bg-primary/5 p-6">
+              <p className="text-xs font-bold tracking-wide text-primary uppercase">
+                À vous de jouer
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                L'agence a terminé son travail sur cette mission. Validez-la, ou demandez des
+                corrections si quelque chose ne convient pas.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button
+                  size="lg"
+                  className="h-14 flex-1 min-w-[200px] bg-success text-base text-success-foreground shadow-md hover:bg-success/90"
+                  disabled={statusMutation.isPending}
+                  onClick={() => requestStatusChange("valide")}
+                >
+                  <Check className="mr-2 h-5 w-5" /> Valider
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14 flex-1 min-w-[200px] border-2 border-warning text-base text-warning shadow-md hover:bg-warning/10"
+                  disabled={statusMutation.isPending}
+                  onClick={() => requestStatusChange("corrections")}
+                >
+                  <RefreshCcw className="mr-2 h-5 w-5" /> Demander des corrections
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="surface-card mt-4 flex items-center gap-3 p-4">
+              <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {mission?.status === "valide" ||
                 mission?.status === "publie" ||
                 mission?.status === "termine"
-              }
-              done={mission?.status === "publie" || mission?.status === "termine"}
-              disabled={statusMutation.isPending}
-              onClick={() => requestStatusChange("valide")}
-              tone="success"
-              className="flex-none px-3"
-            />
-            <span className="text-[10px] font-medium text-muted-foreground">ou</span>
+                  ? "Vous avez validé cette mission."
+                  : mission?.status === "corrections"
+                    ? "Vous avez demandé des corrections — l'agence y travaille."
+                    : "En cours de traitement par l'agence. Vous serez notifié dès qu'elle sera prête à valider."}
+              </p>
+            </div>
+          )}
+
+          <details className="surface-card mt-3 p-4">
+            <summary className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
+              Suivi interne de l'agence
+            </summary>
+            <div className="mt-3 overflow-x-auto opacity-60">
+              <div className="flex min-w-[860px] items-center gap-1">
+                {MISSION_WORKFLOW.slice(0, 5).map((s, i) => (
+                  <Fragment key={s}>
+                    <StepButton
+                      label={MISSION_STATUS_LABELS[s]}
+                      active={mission?.status === s}
+                      filled={i <= currentIndex}
+                      done={i < currentIndex}
+                      disabled
+                      onClick={() => {}}
+                    />
+                    <StepConnector filled={i < currentIndex} />
+                  </Fragment>
+                ))}
+                <StepConnector filled={currentIndex >= MISSION_WORKFLOW.indexOf("publie")} />
+                <StepButton
+                  label="Publié"
+                  active={mission?.status === "publie"}
+                  filled={mission?.status === "publie" || mission?.status === "termine"}
+                  done={mission?.status === "termine"}
+                  disabled
+                  onClick={() => {}}
+                />
+                <StepConnector filled={mission?.status === "termine"} />
+                <StepButton
+                  label="Terminé"
+                  active={mission?.status === "termine"}
+                  filled={mission?.status === "termine"}
+                  done={false}
+                  disabled
+                  onClick={() => {}}
+                />
+              </div>
+            </div>
+          </details>
+        </>
+      ) : (
+        <div className="surface-card mt-4 overflow-x-auto p-4">
+          <div className="flex min-w-[860px] items-center gap-1">
+            {MISSION_WORKFLOW.slice(0, 5).map((s, i) => (
+              <Fragment key={s}>
+                <StepButton
+                  label={MISSION_STATUS_LABELS[s]}
+                  active={mission?.status === s}
+                  filled={i <= currentIndex}
+                  done={i < currentIndex}
+                  disabled={statusMutation.isPending}
+                  onClick={() => requestStatusChange(s)}
+                />
+                <StepConnector filled={i < currentIndex} />
+              </Fragment>
+            ))}
+
+            <div className="flex shrink-0 items-center gap-1 rounded-lg border border-dashed border-border p-1">
+              <StepButton
+                label="Validé"
+                active={mission?.status === "valide"}
+                filled={
+                  mission?.status === "valide" ||
+                  mission?.status === "publie" ||
+                  mission?.status === "termine"
+                }
+                done={mission?.status === "publie" || mission?.status === "termine"}
+                disabled={statusMutation.isPending}
+                onClick={() => requestStatusChange("valide")}
+                tone="success"
+                className="flex-none px-3"
+              />
+              <span className="text-[10px] font-medium text-muted-foreground">ou</span>
+              <StepButton
+                label="Corrections"
+                active={mission?.status === "corrections"}
+                filled={mission?.status === "corrections"}
+                done={false}
+                disabled={statusMutation.isPending}
+                onClick={() => requestStatusChange("corrections")}
+                tone="warning"
+                className="flex-none px-3"
+              />
+            </div>
+
+            <StepConnector filled={currentIndex >= MISSION_WORKFLOW.indexOf("publie")} />
+
             <StepButton
-              label="Corrections"
-              active={mission?.status === "corrections"}
-              filled={mission?.status === "corrections"}
+              label="Publié"
+              active={mission?.status === "publie"}
+              filled={mission?.status === "publie" || mission?.status === "termine"}
+              done={mission?.status === "termine"}
+              disabled={statusMutation.isPending}
+              onClick={() => requestStatusChange("publie")}
+            />
+
+            <StepConnector filled={mission?.status === "termine"} />
+
+            <StepButton
+              label="Terminé"
+              active={mission?.status === "termine"}
+              filled={mission?.status === "termine"}
               done={false}
               disabled={statusMutation.isPending}
-              onClick={() => requestStatusChange("corrections")}
-              tone="warning"
-              className="flex-none px-3"
+              onClick={() => requestStatusChange("termine")}
             />
           </div>
-
-          <StepConnector filled={currentIndex >= MISSION_WORKFLOW.indexOf("publie")} />
-
-          <StepButton
-            label="Publié"
-            active={mission?.status === "publie"}
-            filled={mission?.status === "publie" || mission?.status === "termine"}
-            done={mission?.status === "termine"}
-            disabled={statusMutation.isPending || isClient}
-            onClick={() => requestStatusChange("publie")}
-          />
-
-          <StepConnector filled={mission?.status === "termine"} />
-
-          <StepButton
-            label="Terminé"
-            active={mission?.status === "termine"}
-            filled={mission?.status === "termine"}
-            done={false}
-            disabled={statusMutation.isPending || isClient}
-            onClick={() => requestStatusChange("termine")}
-          />
         </div>
-      </div>
+      )}
 
       <Dialog open={pendingStatus !== null} onOpenChange={(o) => !o && setPendingStatus(null)}>
         <DialogContent>

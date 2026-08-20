@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
-import { EditUserDialog } from "@/components/shared/create-dialogs";
+import { CreateMissionDialog, EditUserDialog } from "@/components/shared/create-dialogs";
 import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { MissionsTable } from "@/components/shared/missions-table";
 import { Input } from "@/components/ui/input";
@@ -127,7 +127,14 @@ function CollaboratorDetailPage() {
           : undefined
       }
       allow={["admin", "chef_projet"]}
-      actions={collaborator ? <EditUserDialog user={collaborator} /> : undefined}
+      actions={
+        collaborator ? (
+          <div className="flex items-center gap-2">
+            <CreateMissionDialog assigneeId={collaborator.id} />
+            <EditUserDialog user={collaborator} />
+          </div>
+        ) : undefined
+      }
     >
       <Link
         to="/collaborateurs"

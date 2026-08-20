@@ -21,6 +21,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     client_id = ClientPKField(source="client")
     owner_id = OwnerPKField(source="owner")
+    progress = serializers.ReadOnlyField()
 
     class Meta:
         model = Project

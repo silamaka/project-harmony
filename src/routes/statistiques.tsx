@@ -171,7 +171,9 @@ function StatisticsPage() {
   }));
 
   const late = missionList.filter(isLate).length;
-  const done = missionList.filter((m) => m.status === "termine" || m.status === "valide").length;
+  const done = missionList.filter(
+    (m) => m.status === "termine" || m.status === "valide" || m.status === "publie",
+  ).length;
   const onTimeRate = missionList.length
     ? Math.round(((missionList.length - late) / missionList.length) * 100)
     : 0;

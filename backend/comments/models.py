@@ -13,7 +13,8 @@ class Comment(models.Model):
     parent = models.ForeignKey(
         "self", null=True, blank=True, related_name="replies", on_delete=models.CASCADE
     )
-    attachment_url = models.URLField(blank=True)
+    # TextField (pas URLField) : même raison que Deliverable.url / User.avatar_url.
+    attachment_url = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

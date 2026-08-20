@@ -183,7 +183,7 @@ function DashboardPage() {
     [collaborators, filteredMissions],
   );
   const completedInPeriod = filteredMissions.filter(
-    (m) => m.status === "termine" || m.status === "valide",
+    (m) => m.status === "termine" || m.status === "valide" || m.status === "publie",
   ).length;
   const rate = filteredMissions.length
     ? Math.round((completedInPeriod / filteredMissions.length) * 100)

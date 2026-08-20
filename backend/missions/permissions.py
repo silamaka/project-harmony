@@ -2,8 +2,11 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 from accounts.models import Role
 
+from .models import MissionStatus
+
 COLLABORATEUR_EDITABLE_FIELDS = {"status", "priority"}
 CLIENT_EDITABLE_FIELDS = {"status"}
+CLIENT_ALLOWED_STATUSES = {MissionStatus.VALIDE, MissionStatus.CORRECTIONS}
 
 
 class MissionPermission(BasePermission):
@@ -41,5 +44,15 @@ class MissionPermission(BasePermission):
         if request.user.role == Role.COLLABORATEUR:
             return obj.assignee_id == request.user.id and fields_sent <= COLLABORATEUR_EDITABLE_FIELDS
         if request.user.role == Role.CLIENT:
-            return obj.client_id == request.user.client_id and fields_sent <= CLIENT_EDITABLE_FIELDS
+            if not (obj.client_id == request.user.client_id and fields_sent <= CLIENT_EDITABLE_FIELDS):
+                return False
+            # Le client ne peut valider / demander des corrections que
+            # lorsque c'est effectivement son tour (mission déjà envoyée),
+            # pas à n'importe quel stade du pipeline interne.
+            if "status" in request.data:
+                return (
+                    obj.status == MissionStatus.ENVOYE_CLIENT
+                    and request.data["status"] in CLIENT_ALLOWED_STATUSES
+                )
+            return True
         return False

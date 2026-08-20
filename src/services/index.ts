@@ -79,8 +79,8 @@ export const userService = {
 export const projectService = {
   /** GET /api/v1/projects/ */
   list: async () => (await api.get<Project[]>(endpoints.projects)).data,
-  /** POST /api/v1/projects/ */
-  create: async (payload: Omit<Project, "id" | "created_at">) =>
+  /** POST /api/v1/projects/ — progress est calculé côté serveur à partir des missions. */
+  create: async (payload: Omit<Project, "id" | "created_at" | "progress">) =>
     (await api.post<Project>(endpoints.projects, payload)).data,
   /** PATCH /api/v1/projects/:id/ */
   update: async (id: string, patch: Partial<Project>) =>
@@ -200,7 +200,10 @@ export const notificationService = {
  * chargée (filtre de période du Dashboard, etc.) — ce n'est pas un appel
  * réseau, donc ça reste une fonction pure locale. */
 const isLate = (m: Mission) =>
-  new Date(m.deadline).getTime() < Date.now() && m.status !== "termine" && m.status !== "valide";
+  new Date(m.deadline).getTime() < Date.now() &&
+  m.status !== "termine" &&
+  m.status !== "valide" &&
+  m.status !== "publie";
 
 export const dashboardService = {
   /** GET /api/v1/dashboard/ */

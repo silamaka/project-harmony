@@ -7,13 +7,11 @@ from accounts.models import Role, User
 from clients.models import Client
 from deliverables.models import Deliverable, DeliverableStatus
 from deliverables.serializers import DeliverableSerializer
-from missions.models import Mission, MissionStatus
+from missions.models import DONE_STATUSES, Mission, MissionStatus
 from missions.serializers import MissionSerializer
 from projects.models import Project
 
 from .permissions import IsAdminOrChefProjet
-
-DONE_STATUSES = (MissionStatus.TERMINE, MissionStatus.VALIDE)
 
 
 def late_missions_queryset():
@@ -78,11 +76,20 @@ def completion_rate(request):
 @permission_classes([IsAdminOrChefProjet])
 def alerts(request):
     # `deadline` est un DateField (pas d'heure) : "dans 24h"/"dans 48h" se
-    # traduit au niveau du jour — échéance demain / après-demain — plutôt
-    # que d'une fenêtre glissante à l'heure près.
+    # traduit au niveau du jour plutôt qu'une fenêtre glissante à l'heure
+    # près. "Dans 24h" couvre aujourd'hui ET demain (pas seulement demain) :
+    # une mission due aujourd'hui même est la plus urgente de toutes, et ne
+    # devient "en retard" (late_missions_queryset) qu'à partir de demain —
+    # sans ça elle ne déclenchait aucune alerte pendant toute sa journée
+    # d'échéance. Les deux exclut les missions déjà terminées, comme
+    # late_missions_queryset.
     today = date.today()
-    in_24h_qs = Mission.objects.filter(deadline=today + timedelta(days=1))
-    in_48h_qs = Mission.objects.filter(deadline=today + timedelta(days=2))
+    in_24h_qs = Mission.objects.filter(
+        deadline__gte=today, deadline__lte=today + timedelta(days=1)
+    ).exclude(status__in=DONE_STATUSES)
+    in_48h_qs = Mission.objects.filter(deadline=today + timedelta(days=2)).exclude(
+        status__in=DONE_STATUSES
+    )
     blocked_qs = Mission.objects.filter(status=MissionStatus.CORRECTIONS)
     pending_qs = Deliverable.objects.filter(status=DeliverableStatus.EN_ATTENTE)
 
