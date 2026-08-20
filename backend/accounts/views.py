@@ -1,4 +1,5 @@
-from rest_framework import permissions, viewsets
+from django.db.models import ProtectedError
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -53,6 +54,15 @@ class UserViewSet(viewsets.ModelViewSet):
         if role:
             queryset = queryset.filter(role=role)
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Impossible de supprimer : des missions sont encore assignées à cet utilisateur."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     @action(detail=True, methods=["post"])
     def toggle_active(self, request, pk=None):

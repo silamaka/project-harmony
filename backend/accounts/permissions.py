@@ -25,10 +25,15 @@ class UserWritePermission(BasePermission):
             return True
         if request.user.role == Role.ADMIN:
             return True
-        if request.user.role == Role.CHEF_PROJET and request.method == "POST":
+        if request.user.role != Role.CHEF_PROJET:
+            return False
+        if view.action == "create":
             return request.data.get("role") == Role.COLLABORATEUR.value
-        # PATCH/DELETE sur un objet précis : tranché par has_object_permission.
-        return request.user.role == Role.CHEF_PROJET
+        # update/partial_update/destroy/toggle_active sur un objet précis :
+        # tranché par has_object_permission. Le contrôle POST-avec-rôle
+        # ci-dessus ne doit s'appliquer qu'à la création — toggle_active est
+        # aussi un POST, mais sans corps, et n'a rien à voir avec un rôle.
+        return True
 
     def has_object_permission(self, request, view, obj) -> bool:
         if request.method in SAFE_METHODS:

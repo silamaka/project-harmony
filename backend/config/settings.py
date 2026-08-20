@@ -5,6 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 import os
+import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
@@ -129,3 +130,11 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
 }
+
+# `manage.py test` crée plusieurs utilisateurs par test (un par rôle) : le
+# hasher PBKDF2 par défaut, volontairement lent, fait passer une suite de
+# quelques dizaines de tests de secondes à plusieurs minutes pour rien. Ce
+# hasher rapide n'est utilisé que sous test, jamais pour de vrais mots de
+# passe.
+if "test" in sys.argv:
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

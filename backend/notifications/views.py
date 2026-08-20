@@ -1,5 +1,5 @@
 from django.db.models import Q
-from rest_framework import viewsets
+from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -11,7 +11,21 @@ from .permissions import NotificationPermission
 from .serializers import NotificationSerializer
 
 
-class NotificationViewSet(viewsets.ModelViewSet):
+class NotificationViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Pas de CreateModelMixin (donc pas de POST /notifications/) : les
+    notifications ne naissent que des signaux serveur (voir
+    notifications/signals.py), jamais d'une requête cliente — un POST direct
+    créait jusqu'ici une notification vide (tous les champs substantiels
+    sont read_only, donc silencieusement ignorés au lieu d'être rejetés).
+    Le POST sur mark-all-read reste inchangé : c'est une action dédiée, pas
+    le create() générique."""
+
     http_method_names = ["get", "patch", "delete", "post", "head", "options"]
     serializer_class = NotificationSerializer
     permission_classes = [NotificationPermission]
