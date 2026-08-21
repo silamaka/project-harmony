@@ -113,7 +113,7 @@ function ProjectsPage() {
 
       <div className="surface-card mt-6 overflow-hidden">
         <div className="max-h-[70vh] overflow-auto">
-          <table className="w-full table-fixed border-collapse text-sm">
+          <table className="w-full min-w-[700px] table-fixed border-collapse text-sm">
             <colgroup>
               <col className="w-[22%]" />
               <col className="w-[15%]" />

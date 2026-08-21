@@ -3,7 +3,6 @@ import type {
   CalendarEvent,
   Client,
   Comment,
-  DashboardStats,
   Deliverable,
   Mission,
   Notification,
@@ -219,22 +218,6 @@ const isLate = (m: Mission) =>
   m.status !== "publie";
 
 export const dashboardService = {
-  /** GET /api/v1/dashboard/ */
-  stats: async () => (await api.get<DashboardStats>(endpoints.dashboard)).data,
-  /** GET /api/v1/dashboard/missions-by-client/ */
-  missionsByClient: async () =>
-    (
-      await api.get<{ name: string; missions: number }[]>(
-        `${endpoints.dashboard}missions-by-client/`,
-      )
-    ).data,
-  /** GET /api/v1/dashboard/missions-by-collaborator/ */
-  missionsByCollaborator: async () =>
-    (
-      await api.get<{ name: string; missions: number }[]>(
-        `${endpoints.dashboard}missions-by-collaborator/`,
-      )
-    ).data,
   /** GET /api/v1/dashboard/monthly/ */
   monthly: async () =>
     (
@@ -242,9 +225,6 @@ export const dashboardService = {
         `${endpoints.dashboard}monthly/`,
       )
     ).data,
-  /** GET /api/v1/dashboard/completion-rate/ */
-  completionRate: async () =>
-    (await api.get<number>(`${endpoints.dashboard}completion-rate/`)).data,
   /** GET /api/v1/dashboard/alerts/ */
   alerts: async () =>
     (

@@ -95,7 +95,7 @@ export function MissionsTable({
   return (
     <div className="surface-card overflow-hidden">
       <div className="max-h-[70vh] overflow-auto">
-        <table className="w-full table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[860px] table-fixed border-collapse text-sm">
           <colgroup>
             {widths.map((w, i) => (
               <col key={i} className={`w-[${w}%]`} style={{ width: `${w}%` }} />

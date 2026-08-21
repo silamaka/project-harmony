@@ -146,7 +146,6 @@ function DashboardPage() {
   }, [period, customStart, customEnd]);
 
   const clientName = (id: string) => clients?.find((c) => c.id === id)?.name ?? "—";
-  const projectName = (id: string) => projects?.find((p) => p.id === id)?.name ?? "—";
   const userName = (id: string) => {
     const u = users?.find((x) => x.id === id);
     return u ? `${u.first_name} ${u.last_name}` : "—";
