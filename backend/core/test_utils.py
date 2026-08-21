@@ -6,6 +6,7 @@ projet et une mission — prêts à l'emploi dans n'importe quel test d'app.
 """
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -18,6 +19,12 @@ User = get_user_model()
 
 class RoleTestCase(APITestCase):
     def setUp(self):
+        # Le throttling (ScopedRateThrottle) est backé par le cache, pas la
+        # transaction DB que Django annule entre chaque test : sans ça, des
+        # tests qui appellent un endpoint sensible (login, mot de passe
+        # oublié...) plusieurs fois de suite finissent par se faire
+        # throttler par accumulation, indépendamment de ce qu'ils testent.
+        cache.clear()
         self.admin = User.objects.create_user(
             email="admin@test.local",
             password="pass1234",

@@ -110,6 +110,24 @@ CORS_ALLOWED_ORIGINS = env_list(
     "http://localhost:8080,http://localhost:8081,http://localhost:5173,http://localhost:4173",
 )
 
+# URL du frontend, utilisée pour construire le lien de réinitialisation de
+# mot de passe envoyé par e-mail (le backend ne sert pas les pages React).
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:8080")
+
+# Backend console par défaut (dev) : le contenu de l'e-mail part dans les
+# logs du serveur au lieu d'un vrai envoi SMTP. À remplacer par un vrai
+# backend (SMTP, SES...) via EMAIL_BACKEND/EMAIL_HOST* en production —
+# aucun changement de code requis, uniquement des variables d'env.
+EMAIL_BACKEND = os.environ.get(
+    "EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@bebaempire.local")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -121,6 +139,15 @@ REST_FRAMEWORK = {
     # partout (Promise<User[]>, etc.), aucune page n'a de logique de
     # pagination. À activer plus tard comme un changement coordonné
     # frontend+backend, pas un défaut silencieux qui casse chaque liste.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        # Ciblé sur les vues sensibles (connexion, mot de passe oublié) via
+        # throttle_scope — pas de limite globale par défaut, qui pénaliserait
+        # un usage normal de l'app sans protéger grand-chose de plus.
+        "auth-sensitive": "10/min",
+    },
 }
 
 SIMPLE_JWT = {

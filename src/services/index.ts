@@ -22,6 +22,19 @@ import type {
  * ces fonctions ne sont plus que de fins appels HTTP.
  */
 
+/* -------------------------------------------------------------------------- */
+export const authService = {
+  /** POST /api/v1/auth/password/forgot/ — toujours une réponse "succès",
+   * qu'un compte existe ou non pour l'adresse fournie. */
+  forgotPassword: async (email: string) => {
+    await api.post(endpoints.auth.forgotPassword, { email });
+  },
+  /** POST /api/v1/auth/password/reset/ */
+  resetPassword: async (uid: string, token: string, password: string) => {
+    await api.post(endpoints.auth.resetPassword, { uid, token, password });
+  },
+};
+
 /* -------------------------------- Clients -------------------------------- */
 export const clientService = {
   /** GET /api/v1/clients/ */

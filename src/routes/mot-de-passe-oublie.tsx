@@ -3,10 +3,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, MailCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { authService } from "@/services";
 
 export const Route = createFileRoute("/mot-de-passe-oublie")({
   head: () => ({
@@ -26,10 +28,23 @@ const schema = z.object({
 
 function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
+  const [pending, setPending] = useState(false);
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { email: "" },
   });
+
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    setPending(true);
+    try {
+      await authService.forgotPassword(values.email);
+      setSent(true);
+    } catch {
+      toast.error("Envoi impossible. Réessayez plus tard.");
+    } finally {
+      setPending(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
@@ -50,8 +65,7 @@ function ForgotPasswordPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Indiquez votre e-mail, nous vous enverrons un lien de réinitialisation.
             </p>
-            {/* Branchement API : POST /api/v1/auth/password/forgot/ */}
-            <form onSubmit={form.handleSubmit(() => setSent(true))} className="mt-8 space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
                 <Input id="email" type="email" {...form.register("email")} />
@@ -59,8 +73,8 @@ function ForgotPasswordPage() {
                   <p className="text-xs text-destructive">{form.formState.errors.email.message}</p>
                 )}
               </div>
-              <Button type="submit" className="w-full">
-                Envoyer le lien
+              <Button type="submit" className="w-full" disabled={pending}>
+                {pending ? "Envoi..." : "Envoyer le lien"}
               </Button>
             </form>
           </>

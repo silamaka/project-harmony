@@ -1,4 +1,8 @@
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.core import mail
 from django.urls import reverse
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 
 from core.test_utils import RoleTestCase
 
@@ -170,3 +174,104 @@ class ToggleActiveTests(RoleTestCase):
         self.auth_as(self.collaborateur)
         res = self.client.post(user_toggle_active_url(self.other_collaborateur.id))
         self.assertEqual(res.status_code, 403)
+
+
+class LoginThrottleTests(RoleTestCase):
+    """Protection contre le bourrage de mots de passe : au-delà de
+    auth-sensitive (10/min), /auth/login/ doit se mettre à refuser."""
+
+    def test_login_gets_throttled_after_limit(self):
+        url = reverse("login")
+        statuses = []
+        for _ in range(11):
+            res = self.client.post(url, {"email": "nobody@test.local", "password": "wrong"})
+            statuses.append(res.status_code)
+        self.assertNotIn(429, statuses[:10], "throttled too early")
+        self.assertEqual(statuses[10], 429)
+
+
+class ForgotPasswordTests(RoleTestCase):
+    def test_existing_email_sends_reset_link(self):
+        res = self.client.post(reverse("password_forgot"), {"email": self.collaborateur.email})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(self.collaborateur.email, mail.outbox[0].to)
+        self.assertIn("reinitialiser-mot-de-passe", mail.outbox[0].body)
+
+    def test_unknown_email_returns_same_response_without_sending(self):
+        """Ne doit jamais révéler si une adresse existe ou non."""
+        res = self.client.post(reverse("password_forgot"), {"email": "inconnu@test.local"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_missing_email_does_not_crash(self):
+        res = self.client.post(reverse("password_forgot"), {})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+
+class ResetPasswordTests(RoleTestCase):
+    def _valid_token_payload(self, user):
+        return {
+            "uid": urlsafe_base64_encode(force_bytes(user.pk)),
+            "token": PasswordResetTokenGenerator().make_token(user),
+        }
+
+    def test_valid_token_resets_password(self):
+        payload = self._valid_token_payload(self.collaborateur)
+        payload["password"] = "nouveau-mdp-1234"
+        res = self.client.post(reverse("password_reset"), payload)
+        self.assertEqual(res.status_code, 200)
+        self.collaborateur.refresh_from_db()
+        self.assertTrue(self.collaborateur.check_password("nouveau-mdp-1234"))
+
+    def test_reset_allows_login_with_new_password(self):
+        payload = self._valid_token_payload(self.collaborateur)
+        payload["password"] = "nouveau-mdp-1234"
+        self.client.post(reverse("password_reset"), payload)
+        res = self.client.post(
+            reverse("login"), {"email": self.collaborateur.email, "password": "nouveau-mdp-1234"}
+        )
+        self.assertEqual(res.status_code, 200)
+
+    def test_token_cannot_be_reused_after_password_changed(self):
+        payload = self._valid_token_payload(self.collaborateur)
+        payload["password"] = "premier-mdp-1234"
+        self.client.post(reverse("password_reset"), payload)
+        # Même jeton, même uid, nouvelle tentative avec un autre mot de passe.
+        res = self.client.post(reverse("password_reset"), {**payload, "password": "second-mdp-1234"})
+        self.assertEqual(res.status_code, 400)
+
+    def test_invalid_token_rejected(self):
+        res = self.client.post(
+            reverse("password_reset"),
+            {
+                "uid": urlsafe_base64_encode(force_bytes(self.collaborateur.pk)),
+                "token": "invalide-au-hasard",
+                "password": "nouveau-mdp-1234",
+            },
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_token_for_wrong_user_rejected(self):
+        """Le jeton d'un utilisateur ne doit pas réinitialiser un autre compte."""
+        payload = self._valid_token_payload(self.collaborateur)
+        payload["uid"] = urlsafe_base64_encode(force_bytes(self.admin.pk))
+        payload["password"] = "nouveau-mdp-1234"
+        res = self.client.post(reverse("password_reset"), payload)
+        self.assertEqual(res.status_code, 400)
+        self.admin.refresh_from_db()
+        self.assertFalse(self.admin.check_password("nouveau-mdp-1234"))
+
+    def test_malformed_uid_does_not_crash(self):
+        res = self.client.post(
+            reverse("password_reset"),
+            {"uid": "not-valid-base64!!!", "token": "x", "password": "nouveau-mdp-1234"},
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_password_too_short_rejected(self):
+        payload = self._valid_token_payload(self.collaborateur)
+        payload["password"] = "abc"
+        res = self.client.post(reverse("password_reset"), payload)
+        self.assertEqual(res.status_code, 400)
