@@ -201,7 +201,9 @@ function ProjectDetailPage() {
               {project && new Date(project.end_date).toLocaleDateString("fr-FR")}
             </span>
           </div>
-          <p className="mt-4 text-sm text-muted-foreground">{project?.description}</p>
+          <p className="mt-4 whitespace-pre-wrap break-words text-sm text-muted-foreground">
+            {project?.description}
+          </p>
           <div className="mt-6">
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Progression</span>

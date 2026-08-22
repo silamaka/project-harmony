@@ -633,7 +633,9 @@ function EventDetailDialog({
               </DialogDescription>
             </DialogHeader>
             {event.description && (
-              <p className="text-sm text-muted-foreground">{event.description}</p>
+              <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                {event.description}
+              </p>
             )}
             <DialogFooter className="flex-row items-center justify-between sm:justify-between">
               {event.mission_id ? (

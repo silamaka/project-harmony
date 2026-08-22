@@ -514,7 +514,7 @@ function MissionDetailPage() {
                     {new Date(c.created_at).toLocaleString("fr-FR")}
                   </p>
                 </div>
-                <p className="mt-1 text-sm">{c.body}</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm">{c.body}</p>
               </div>
             </li>
           ))}
@@ -553,7 +553,7 @@ function Section({ title, body }: { title: string; body?: string | undefined }) 
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </h3>
-      <p className="mt-1.5 text-sm">{body ?? "—"}</p>
+      <p className="mt-1.5 whitespace-pre-wrap break-words text-sm">{body ?? "—"}</p>
     </div>
   );
 }

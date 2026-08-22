@@ -83,8 +83,10 @@ function NotificationsPage() {
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className={cn("text-sm", n.read ? "font-medium" : "font-bold")}>{n.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{n.body}</p>
+                <p className={cn("text-sm break-words", n.read ? "font-medium" : "font-bold")}>
+                  {n.title}
+                </p>
+                <p className="mt-1 break-words text-xs text-muted-foreground">{n.body}</p>
               </div>
               <span className="shrink-0 text-[11px] text-muted-foreground">
                 {new Date(n.created_at).toLocaleDateString("fr-FR")}
