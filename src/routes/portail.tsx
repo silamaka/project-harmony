@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, Eye, FolderKanban, ListChecks, Package } from "lucide-react";
-import { useRef, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, ProjectStatusBadge } from "@/components/shared/badges";
@@ -55,8 +55,17 @@ function ClientPortalPage() {
   const projectsRef = useRef<HTMLDivElement>(null);
   const missionsRef = useRef<HTMLDivElement>(null);
   const deliverablesRef = useRef<HTMLDivElement>(null);
-  const scrollTo = (ref: RefObject<HTMLDivElement | null>) =>
+  const [highlighted, setHighlighted] = useState<"projects" | "missions" | "deliverables" | null>(
+    null,
+  );
+  const scrollTo = (
+    ref: RefObject<HTMLDivElement | null>,
+    key: "projects" | "missions" | "deliverables",
+  ) => {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setHighlighted(key);
+    window.setTimeout(() => setHighlighted((current) => (current === key ? null : current)), 1200);
+  };
 
   const client = clients?.find((c) => c.id === user?.client_id);
 
@@ -99,21 +108,21 @@ function ClientPortalPage() {
           label="Projets"
           value={myProjects.length}
           icon={FolderKanban}
-          onClick={() => scrollTo(projectsRef)}
+          onClick={() => scrollTo(projectsRef, "projects")}
         />
         <StatCard
           label="Missions"
           value={myMissions.length}
           icon={ListChecks}
           delay={0.05}
-          onClick={() => scrollTo(missionsRef)}
+          onClick={() => scrollTo(missionsRef, "missions")}
         />
         <StatCard
           label="Livrables"
           value={myDeliverables.length}
           icon={Package}
           delay={0.1}
-          onClick={() => scrollTo(deliverablesRef)}
+          onClick={() => scrollTo(deliverablesRef, "deliverables")}
         />
         <StatCard
           label="Livrables validés"
@@ -121,12 +130,19 @@ function ClientPortalPage() {
           icon={CheckCircle2}
           tone="success"
           delay={0.15}
-          onClick={() => scrollTo(deliverablesRef)}
+          onClick={() => scrollTo(deliverablesRef, "deliverables")}
         />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div ref={projectsRef} className="surface-card scroll-mt-20 p-5">
+        <div
+          ref={projectsRef}
+          className={cn(
+            "surface-card scroll-mt-20 p-5 transition-shadow duration-300",
+            highlighted === "projects" &&
+              "ring-2 ring-primary ring-offset-2 ring-offset-background",
+          )}
+        >
           <h2 className="text-sm font-semibold">Vos projets</h2>
           <div className="mt-4 space-y-4">
             {myProjects.map((p) => (
@@ -145,7 +161,14 @@ function ClientPortalPage() {
           </div>
         </div>
 
-        <div ref={missionsRef} className="surface-card scroll-mt-20 p-5">
+        <div
+          ref={missionsRef}
+          className={cn(
+            "surface-card scroll-mt-20 p-5 transition-shadow duration-300",
+            highlighted === "missions" &&
+              "ring-2 ring-primary ring-offset-2 ring-offset-background",
+          )}
+        >
           <h2 className="text-sm font-semibold">Missions en cours</h2>
           <div className="mt-4 space-y-2">
             {myMissions.slice(0, 8).map((m) => (
@@ -166,7 +189,14 @@ function ClientPortalPage() {
         </div>
       </div>
 
-      <div ref={deliverablesRef} className="surface-card mt-4 scroll-mt-20 p-5">
+      <div
+        ref={deliverablesRef}
+        className={cn(
+          "surface-card mt-4 scroll-mt-20 p-5 transition-shadow duration-300",
+          highlighted === "deliverables" &&
+            "ring-2 ring-primary ring-offset-2 ring-offset-background",
+        )}
+      >
         <h2 className="text-sm font-semibold">Livrables</h2>
         <div className="mt-4 space-y-2">
           {[...myDeliverables]
