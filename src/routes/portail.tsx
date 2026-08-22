@@ -219,14 +219,11 @@ function ClientPortalPage() {
                 <span className="text-xs text-muted-foreground">
                   {new Date(d.created_at).toLocaleDateString("fr-FR")}
                 </span>
-                <a
-                  href={d.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <Eye className="h-3.5 w-3.5" /> Ouvrir
-                </a>
+                <Button variant="outline" size="sm" asChild>
+                  <a href={d.url} target="_blank" rel="noreferrer">
+                    <Eye className="h-4 w-4" /> Ouvrir
+                  </a>
+                </Button>
                 {d.status !== "valide" && (
                   <div className="flex gap-2">
                     <Button
