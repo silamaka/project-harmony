@@ -210,7 +210,7 @@ function ProjectRow({
         <Link
           to="/projets/$projectId"
           params={{ projectId: project.id }}
-          className="line-clamp-2 font-medium break-words hover:text-primary hover:underline"
+          className="line-clamp-2 font-medium break-words text-primary hover:underline"
         >
           {project.name}
         </Link>
