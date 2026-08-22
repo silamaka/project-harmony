@@ -195,14 +195,11 @@ function DeliverablesPage() {
                     {mission.title}
                   </Link>
                 )}
-                <a
-                  href={d.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <Eye className="h-3.5 w-3.5" /> Ouvrir
-                </a>
+                <Button variant="outline" size="sm" className="ml-auto shrink-0" asChild>
+                  <a href={d.url} target="_blank" rel="noreferrer">
+                    <Eye className="h-4 w-4" /> Ouvrir
+                  </a>
+                </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}
