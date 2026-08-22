@@ -1,9 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Mail, Phone, Search, UserCircle } from "lucide-react";
+import {
+  Building2,
+  CheckCircle2,
+  Mail,
+  Phone,
+  Search,
+  Sparkles,
+  UserCircle,
+  XCircle,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientLogo } from "@/components/shared/avatar";
+import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
 import { clientService, missionService, projectService, userService } from "@/services";
 import { cn } from "@/lib/utils";
@@ -41,13 +51,40 @@ function ClientsPage() {
     [clients, query, status],
   );
 
+  const allClients = clients ?? [];
+  const stats = {
+    total: allClients.length,
+    actifs: allClients.filter((c) => c.status === "actif").length,
+    prospects: allClients.filter((c) => c.status === "prospect").length,
+    inactifs: allClients.filter((c) => c.status === "inactif").length,
+  };
+
   return (
     <AppShell
       title="Clients"
       subtitle={`${filtered.length} client(s)`}
       allow={["admin", "chef_projet"]}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Clients" value={stats.total} icon={Building2} />
+        <StatCard
+          label="Actifs"
+          value={stats.actifs}
+          icon={CheckCircle2}
+          tone="success"
+          delay={0.04}
+        />
+        <StatCard
+          label="Prospects"
+          value={stats.prospects}
+          icon={Sparkles}
+          tone="info"
+          delay={0.08}
+        />
+        <StatCard label="Inactifs" value={stats.inactifs} icon={XCircle} delay={0.12} />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Mail, Phone, Search } from "lucide-react";
+import { CheckCircle2, Gauge, ListChecks, Mail, Phone, Search, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
 import { CreateUserDialog, EditUserDialog } from "@/components/shared/create-dialogs";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
+import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,18 @@ function CollaboratorsPage() {
     [collaborators, query, status],
   );
 
+  const allCollaborators = collaborators ?? [];
+  const stats = {
+    total: allCollaborators.length,
+    actifs: allCollaborators.filter((u) => u.is_active).length,
+    chargeMoyenne: allCollaborators.length
+      ? Math.round(
+          allCollaborators.reduce((sum, u) => sum + (u.workload ?? 0), 0) / allCollaborators.length,
+        )
+      : 0,
+    missionsAssignees: (missions ?? []).length,
+  };
+
   return (
     <AppShell
       title="Collaborateurs"
@@ -70,7 +83,31 @@ function CollaboratorsPage() {
         <CreateUserDialog role="collaborateur" lockRole triggerLabel="Ajouter un collaborateur" />
       }
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Collaborateurs" value={stats.total} icon={Users} />
+        <StatCard
+          label="Actifs"
+          value={stats.actifs}
+          icon={CheckCircle2}
+          tone="success"
+          delay={0.04}
+        />
+        <StatCard
+          label="Charge moyenne"
+          value={`${stats.chargeMoyenne}%`}
+          icon={Gauge}
+          tone="info"
+          delay={0.08}
+        />
+        <StatCard
+          label="Missions assignées"
+          value={stats.missionsAssignees}
+          icon={ListChecks}
+          delay={0.12}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

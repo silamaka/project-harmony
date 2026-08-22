@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { CheckCircle2, Clock, FolderKanban, Hourglass, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
@@ -8,6 +8,7 @@ import { projectTone } from "@/components/shared/badges";
 import { CreateProjectDialog } from "@/components/shared/create-dialogs";
 import { ConfirmDeleteButton, EditProjectDialog } from "@/components/shared/edit-dialogs";
 import { PillSelect } from "@/components/shared/pill-select";
+import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,14 @@ function ProjectsPage() {
     return u ? `${u.first_name} ${u.last_name}` : "—";
   };
 
+  const allProjects = projects ?? [];
+  const stats = {
+    total: allProjects.length,
+    enCours: allProjects.filter((p) => p.status === "en_cours").length,
+    enAttente: allProjects.filter((p) => p.status === "en_attente").length,
+    termines: allProjects.filter((p) => p.status === "termine").length,
+  };
+
   const updateStatus = useMutation({
     mutationFn: ({ id, status: s }: { id: string; status: ProjectStatus }) =>
       projectService.update(id, { status: s }),
@@ -83,7 +92,26 @@ function ProjectsPage() {
       allow={["admin", "chef_projet"]}
       actions={<CreateProjectDialog />}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Projets" value={stats.total} icon={FolderKanban} />
+        <StatCard label="En cours" value={stats.enCours} icon={Clock} tone="info" delay={0.04} />
+        <StatCard
+          label="En attente"
+          value={stats.enAttente}
+          icon={Hourglass}
+          tone="warning"
+          delay={0.08}
+        />
+        <StatCard
+          label="Terminés"
+          value={stats.termines}
+          icon={CheckCircle2}
+          tone="success"
+          delay={0.12}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

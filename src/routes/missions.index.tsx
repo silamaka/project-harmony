@@ -1,17 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Search } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, ListChecks, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateMissionDialog } from "@/components/shared/create-dialogs";
 import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { MissionsTable } from "@/components/shared/missions-table";
+import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
 import {
   clientService,
   commentService,
   deliverableService,
+  isLate,
   missionService,
   userService,
 } from "@/services";
@@ -50,6 +52,14 @@ function MissionsPage() {
     () => (missions ?? []).filter((m) => m.title.toLowerCase().includes(query.toLowerCase())),
     [missions, query],
   );
+
+  const allMissions = missions ?? [];
+  const stats = {
+    total: allMissions.length,
+    enCours: allMissions.filter((m) => m.status === "en_cours").length,
+    enRetard: allMissions.filter(isLate).length,
+    terminees: allMissions.filter((m) => ["valide", "publie", "termine"].includes(m.status)).length,
+  };
 
   const clientName = (id: string) => clients?.find((c) => c.id === id)?.name ?? "—";
   const collaborators = (users ?? []).filter((u) => u.role !== "client");
@@ -106,7 +116,26 @@ function MissionsPage() {
       allow={["admin", "chef_projet"]}
       actions={<CreateMissionDialog />}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Missions" value={stats.total} icon={ListChecks} />
+        <StatCard label="En cours" value={stats.enCours} icon={Clock} tone="info" delay={0.04} />
+        <StatCard
+          label="En retard"
+          value={stats.enRetard}
+          icon={AlertTriangle}
+          tone="danger"
+          delay={0.08}
+        />
+        <StatCard
+          label="Terminées"
+          value={stats.terminees}
+          icon={CheckCircle2}
+          tone="success"
+          delay={0.12}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input

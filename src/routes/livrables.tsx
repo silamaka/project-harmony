@@ -1,9 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Eye, FileArchive, FileText, Image as ImageIcon, Link2, Video } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  FileArchive,
+  FileText,
+  Image as ImageIcon,
+  Link2,
+  Package,
+  Video,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
@@ -84,13 +96,45 @@ function DeliverablesPage() {
       (filter === "tous" || d.status === filter),
   );
 
+  const stats = {
+    total: visible.length,
+    enAttente: visible.filter((d) => d.status === "en_attente").length,
+    valides: visible.filter((d) => d.status === "valide").length,
+    corrections: visible.filter((d) => d.status === "corrections").length,
+  };
+
   return (
     <AppShell
       title="Livrables"
       subtitle={`${visible.length} fichier(s) déposé(s)`}
       allow={["admin", "chef_projet", "collaborateur"]}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Livrables" value={stats.total} icon={Package} />
+        <StatCard
+          label="En attente"
+          value={stats.enAttente}
+          icon={Clock}
+          tone="warning"
+          delay={0.04}
+        />
+        <StatCard
+          label="Validés"
+          value={stats.valides}
+          icon={CheckCircle2}
+          tone="success"
+          delay={0.08}
+        />
+        <StatCard
+          label="Corrections"
+          value={stats.corrections}
+          icon={AlertTriangle}
+          tone="danger"
+          delay={0.12}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
