@@ -20,7 +20,7 @@ import {
   type Priority,
 } from "@/types";
 
-type DeliverableRef = { id: string; name: string; version?: number };
+type DeliverableRef = { id: string; name: string; url: string; version?: number };
 
 /** Largeurs de colonnes (%) selon les colonnes optionnelles affichées ; chaque set totalise 100%. */
 const COLUMN_WIDTHS = {
@@ -242,14 +242,16 @@ function MissionRow({
         {deliverables[0] === undefined ? (
           <span className="text-muted-foreground">—</span>
         ) : (
-          <Link
-            to="/missions/$missionId"
-            params={{ missionId: mission.id }}
+          <a
+            href={deliverables[0].url}
+            target="_blank"
+            rel="noreferrer"
+            title="Ouvrir le lien du livrable"
             className="line-clamp-2 break-words text-primary hover:underline"
           >
             {deliverables[0].name}
             {deliverables.length > 1 && ` +${deliverables.length - 1}`}
-          </Link>
+          </a>
         )}
       </td>
       <td className="px-3 py-3 text-xs text-muted-foreground">
