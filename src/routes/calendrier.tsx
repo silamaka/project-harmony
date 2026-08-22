@@ -197,7 +197,7 @@ function CalendarPage() {
       title="Calendrier"
       subtitle={periodLabel}
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {view !== "agenda" && (
             <div className="flex items-center gap-1">
               <Button variant="outline" size="sm" onClick={goToday}>
