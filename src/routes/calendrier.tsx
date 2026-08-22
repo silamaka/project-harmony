@@ -364,16 +364,18 @@ function MonthView({
           const list = eventsOn(date);
           const inMonth = date.getMonth() === monthIndex;
           return (
-            <div
+            <button
               key={date.toISOString()}
+              type="button"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
                 onDrop(date, e.dataTransfer.getData("text/plain"));
               }}
               onClick={() => onDayClick(date)}
+              aria-label={`Voir les événements du ${format(date, "d MMMM yyyy", { locale: fr })}`}
               className={cn(
-                "min-h-24 cursor-pointer rounded-lg border border-border/60 p-1.5 text-left transition-colors hover:border-primary/40",
+                "min-h-24 w-full cursor-pointer rounded-lg border border-border/60 p-1.5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 !inMonth && "bg-muted/30 opacity-50",
                 isToday(date) && "border-primary bg-primary/5",
               )}
@@ -396,7 +398,7 @@ function MonthView({
                   </p>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -428,16 +430,18 @@ function WeekView({
       {days.map((date) => {
         const list = eventsOn(date);
         return (
-          <div
+          <button
             key={date.toISOString()}
+            type="button"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               onDrop(date, e.dataTransfer.getData("text/plain"));
             }}
             onClick={() => onDayClick(date)}
+            aria-label={`Voir les événements du ${format(date, "d MMMM yyyy", { locale: fr })}`}
             className={cn(
-              "min-h-40 cursor-pointer rounded-lg border border-border/60 p-2 text-left transition-colors hover:border-primary/40",
+              "min-h-40 w-full cursor-pointer rounded-lg border border-border/60 p-2 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isToday(date) && "border-primary bg-primary/5",
             )}
           >
@@ -453,7 +457,7 @@ function WeekView({
               ))}
               {list.length === 0 && <p className="text-[11px] text-muted-foreground">—</p>}
             </div>
-          </div>
+          </button>
         );
       })}
     </div>
