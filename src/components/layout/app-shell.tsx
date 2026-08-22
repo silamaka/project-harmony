@@ -220,7 +220,7 @@ export function AppShell({
 
       {/* Contenu */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-background/80 px-4 py-4 backdrop-blur print:static lg:px-8">
+        <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border bg-background/80 px-4 py-4 backdrop-blur print:static lg:px-8">
           <button
             className="md:hidden print:hidden"
             onClick={() => setOpen(true)}
