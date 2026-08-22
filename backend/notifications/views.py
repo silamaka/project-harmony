@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from accounts.models import Role
 from missions.scoping import missions_visible_to
 
-from .models import Notification
+from .models import Notification, NotificationType
 from .permissions import NotificationPermission
 from .serializers import NotificationSerializer
 
@@ -34,6 +34,13 @@ class NotificationViewSet(
         user = self.request.user
         if user.role in (Role.ADMIN, Role.CHEF_PROJET):
             return Notification.objects.all()
+        if user.role == Role.CLIENT:
+            # Le client ne doit être alerté que quand un livrable lui est
+            # envoyé et attend sa validation — jamais des évènements internes
+            # à l'agence (création de mission, etc.).
+            return Notification.objects.filter(
+                type=NotificationType.VALIDATION, mission__in=missions_visible_to(user)
+            )
         return Notification.objects.filter(
             Q(mission__isnull=True) | Q(mission__in=missions_visible_to(user))
         )

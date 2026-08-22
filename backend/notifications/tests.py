@@ -49,6 +49,14 @@ class NotificationSetupMixin:
         self.global_notification = Notification.objects.create(
             type=NotificationType.RETARD, title="Retard global", body="Sans mission liée"
         )
+        # Seule notification censée être visible par le client : un livrable
+        # envoyé sur l'une de ses propres missions, en attente de validation.
+        self.own_validation_notification = Notification.objects.create(
+            type=NotificationType.VALIDATION,
+            title="Mission prête pour validation",
+            body=self.mission.title,
+            mission=self.mission,
+        )
 
 
 class NotificationReadScopingTests(NotificationSetupMixin, RoleTestCase):
@@ -56,24 +64,31 @@ class NotificationReadScopingTests(NotificationSetupMixin, RoleTestCase):
         self.auth_as(self.admin)
         res = self.client.get(notification_list_url())
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.data), 3)
+        self.assertEqual(len(res.data), 4)
 
-    def test_client_sees_own_mission_and_global_notifications_only(self):
+    def test_client_sees_only_own_validation_notifications(self):
+        """Le client n'est alerté que pour les livrables de ses propres
+        missions en attente de validation — jamais la création de mission
+        ou d'autres évènements internes à l'agence."""
         self.auth_as(self.client_user)
         res = self.client.get(notification_list_url())
         self.assertEqual(res.status_code, 200)
         self.assertEqual(
             {n["id"] for n in res.data},
-            {str(self.own_notification.id), str(self.global_notification.id)},
+            {str(self.own_validation_notification.id)},
         )
 
-    def test_collaborateur_sees_own_mission_and_global_notifications_only(self):
+    def test_collaborateur_sees_own_mission_and_global_notifications(self):
         self.auth_as(self.collaborateur)
         res = self.client.get(notification_list_url())
         self.assertEqual(res.status_code, 200)
         self.assertEqual(
             {n["id"] for n in res.data},
-            {str(self.own_notification.id), str(self.global_notification.id)},
+            {
+                str(self.own_notification.id),
+                str(self.global_notification.id),
+                str(self.own_validation_notification.id),
+            },
         )
 
     def test_unauthenticated_rejected(self):
@@ -84,23 +99,31 @@ class NotificationReadScopingTests(NotificationSetupMixin, RoleTestCase):
 class NotificationMarkReadTests(NotificationSetupMixin, RoleTestCase):
     def test_any_role_can_mark_own_notification_read(self):
         self.auth_as(self.client_user)
-        res = self.client.patch(notification_detail_url(self.own_notification.id), {"read": True})
+        res = self.client.patch(
+            notification_detail_url(self.own_validation_notification.id), {"read": True}
+        )
         self.assertEqual(res.status_code, 200)
-        self.own_notification.refresh_from_db()
-        self.assertTrue(self.own_notification.read)
+        self.own_validation_notification.refresh_from_db()
+        self.assertTrue(self.own_validation_notification.read)
 
-    def test_cannot_mark_foreign_notification_read(self):
+    def test_client_cannot_mark_out_of_scope_notification_read(self):
+        """Ni une notification étrangère, ni une notification d'un type
+        exclu (ex. création de mission) sur sa propre mission."""
         self.auth_as(self.client_user)
         res = self.client.patch(notification_detail_url(self.foreign_notification.id), {"read": True})
+        self.assertEqual(res.status_code, 404)
+        res = self.client.patch(notification_detail_url(self.own_notification.id), {"read": True})
         self.assertEqual(res.status_code, 404)
 
     def test_mark_all_read_only_affects_own_scope(self):
         self.auth_as(self.client_user)
         res = self.client.post(notification_mark_all_read_url())
         self.assertEqual(res.status_code, 200)
+        self.own_validation_notification.refresh_from_db()
         self.own_notification.refresh_from_db()
         self.foreign_notification.refresh_from_db()
-        self.assertTrue(self.own_notification.read)
+        self.assertTrue(self.own_validation_notification.read)
+        self.assertFalse(self.own_notification.read, "mark-all-read leaked to an excluded type")
         self.assertFalse(self.foreign_notification.read, "mark-all-read leaked outside scope")
 
     def test_substantive_fields_are_read_only(self):
