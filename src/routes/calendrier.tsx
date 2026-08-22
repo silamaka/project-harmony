@@ -143,6 +143,9 @@ function CalendarPage() {
   );
 
   const eventsOn = (date: Date) => visibleEvents.filter((e) => isSameDay(parseISO(e.date), date));
+  /** Volontairement non filtré : cliquer sur une date doit montrer tout ce qui s'y passe, même si des filtres masquent certains types sur la grille. */
+  const allEventsOn = (date: Date) =>
+    (events ?? []).filter((e) => isSameDay(parseISO(e.date), date));
 
   const handleDrop = (date: Date, eventId: string) => {
     const ev = visibleEvents.find((e) => e.id === eventId);
@@ -303,7 +306,8 @@ function CalendarPage() {
 
       <DayEventsDialog
         date={dayView}
-        events={dayView ? eventsOn(dayView) : []}
+        events={dayView ? allEventsOn(dayView) : []}
+        hiddenByFilters={dayView ? allEventsOn(dayView).length - eventsOn(dayView).length : 0}
         onClose={() => setDayView(null)}
         onEventClick={(e) => {
           setDayView(null);
@@ -665,12 +669,14 @@ function EventDetailDialog({
 function DayEventsDialog({
   date,
   events,
+  hiddenByFilters = 0,
   onClose,
   onEventClick,
   onAdd,
 }: {
   date: Date | null;
   events: CalendarEvent[];
+  hiddenByFilters?: number;
   onClose: () => void;
   onEventClick: (event: CalendarEvent) => void;
   onAdd: (date: Date) => void;
@@ -689,7 +695,7 @@ function DayEventsDialog({
               <DialogDescription>
                 {sorted.length === 0
                   ? "Aucun événement ce jour-là."
-                  : `${sorted.length} événement(s)`}
+                  : `${sorted.length} événement(s)${hiddenByFilters > 0 ? " — tous types confondus, indépendamment des filtres actifs" : ""}`}
               </DialogDescription>
             </DialogHeader>
             {sorted.length > 0 && (
