@@ -6,7 +6,12 @@ export function ExpandableText({ text, className }: { text: string; className?: 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className={cn("line-clamp-2 block cursor-help break-words text-left", className)}>
+        <span
+          className={cn(
+            "line-clamp-2 block max-h-[2lh] cursor-help break-words text-left",
+            className,
+          )}
+        >
           {text}
         </span>
       </TooltipTrigger>
