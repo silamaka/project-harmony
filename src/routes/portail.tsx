@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, Eye, FolderKanban, ListChecks, Package } from "lucide-react";
+import { useRef, type RefObject } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, ProjectStatusBadge } from "@/components/shared/badges";
@@ -9,7 +10,20 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
 import { clientService, deliverableService, missionService, projectService } from "@/services";
+import { cn } from "@/lib/utils";
 import type { Deliverable } from "@/types";
+
+const DELIVERABLE_STATUS_TONE: Record<Deliverable["status"], string> = {
+  en_attente: "bg-warning/20 text-warning",
+  valide: "bg-success/15 text-success",
+  corrections: "bg-destructive/12 text-destructive",
+};
+
+const DELIVERABLE_STATUS_LABEL: Record<Deliverable["status"], string> = {
+  en_attente: "En attente",
+  valide: "Validé",
+  corrections: "Corrections",
+};
 
 export const Route = createFileRoute("/portail")({
   head: () => ({
@@ -37,6 +51,12 @@ function ClientPortalPage() {
     queryKey: ["deliverables"],
     queryFn: deliverableService.list,
   });
+
+  const projectsRef = useRef<HTMLDivElement>(null);
+  const missionsRef = useRef<HTMLDivElement>(null);
+  const deliverablesRef = useRef<HTMLDivElement>(null);
+  const scrollTo = (ref: RefObject<HTMLDivElement | null>) =>
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const client = clients?.find((c) => c.id === user?.client_id);
 
@@ -75,20 +95,38 @@ function ClientPortalPage() {
   return (
     <AppShell title="Portail client" subtitle={client?.name} allow={["client"]}>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Projets" value={myProjects.length} icon={FolderKanban} />
-        <StatCard label="Missions" value={myMissions.length} icon={ListChecks} delay={0.05} />
-        <StatCard label="Livrables" value={myDeliverables.length} icon={Package} delay={0.1} />
+        <StatCard
+          label="Projets"
+          value={myProjects.length}
+          icon={FolderKanban}
+          onClick={() => scrollTo(projectsRef)}
+        />
+        <StatCard
+          label="Missions"
+          value={myMissions.length}
+          icon={ListChecks}
+          delay={0.05}
+          onClick={() => scrollTo(missionsRef)}
+        />
+        <StatCard
+          label="Livrables"
+          value={myDeliverables.length}
+          icon={Package}
+          delay={0.1}
+          onClick={() => scrollTo(deliverablesRef)}
+        />
         <StatCard
           label="Livrables validés"
           value={validated}
           icon={CheckCircle2}
           tone="success"
           delay={0.15}
+          onClick={() => scrollTo(deliverablesRef)}
         />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="surface-card p-5">
+        <div ref={projectsRef} className="surface-card scroll-mt-20 p-5">
           <h2 className="text-sm font-semibold">Vos projets</h2>
           <div className="mt-4 space-y-4">
             {myProjects.map((p) => (
@@ -107,7 +145,7 @@ function ClientPortalPage() {
           </div>
         </div>
 
-        <div className="surface-card p-5">
+        <div ref={missionsRef} className="surface-card scroll-mt-20 p-5">
           <h2 className="text-sm font-semibold">Missions en cours</h2>
           <div className="mt-4 space-y-2">
             {myMissions.slice(0, 8).map((m) => (
@@ -128,17 +166,25 @@ function ClientPortalPage() {
         </div>
       </div>
 
-      <div className="surface-card mt-4 p-5">
-        <h2 className="text-sm font-semibold">Livrables à valider</h2>
+      <div ref={deliverablesRef} className="surface-card mt-4 scroll-mt-20 p-5">
+        <h2 className="text-sm font-semibold">Livrables</h2>
         <div className="mt-4 space-y-2">
-          {myDeliverables
-            .filter((d) => d.status !== "valide")
+          {[...myDeliverables]
+            .sort((a, b) => Number(a.status === "valide") - Number(b.status === "valide"))
             .map((d) => (
               <div
                 key={d.id}
                 className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm"
               >
                 <span className="min-w-0 flex-1 truncate font-medium">{d.name}</span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    DELIVERABLE_STATUS_TONE[d.status],
+                  )}
+                >
+                  {DELIVERABLE_STATUS_LABEL[d.status]}
+                </span>
                 <span className="text-xs text-muted-foreground">v{d.version}</span>
                 <span className="text-xs text-muted-foreground">
                   {new Date(d.created_at).toLocaleDateString("fr-FR")}
@@ -151,27 +197,29 @@ function ClientPortalPage() {
                 >
                   <Eye className="h-3.5 w-3.5" /> Ouvrir
                 </a>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={reviewMutation.isPending}
-                    onClick={() => reviewMutation.mutate({ id: d.id, status: "valide" })}
-                  >
-                    Valider
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={d.status === "corrections" || reviewMutation.isPending}
-                    onClick={() => reviewMutation.mutate({ id: d.id, status: "corrections" })}
-                  >
-                    Demander des corrections
-                  </Button>
-                </div>
+                {d.status !== "valide" && (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={reviewMutation.isPending}
+                      onClick={() => reviewMutation.mutate({ id: d.id, status: "valide" })}
+                    >
+                      Valider
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={d.status === "corrections" || reviewMutation.isPending}
+                      onClick={() => reviewMutation.mutate({ id: d.id, status: "corrections" })}
+                    >
+                      Demander des corrections
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
-          {myDeliverables.filter((d) => d.status !== "valide").length === 0 && (
-            <p className="text-xs text-muted-foreground">Tous vos livrables sont validés.</p>
+          {myDeliverables.length === 0 && (
+            <p className="text-xs text-muted-foreground">Aucun livrable pour le moment.</p>
           )}
         </div>
       </div>

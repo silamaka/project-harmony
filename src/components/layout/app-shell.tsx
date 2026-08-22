@@ -144,7 +144,7 @@ export function AppShell({
         )}
       >
         <div className="flex items-center gap-3 px-5 py-5">
-          <img src="/beba-logo.png" alt="Logo BEBA EMPIRE" className="h-10 w-10 rounded-full" />
+          <img src="/beba-logo.png" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
           <div className="leading-tight">
             <p className="text-sm font-extrabold tracking-tight text-sidebar-foreground">
               BEBA EMPIRE
@@ -190,12 +190,12 @@ export function AppShell({
 
         <div className="border-t border-sidebar-border p-3">
           <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <UserAvatar user={user} className="h-9 w-9 text-xs" />
+            <UserAvatar user={user} className="h-11 w-11 text-sm" />
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-sm font-semibold">
                 {user.first_name} {user.last_name}
               </p>
-              <p className="truncate text-[11px] text-muted-foreground">{ROLE_LABELS[user.role]}</p>
+              <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</p>
             </div>
             <button
               onClick={() => {
@@ -205,7 +205,7 @@ export function AppShell({
               aria-label="Se déconnecter"
               className="text-muted-foreground transition-colors hover:text-destructive"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-5 w-5" />
             </button>
           </div>
         </div>

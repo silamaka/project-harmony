@@ -64,7 +64,7 @@ function LoginPage() {
           <img
             src="/beba-logo.png"
             alt="Logo BEBA EMPIRE"
-            className="h-14 w-14 rounded-full shadow-sm"
+            className="h-20 w-20 rounded-full shadow-sm"
           />
           <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Bon retour</h1>
           <p className="mt-2 text-sm text-muted-foreground">
