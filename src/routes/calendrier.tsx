@@ -92,6 +92,7 @@ function CalendarPage() {
     new Set<EventType>(["mission", "livrable", "reunion"]),
   );
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
+  const [dayView, setDayView] = useState<Date | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [formEvent, setFormEvent] = useState<CalendarEvent | null>(null);
   const [formDate, setFormDate] = useState<string | null>(null);
@@ -272,7 +273,7 @@ function CalendarPage() {
           <MonthView
             cursor={cursor}
             eventsOn={eventsOn}
-            onDayClick={openCreate}
+            onDayClick={setDayView}
             onEventClick={setSelected}
             onDrop={handleDrop}
           />
@@ -281,7 +282,7 @@ function CalendarPage() {
           <WeekView
             cursor={cursor}
             eventsOn={eventsOn}
-            onDayClick={openCreate}
+            onDayClick={setDayView}
             onEventClick={setSelected}
             onDrop={handleDrop}
           />
@@ -298,6 +299,20 @@ function CalendarPage() {
         onEdit={openEdit}
         onDelete={(id) => removeMeeting.mutate(id)}
         deletePending={removeMeeting.isPending}
+      />
+
+      <DayEventsDialog
+        date={dayView}
+        events={dayView ? eventsOn(dayView) : []}
+        onClose={() => setDayView(null)}
+        onEventClick={(e) => {
+          setDayView(null);
+          setSelected(e);
+        }}
+        onAdd={(date) => {
+          setDayView(null);
+          openCreate(date);
+        }}
       />
 
       <MeetingFormDialog
@@ -638,6 +653,71 @@ function EventDetailDialog({
                   />
                 </div>
               )}
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ------------------------- Événements d'une journée ------------------------ */
+function DayEventsDialog({
+  date,
+  events,
+  onClose,
+  onEventClick,
+  onAdd,
+}: {
+  date: Date | null;
+  events: CalendarEvent[];
+  onClose: () => void;
+  onEventClick: (event: CalendarEvent) => void;
+  onAdd: (date: Date) => void;
+}) {
+  const sorted = [...events].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+
+  return (
+    <Dialog open={date !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        {date && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="capitalize">
+                {format(date, "EEEE d MMMM yyyy", { locale: fr })}
+              </DialogTitle>
+              <DialogDescription>
+                {sorted.length === 0
+                  ? "Aucun événement ce jour-là."
+                  : `${sorted.length} événement(s)`}
+              </DialogDescription>
+            </DialogHeader>
+            {sorted.length > 0 && (
+              <div className="max-h-80 space-y-1.5 overflow-y-auto">
+                {sorted.map((e) => (
+                  <button
+                    key={e.id}
+                    onClick={() => onEventClick(e)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm transition-colors hover:brightness-95",
+                      TYPE_TONE[e.type],
+                    )}
+                  >
+                    <span className="w-14 shrink-0 text-xs font-semibold">
+                      {e.time ?? "Toute la journée"}
+                    </span>
+                    <span className="flex-1 truncate font-medium">{e.title}</span>
+                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                      {TYPE_LABEL[e.type]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <DialogFooter>
+              <Button size="sm" onClick={() => onAdd(date)}>
+                <Plus className="mr-1 h-4 w-4" /> Ajouter un événement
+              </Button>
             </DialogFooter>
           </>
         )}
