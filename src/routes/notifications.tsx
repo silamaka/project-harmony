@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Bell,
@@ -72,15 +72,13 @@ function NotificationsPage() {
       <div className="space-y-2">
         {items.map((n) => {
           const Icon = ICONS[n.type];
-          return (
-            <button
-              key={n.id}
-              onClick={() => markOne.mutate(n.id)}
-              className={cn(
-                "surface-card flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent/30",
-                !n.read && "border-l-4 border-l-primary",
-              )}
-            >
+          const className = cn(
+            "surface-card flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent/30",
+            !n.read && "border-l-4 border-l-primary",
+            n.mission_id && "cursor-pointer",
+          );
+          const content = (
+            <>
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Icon className="h-4 w-4" />
               </div>
@@ -91,6 +89,26 @@ function NotificationsPage() {
               <span className="shrink-0 text-[11px] text-muted-foreground">
                 {new Date(n.created_at).toLocaleDateString("fr-FR")}
               </span>
+            </>
+          );
+
+          if (n.mission_id) {
+            return (
+              <Link
+                key={n.id}
+                to="/missions/$missionId"
+                params={{ missionId: n.mission_id }}
+                onClick={() => !n.read && markOne.mutate(n.id)}
+                className={className}
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <button key={n.id} onClick={() => markOne.mutate(n.id)} className={className}>
+              {content}
             </button>
           );
         })}
