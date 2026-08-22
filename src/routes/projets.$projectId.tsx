@@ -143,8 +143,7 @@ function ProjectDetailPage() {
       projectMissions.filter(
         (m) =>
           (statusFilter === "tous" || m.status === statusFilter) &&
-          (m.title.toLowerCase().includes(query.toLowerCase()) ||
-            m.objective.toLowerCase().includes(query.toLowerCase())),
+          m.title.toLowerCase().includes(query.toLowerCase()),
       ),
     [projectMissions, query, statusFilter],
   );

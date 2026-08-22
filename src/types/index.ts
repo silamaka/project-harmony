@@ -134,9 +134,6 @@ export interface Mission {
   id: string;
   title: string;
   description: string;
-  objective: string;
-  strategy: string;
-  resources: string;
   priority: Priority;
   assignee_id: string;
   project_id: string;

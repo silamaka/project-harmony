@@ -33,7 +33,7 @@ const COLUMN_WIDTHS = {
 } as const;
 
 /**
- * Tableau spreadsheet réutilisable des missions (priorité, objectifs, actions,
+ * Tableau spreadsheet réutilisable des missions (priorité, titre, description,
  * client/responsable optionnels, deadline, statut, livrable, commentaires).
  * Priorité et statut sont toujours éditables en ligne ; le responsable l'est
  * si `assigneeOptions` + `onAssigneeChange` sont fournis. Un menu "⋮" discret
@@ -104,8 +104,8 @@ export function MissionsTable({
           <thead>
             <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)]">
               <th className="px-3 py-3">Priorité</th>
-              <th className="px-3 py-3">Objectifs à atteindre</th>
-              <th className="px-3 py-3">Actions concrètes</th>
+              <th className="px-3 py-3">Mission</th>
+              <th className="px-3 py-3">Description</th>
               {showClient && <th className="px-3 py-3">Client</th>}
               {showResponsable && <th className="px-3 py-3">Responsable</th>}
               <th className="px-3 py-3">Deadline</th>
@@ -203,15 +203,9 @@ function MissionRow({
         >
           {mission.title}
         </Link>
-        {mission.objective && (
-          <ExpandableText
-            text={mission.objective}
-            className="mt-0.5 text-xs text-muted-foreground"
-          />
-        )}
       </td>
       <td className="px-3 py-3 text-xs text-muted-foreground">
-        <ExpandableText text={mission.description || mission.strategy || "—"} />
+        <ExpandableText text={mission.description || "—"} />
       </td>
       {client !== undefined && (
         <td className="truncate px-3 py-3 text-xs text-muted-foreground" title={client}>

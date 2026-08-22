@@ -180,7 +180,6 @@ function MissionDetailPage() {
   return (
     <AppShell
       title={mission?.title ?? "Mission"}
-      subtitle={mission?.objective}
       actions={
         mission && canManage ? (
           <div className="flex items-center gap-2">
@@ -390,9 +389,6 @@ function MissionDetailPage() {
             </span>
           </div>
           <Section title="Description" body={mission?.description} />
-          <Section title="Objectif" body={mission?.objective} />
-          <Section title="Stratégie" body={mission?.strategy} />
-          <Section title="Ressources" body={mission?.resources} />
         </div>
 
         <div className="surface-card p-5">

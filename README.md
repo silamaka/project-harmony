@@ -90,8 +90,8 @@ Statuts : Brouillon, En préparation, En cours, En attente, Terminé, Archivé.
 
 ### Module Missions
 
-Chaque mission contient : titre, description, objectif, stratégie,
-ressources, priorité, responsable, deadline, statut.
+Chaque mission contient : titre, description, priorité, responsable,
+deadline, statut.
 
 Priorités : Faible, Normale, Haute, Urgente.
 

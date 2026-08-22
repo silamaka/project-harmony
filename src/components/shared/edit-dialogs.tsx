@@ -365,9 +365,6 @@ export function EditMissionDialog({
   const [form, setForm] = useState({
     title: mission.title,
     description: mission.description,
-    objective: mission.objective,
-    strategy: mission.strategy,
-    resources: mission.resources,
     priority: mission.priority,
     status: mission.status,
     assignee_id: mission.assignee_id,
@@ -478,26 +475,6 @@ export function EditMissionDialog({
                 value={form.description}
                 maxLength={800}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </Field>
-          </div>
-          <Field label="Objectif">
-            <Input
-              value={form.objective}
-              onChange={(e) => setForm({ ...form, objective: e.target.value })}
-            />
-          </Field>
-          <Field label="Stratégie">
-            <Input
-              value={form.strategy}
-              onChange={(e) => setForm({ ...form, strategy: e.target.value })}
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Ressources">
-              <Input
-                value={form.resources}
-                onChange={(e) => setForm({ ...form, resources: e.target.value })}
               />
             </Field>
           </div>

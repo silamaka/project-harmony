@@ -32,9 +32,6 @@ class Mission(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    objective = models.TextField(blank=True)
-    strategy = models.TextField(blank=True)
-    resources = models.TextField(blank=True)
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.NORMALE)
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="assigned_missions", on_delete=models.PROTECT

@@ -217,9 +217,6 @@ export function CreateMissionDialog({
   const [form, setForm] = useState({
     title: "",
     description: "",
-    objective: "",
-    strategy: "",
-    resources: "",
     priority: "normale" as Priority,
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
@@ -332,26 +329,6 @@ export function CreateMissionDialog({
                 value={form.description}
                 maxLength={800}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </Field>
-          </div>
-          <Field label="Objectif">
-            <Input
-              value={form.objective}
-              onChange={(e) => setForm({ ...form, objective: e.target.value })}
-            />
-          </Field>
-          <Field label="Stratégie">
-            <Input
-              value={form.strategy}
-              onChange={(e) => setForm({ ...form, strategy: e.target.value })}
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Ressources">
-              <Input
-                value={form.resources}
-                onChange={(e) => setForm({ ...form, resources: e.target.value })}
               />
             </Field>
           </div>
