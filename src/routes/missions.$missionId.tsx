@@ -66,6 +66,7 @@ function MissionDetailPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [newName, setNewName] = useState("");
   const [newLink, setNewLink] = useState("");
   const [pendingStatus, setPendingStatus] = useState<MissionStatus | null>(null);
 
@@ -131,6 +132,7 @@ function MissionDetailPage() {
       }),
     onSuccess: () => {
       refresh([["deliverables", missionId], ["deliverables"]]);
+      setNewName("");
       setNewLink("");
       toast.success("Livrable ajouté.");
     },
@@ -405,40 +407,55 @@ function MissionDetailPage() {
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Livrables</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Colle le lien du fichier (Drive, Figma, S3...), puis clique sur Déposer.
+            Donne un nom clair au livrable, colle son lien (Drive, Figma, S3...), puis clique sur
+            Déposer.
           </p>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 space-y-2">
             <Input
-              value={newLink}
-              onChange={(e) => setNewLink(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newLink.trim() && !deliverableMutation.isPending) {
-                  deliverableMutation.mutate({
-                    name: newLink.trim().split("/").filter(Boolean).pop() ?? "Livrable",
-                    url: newLink.trim(),
-                    type: "lien",
-                  });
-                }
-              }}
-              placeholder="Lien du livrable (Drive, Figma, S3...)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Nom du livrable (ex. Maquette homepage v2)"
+              maxLength={140}
               className="h-9"
             />
-            <Button
-              size="sm"
-              variant={newLink.trim() ? "default" : "outline"}
-              disabled={!newLink.trim() || deliverableMutation.isPending}
-              onClick={() =>
-                deliverableMutation.mutate({
-                  name: newLink.trim().split("/").filter(Boolean).pop() ?? "Livrable",
-                  url: newLink.trim(),
-                  type: "lien",
-                })
-              }
-              className="shrink-0"
-            >
-              Déposer
-            </Button>
+            <div className="flex items-center gap-2">
+              <Input
+                value={newLink}
+                onChange={(e) => setNewLink(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === "Enter" &&
+                    newName.trim() &&
+                    newLink.trim() &&
+                    !deliverableMutation.isPending
+                  ) {
+                    deliverableMutation.mutate({
+                      name: newName.trim(),
+                      url: newLink.trim(),
+                      type: "lien",
+                    });
+                  }
+                }}
+                placeholder="Lien du livrable (Drive, Figma, S3...)"
+                className="h-9"
+              />
+              <Button
+                size="sm"
+                variant={newName.trim() && newLink.trim() ? "default" : "outline"}
+                disabled={!newName.trim() || !newLink.trim() || deliverableMutation.isPending}
+                onClick={() =>
+                  deliverableMutation.mutate({
+                    name: newName.trim(),
+                    url: newLink.trim(),
+                    type: "lien",
+                  })
+                }
+                className="shrink-0"
+              >
+                Déposer
+              </Button>
+            </div>
           </div>
           <ul className="mt-4 space-y-2">
             {(deliverables ?? []).map((d) => {
