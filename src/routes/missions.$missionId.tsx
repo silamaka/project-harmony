@@ -92,6 +92,17 @@ function MissionDetailPage() {
       refresh([["missions"], ["missions", missionId]]);
       toast.success(`Statut : ${MISSION_STATUS_LABELS[status]}`);
     },
+    onError: () => {
+      // Quelqu'un d'autre a déjà changé le statut entre-temps (ex. le
+      // client vient de décider pendant que l'agence agissait aussi) :
+      // le serveur rejette ce changement devenu invalide plutôt que
+      // d'écraser silencieusement l'autre décision. On resynchronise
+      // avec l'état réel au lieu de laisser l'utilisateur sans réponse.
+      refresh([["missions"], ["missions", missionId]]);
+      toast.error(
+        "Ce changement n'est plus valide : le statut de la mission a été modifié entre-temps. La page a été actualisée.",
+      );
+    },
   });
 
   const commentMutation = useMutation({
