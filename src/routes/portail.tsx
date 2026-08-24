@@ -40,12 +40,22 @@ function ClientPortalPage() {
     window.setTimeout(() => setHighlighted((current) => (current === key ? null : current)), 1200);
   };
 
+  const [projectFilter, setProjectFilter] = useState<string | null>(null);
+  const selectProject = (projectId: string) => {
+    setProjectFilter((current) => (current === projectId ? null : projectId));
+    scrollTo(missionsRef, "missions");
+  };
+
   const client = clients?.find((c) => c.id === user?.client_id);
 
   const myProjects = (projects ?? []).filter((p) => p.client_id === client?.id);
   const myMissions = (missions ?? [])
     .filter((m) => m.client_id === client?.id)
     .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+  const visibleMissions = projectFilter
+    ? myMissions.filter((m) => m.project_id === projectFilter)
+    : myMissions;
+  const filteredProjectName = myProjects.find((p) => p.id === projectFilter)?.name;
 
   if (clients !== undefined && !client) {
     return (
@@ -88,9 +98,23 @@ function ClientPortalPage() {
           )}
         >
           <h2 className="text-sm font-semibold">Vos projets</h2>
-          <div className="mt-4 space-y-4">
+          <p className="mt-1 text-xs text-muted-foreground">
+            Cliquez sur un projet pour voir ses missions.
+          </p>
+          <div className="mt-4 space-y-3">
             {myProjects.map((p) => (
-              <div key={p.id}>
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => selectProject(p.id)}
+                aria-pressed={projectFilter === p.id}
+                className={cn(
+                  "w-full rounded-lg border p-2.5 text-left transition-colors",
+                  projectFilter === p.id
+                    ? "border-primary/60 bg-primary/5"
+                    : "border-transparent hover:border-border hover:bg-accent/20",
+                )}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
                   <ProjectStatusBadge status={p.status} />
@@ -102,7 +126,7 @@ function ClientPortalPage() {
                   {new Date(p.end_date).toLocaleDateString("fr-FR")}
                 </p>
                 <Progress value={p.progress} className="mt-2 h-2" />
-              </div>
+              </button>
             ))}
             {myProjects.length === 0 && (
               <p className="text-xs text-muted-foreground">Aucun projet en cours.</p>
@@ -118,10 +142,23 @@ function ClientPortalPage() {
               "ring-2 ring-primary ring-offset-2 ring-offset-background",
           )}
         >
-          <h2 className="text-sm font-semibold">Missions en cours</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">
+              {filteredProjectName ? `Missions — ${filteredProjectName}` : "Missions en cours"}
+            </h2>
+            {projectFilter && (
+              <button
+                type="button"
+                onClick={() => setProjectFilter(null)}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Voir toutes les missions
+              </button>
+            )}
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">Triées par échéance la plus proche.</p>
           <div className="mt-4 space-y-2">
-            {myMissions.slice(0, 8).map((m) => {
+            {visibleMissions.slice(0, 8).map((m) => {
               const late = isLate(m);
               return (
                 <Link
@@ -144,8 +181,10 @@ function ClientPortalPage() {
                 </Link>
               );
             })}
-            {myMissions.length === 0 && (
-              <p className="text-xs text-muted-foreground">Aucune mission.</p>
+            {visibleMissions.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                {projectFilter ? "Aucune mission sur ce projet." : "Aucune mission."}
+              </p>
             )}
           </div>
         </div>
