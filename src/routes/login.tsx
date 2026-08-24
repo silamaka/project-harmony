@@ -92,9 +92,7 @@ function LoginPage() {
                 <Link
                   to="/mot-de-passe-oublie"
                   className="text-xs font-medium text-primary hover:underline"
-                >
-                  Mot de passe oublié ?
-                </Link>
+                ></Link>
               </div>
               <Input
                 id="password"
