@@ -66,7 +66,7 @@ function LoginPage() {
             alt="Logo BEBA EMPIRE"
             className="h-20 w-20 rounded-full shadow-sm"
           />
-          <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Bon retour</h1>
+          <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Bienvenue sur BEBA</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Connectez-vous à votre espace de gestion d'agence.
           </p>
