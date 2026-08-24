@@ -76,7 +76,7 @@ function ClientPortalPage() {
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-2">
         <div
           ref={projectsRef}
           className={cn(
