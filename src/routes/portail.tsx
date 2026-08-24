@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FolderKanban, ListChecks } from "lucide-react";
+import { AlertTriangle, CalendarDays, FolderKanban, ListChecks } from "lucide-react";
 import { useRef, useState, type RefObject } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { MissionStatusBadge, ProjectStatusBadge } from "@/components/shared/badges";
 import { StatCard } from "@/components/shared/stat-card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
-import { clientService, missionService, projectService } from "@/services";
+import { clientService, isLate, missionService, projectService } from "@/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/portail")({
@@ -43,7 +43,9 @@ function ClientPortalPage() {
   const client = clients?.find((c) => c.id === user?.client_id);
 
   const myProjects = (projects ?? []).filter((p) => p.client_id === client?.id);
-  const myMissions = (missions ?? []).filter((m) => m.client_id === client?.id);
+  const myMissions = (missions ?? [])
+    .filter((m) => m.client_id === client?.id)
+    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
 
   if (clients !== undefined && !client) {
     return (
@@ -94,6 +96,11 @@ function ClientPortalPage() {
                   <ProjectStatusBadge status={p.status} />
                   <span className="text-xs font-semibold">{p.progress}%</span>
                 </div>
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                  {new Date(p.start_date).toLocaleDateString("fr-FR")} →{" "}
+                  {new Date(p.end_date).toLocaleDateString("fr-FR")}
+                </p>
                 <Progress value={p.progress} className="mt-2 h-2" />
               </div>
             ))}
@@ -112,18 +119,31 @@ function ClientPortalPage() {
           )}
         >
           <h2 className="text-sm font-semibold">Missions en cours</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Triées par échéance la plus proche.</p>
           <div className="mt-4 space-y-2">
-            {myMissions.slice(0, 8).map((m) => (
-              <Link
-                key={m.id}
-                to="/missions/$missionId"
-                params={{ missionId: m.id }}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/20"
-              >
-                <span className="min-w-0 flex-1 truncate text-sm">{m.title}</span>
-                <MissionStatusBadge status={m.status} />
-              </Link>
-            ))}
+            {myMissions.slice(0, 8).map((m) => {
+              const late = isLate(m);
+              return (
+                <Link
+                  key={m.id}
+                  to="/missions/$missionId"
+                  params={{ missionId: m.id }}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/20"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm">{m.title}</span>
+                  <span
+                    className={cn(
+                      "flex shrink-0 items-center gap-1 text-xs",
+                      late ? "font-semibold text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {late && <AlertTriangle className="h-3.5 w-3.5" />}
+                    {new Date(m.deadline).toLocaleDateString("fr-FR")}
+                  </span>
+                  <MissionStatusBadge status={m.status} />
+                </Link>
+              );
+            })}
             {myMissions.length === 0 && (
               <p className="text-xs text-muted-foreground">Aucune mission.</p>
             )}
