@@ -189,13 +189,24 @@ export function AppShell({
         </nav>
 
         <div className="border-t border-sidebar-border p-3">
-          <div className="flex items-center gap-3 rounded-lg px-2 py-2">
-            <UserAvatar user={user} className="h-11 w-11 text-sm" />
-            <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-sm font-semibold">
+          <div className="brand-gradient relative flex items-center gap-3 overflow-hidden rounded-xl p-3 shadow-md">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -top-6 -right-4 h-16 w-16 rounded-full bg-white/10 blur-xl"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -bottom-6 left-8 h-14 w-14 rounded-full bg-white/10 blur-lg"
+            />
+            <UserAvatar
+              user={user}
+              className="relative h-10 w-10 shrink-0 bg-white text-sm text-primary ring-2 ring-white/50"
+            />
+            <div className="relative min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-semibold text-white">
                 {user.first_name} {user.last_name}
               </p>
-              <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role]}</p>
+              <p className="truncate text-xs text-white/75">{ROLE_LABELS[user.role]}</p>
             </div>
             <button
               onClick={() => {
@@ -203,9 +214,9 @@ export function AppShell({
                 navigate({ to: "/login" });
               }}
               aria-label="Se déconnecter"
-              className="text-muted-foreground transition-colors hover:text-destructive"
+              className="relative shrink-0 rounded-full p-1.5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         </div>
