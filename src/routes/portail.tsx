@@ -142,21 +142,14 @@ function ClientPortalPage() {
               "ring-2 ring-primary ring-offset-2 ring-offset-background",
           )}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold">
-              {filteredProjectName ? `Missions — ${filteredProjectName}` : "Missions en cours"}
-            </h2>
-            {projectFilter && (
-              <button
-                type="button"
-                onClick={() => setProjectFilter(null)}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                Voir toutes les missions
-              </button>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">Triées par échéance la plus proche.</p>
+          <h2 className="text-sm font-semibold">
+            {filteredProjectName ? `Missions — ${filteredProjectName}` : "Missions en cours"}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {filteredProjectName
+              ? "Recliquez sur le projet pour revenir à toutes les missions."
+              : "Triées par échéance la plus proche."}
+          </p>
           <div className="mt-4 space-y-2">
             {visibleMissions.slice(0, 8).map((m) => {
               const late = isLate(m);
