@@ -217,6 +217,11 @@ const isLate = (m: Mission) =>
   m.status !== "valide" &&
   m.status !== "publie";
 
+/** Même logique que isLate, côté projet : date de fin dépassée alors que le
+ * projet n'est pas dans un état final (terminé/archivé). */
+const isProjectLate = (p: Project) =>
+  new Date(p.end_date).getTime() < Date.now() && p.status !== "termine" && p.status !== "archive";
+
 export const dashboardService = {
   /** GET /api/v1/dashboard/monthly/ */
   monthly: async () =>
@@ -237,4 +242,4 @@ export const dashboardService = {
     ).data,
 };
 
-export { isLate };
+export { isLate, isProjectLate };

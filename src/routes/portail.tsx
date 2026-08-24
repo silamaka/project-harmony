@@ -7,7 +7,7 @@ import { MissionStatusBadge, ProjectStatusBadge } from "@/components/shared/badg
 import { StatCard } from "@/components/shared/stat-card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
-import { clientService, isLate, missionService, projectService } from "@/services";
+import { clientService, isLate, isProjectLate, missionService, projectService } from "@/services";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/portail")({
@@ -102,32 +102,44 @@ function ClientPortalPage() {
             Cliquez sur un projet pour voir ses missions.
           </p>
           <div className="mt-4 space-y-3">
-            {myProjects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => selectProject(p.id)}
-                aria-pressed={projectFilter === p.id}
-                className={cn(
-                  "w-full rounded-lg border p-2.5 text-left transition-colors",
-                  projectFilter === p.id
-                    ? "border-primary/60 bg-primary/5"
-                    : "border-transparent hover:border-border hover:bg-accent/20",
-                )}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
-                  <ProjectStatusBadge status={p.status} />
-                  <span className="text-xs font-semibold">{p.progress}%</span>
-                </div>
-                <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                  {new Date(p.start_date).toLocaleDateString("fr-FR")} →{" "}
-                  {new Date(p.end_date).toLocaleDateString("fr-FR")}
-                </p>
-                <Progress value={p.progress} className="mt-2 h-2" />
-              </button>
-            ))}
+            {myProjects.map((p) => {
+              const late = isProjectLate(p);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectProject(p.id)}
+                  aria-pressed={projectFilter === p.id}
+                  className={cn(
+                    "w-full rounded-lg border p-2.5 text-left transition-colors",
+                    projectFilter === p.id
+                      ? "border-primary/60 bg-primary/5"
+                      : "border-transparent hover:border-border hover:bg-accent/20",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+                    <ProjectStatusBadge status={p.status} />
+                    <span className="text-xs font-semibold">{p.progress}%</span>
+                  </div>
+                  <p
+                    className={cn(
+                      "mt-1 flex items-center gap-1.5 text-xs",
+                      late ? "font-semibold text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {late ? (
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    {new Date(p.start_date).toLocaleDateString("fr-FR")} →{" "}
+                    {new Date(p.end_date).toLocaleDateString("fr-FR")}
+                  </p>
+                  <Progress value={p.progress} className="mt-2 h-2" />
+                </button>
+              );
+            })}
             {myProjects.length === 0 && (
               <p className="text-xs text-muted-foreground">Aucun projet en cours.</p>
             )}
