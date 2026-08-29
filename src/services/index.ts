@@ -129,9 +129,6 @@ export const missionService = {
   },
   /** GET /api/v1/missions/:id/ */
   get: async (id: string) => (await api.get<Mission>(`${endpoints.missions}${id}/`)).data,
-  /** GET /api/v1/missions/?assignee=:userId */
-  byAssignee: async (userId: string) =>
-    (await api.get<Mission[]>(endpoints.missions, { params: { assignee: userId } })).data,
   /** GET /api/v1/missions/?project=:projectId */
   byProject: async (projectId: string) =>
     (await api.get<Mission[]>(endpoints.missions, { params: { project: projectId } })).data,

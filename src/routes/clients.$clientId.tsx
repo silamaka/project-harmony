@@ -11,6 +11,7 @@ import {
   EditMissionDialog,
 } from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/auth-context";
 import { MissionsTable } from "@/components/shared/missions-table";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +46,8 @@ const STATUS_FILTERS = ["tous", ...MISSION_WORKFLOW] as const;
 
 function ClientDetailPage() {
   const { clientId } = Route.useParams();
+  const { hasRole } = useAuth();
+  const canManage = hasRole("admin", "chef_projet");
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
@@ -135,9 +138,9 @@ function ClientDetailPage() {
     <AppShell
       title={client?.name ?? "Client"}
       subtitle={client ? `${client.industry} · ${clientMissions.length} mission(s)` : undefined}
-      allow={["admin", "chef_projet"]}
+      allow={["admin", "chef_projet", "collaborateur"]}
       actions={
-        client ? (
+        client && canManage ? (
           <div className="flex items-center gap-2">
             <EditClientDialog client={client} />
             <CreateMissionDialog clientId={client.id} />
@@ -183,17 +186,22 @@ function ClientDetailPage() {
       <div className="mt-4">
         <MissionsTable
           missions={filtered}
-          showResponsable
+          showResponsable={canManage}
           assigneeOptions={assigneeOptions}
           assigneeTone={assigneeTone}
           deliverablesFor={missionDeliverables}
           commentFor={lastComment}
           onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
           onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
-          onAssigneeChange={(id, assignee_id) => updateAssignee.mutate({ id, assignee_id })}
-          onEditMission={setEditingMission}
-          onDeleteMission={setDeletingMission}
           emptyMessage="Aucune mission pour ce client."
+          {...(canManage
+            ? {
+                onAssigneeChange: (id: string, assignee_id: string) =>
+                  updateAssignee.mutate({ id, assignee_id }),
+                onEditMission: setEditingMission,
+                onDeleteMission: setDeletingMission,
+              }
+            : {})}
         />
       </div>
 

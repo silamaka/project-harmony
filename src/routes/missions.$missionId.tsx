@@ -398,10 +398,17 @@ function MissionDetailPage() {
             {mission && <PriorityBadge priority={mission.priority} />}
             {mission && <MissionStatusBadge status={mission.status} />}
             <span className="text-xs text-muted-foreground">
-              Deadline : {mission && new Date(mission.deadline).toLocaleDateString("fr-FR")}
+              {mission && new Date(mission.start_date).toLocaleDateString("fr-FR")} →{" "}
+              {mission && new Date(mission.deadline).toLocaleDateString("fr-FR")}
             </span>
           </div>
           <Section title="Description" body={mission?.description} />
+          {mission && mission.collaborators.length > 0 && (
+            <Section
+              title="Collaborateurs additionnels"
+              body={mission.collaborators.map((id) => authorName(id)).join(", ")}
+            />
+          )}
         </div>
 
         <div className="surface-card p-5">

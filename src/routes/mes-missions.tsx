@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { CreateMissionDialog } from "@/components/shared/create-dialogs";
 import { MissionsTable } from "@/components/shared/missions-table";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
@@ -39,9 +40,13 @@ function MyMissionsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
 
+  // Le backend restreint déjà un collaborateur à ses missions (assignee OU
+  // collaborator) via missions_visible_to : pas besoin de filtrer par
+  // assignee ici, ça exclurait à tort les missions où il n'est
+  // que collaborateur additionnel.
   const { data: missions } = useQuery({
-    queryKey: ["missions", "assignee", user?.id],
-    queryFn: () => missionService.byAssignee(user!.id),
+    queryKey: ["missions"],
+    queryFn: missionService.list,
     enabled: !!user,
   });
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
@@ -52,6 +57,10 @@ function MyMissionsPage() {
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
 
   const ownMissions = useMemo(() => missions ?? [], [missions]);
+  const ownProjectIds = useMemo(
+    () => Array.from(new Set(ownMissions.map((m) => m.project_id))),
+    [ownMissions],
+  );
   const clientName = (id: string) => (clients ?? []).find((c) => c.id === id)?.name ?? "—";
   const missionDeliverables = (missionId: string) =>
     (deliverables ?? []).filter((d) => d.mission_id === missionId);
@@ -91,6 +100,15 @@ function MyMissionsPage() {
       title="Mes missions"
       subtitle={`${ownMissions.length} mission(s) assignée(s)`}
       allow={["collaborateur"]}
+      actions={
+        user && (
+          <CreateMissionDialog
+            assigneeId={user.id}
+            allowedProjectIds={ownProjectIds}
+            lockAssignee
+          />
+        )
+      }
     >
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1">

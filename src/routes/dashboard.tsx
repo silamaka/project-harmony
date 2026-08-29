@@ -257,7 +257,7 @@ function DashboardPage() {
     <AppShell
       title="Dashboard"
       subtitle="Vue d'ensemble de l'activité de l'agence"
-      allow={["admin", "chef_projet"]}
+      allow={["admin", "chef_projet", "collaborateur"]}
     >
       <div className="surface-card flex flex-wrap items-center gap-3 p-3">
         <div className="flex items-center gap-1.5 pl-1 text-sm font-semibold text-muted-foreground">

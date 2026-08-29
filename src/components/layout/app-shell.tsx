@@ -35,8 +35,18 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["admin", "chef_projet"] },
-  { to: "/clients", label: "Clients", icon: Building2, roles: ["admin", "chef_projet"] },
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    roles: ["admin", "chef_projet", "collaborateur"],
+  },
+  {
+    to: "/clients",
+    label: "Clients",
+    icon: Building2,
+    roles: ["admin", "chef_projet", "collaborateur"],
+  },
   { to: "/collaborateurs", label: "Collaborateurs", icon: Users, roles: ["admin", "chef_projet"] },
   { to: "/projets", label: "Projets", icon: FolderKanban, roles: ["admin", "chef_projet"] },
   { to: "/missions", label: "Missions", icon: ListChecks, roles: ["admin", "chef_projet"] },

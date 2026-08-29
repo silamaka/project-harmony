@@ -48,10 +48,19 @@ function MissionsPage() {
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
 
-  const filtered = useMemo(
-    () => (missions ?? []).filter((m) => m.title.toLowerCase().includes(query.toLowerCase())),
-    [missions, query],
-  );
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase();
+    const userName = (id: string) => {
+      const u = users?.find((x) => x.id === id);
+      return u ? `${u.first_name} ${u.last_name}` : "";
+    };
+    return (missions ?? []).filter(
+      (m) =>
+        m.title.toLowerCase().includes(q) ||
+        userName(m.assignee_id).toLowerCase().includes(q) ||
+        m.collaborators.some((id) => userName(id).toLowerCase().includes(q)),
+    );
+  }, [missions, query, users]);
 
   const allMissions = missions ?? [];
   const stats = {
@@ -139,7 +148,7 @@ function MissionsPage() {
         <div className="relative min-w-56 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Rechercher une mission..."
+            placeholder="Rechercher une mission ou un collaborateur..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"

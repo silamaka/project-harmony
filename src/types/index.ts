@@ -136,8 +136,11 @@ export interface Mission {
   description: string;
   priority: Priority;
   assignee_id: string;
+  /** Contributeurs additionnels : même accès en lecture/statut/priorité que le responsable. */
+  collaborators: string[];
   project_id: string;
   client_id: string;
+  start_date: string;
   deadline: string;
   status: MissionStatus;
   created_at: string;

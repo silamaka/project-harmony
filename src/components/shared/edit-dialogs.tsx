@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, X } from "lucide-react";
 import { cloneElement, isValidElement, useId, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
@@ -46,6 +46,25 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       </Label>
       {control}
     </div>
+  );
+}
+
+/** Personne assignée, affichée comme un tag amovible (ou fixe si `onRemove` est omis). */
+function PersonPill({ name, onRemove }: { name: string; onRemove?: (() => void) | undefined }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+      {name}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Retirer ${name}`}
+          className="text-accent-foreground/70 hover:text-accent-foreground"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -362,13 +381,19 @@ export function EditMissionDialog({
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
+  const nameOf = (id: string) => {
+    const u = assignees.find((a) => a.id === id);
+    return u ? `${u.first_name} ${u.last_name}` : "—";
+  };
   const [form, setForm] = useState({
     title: mission.title,
     description: mission.description,
     priority: mission.priority,
     status: mission.status,
     assignee_id: mission.assignee_id,
+    collaborators: mission.collaborators,
     project_id: mission.project_id,
+    start_date: mission.start_date.slice(0, 10),
     deadline: mission.deadline.slice(0, 10),
   });
   const done = useSaved([["missions"], ["missions", mission.id]], () => setOpen(false));
@@ -423,19 +448,55 @@ export function EditMissionDialog({
               ))}
             </select>
           </Field>
-          <Field label="Assigné à">
-            <select
-              className={selectClass}
-              value={form.assignee_id}
-              onChange={(e) => setForm({ ...form, assignee_id: e.target.value })}
-            >
-              {assignees.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.first_name} {u.last_name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Assigné à">
+              <div className="flex flex-wrap gap-1.5 empty:hidden">
+                {form.assignee_id && (
+                  <PersonPill
+                    name={nameOf(form.assignee_id)}
+                    onRemove={() => {
+                      const [next, ...rest] = form.collaborators;
+                      setForm({ ...form, assignee_id: next ?? "", collaborators: rest });
+                    }}
+                  />
+                )}
+                {form.collaborators.map((id) => (
+                  <PersonPill
+                    key={id}
+                    name={nameOf(id)}
+                    onRemove={() =>
+                      setForm({
+                        ...form,
+                        collaborators: form.collaborators.filter((c) => c !== id),
+                      })
+                    }
+                  />
+                ))}
+              </div>
+              <select
+                className={`${selectClass} mt-2`}
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (!id) return;
+                  setForm(
+                    form.assignee_id
+                      ? { ...form, collaborators: [...form.collaborators, id] }
+                      : { ...form, assignee_id: id },
+                  );
+                }}
+              >
+                <option value="">+ Ajouter une personne…</option>
+                {assignees
+                  .filter((u) => u.id !== form.assignee_id && !form.collaborators.includes(u.id))
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.first_name} {u.last_name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+          </div>
           <Field label="Priorité">
             <select
               className={selectClass}
@@ -462,7 +523,14 @@ export function EditMissionDialog({
               ))}
             </select>
           </Field>
-          <Field label="Deadline">
+          <Field label="Début">
+            <Input
+              type="date"
+              value={form.start_date}
+              onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+            />
+          </Field>
+          <Field label="Échéance">
             <Input
               type="date"
               value={form.deadline}

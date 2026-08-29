@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useId, useState } from "react";
 import { cloneElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
@@ -55,6 +55,25 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       </Label>
       {control}
     </div>
+  );
+}
+
+/** Personne assignée, affichée comme un tag amovible (ou fixe si `onRemove` est omis). */
+function PersonPill({ name, onRemove }: { name: string; onRemove?: (() => void) | undefined }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+      {name}
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Retirer ${name}`}
+          className="text-accent-foreground/70 hover:text-accent-foreground"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -200,19 +219,31 @@ export function CreateMissionDialog({
   projectId,
   clientId,
   assigneeId,
+  allowedProjectIds,
+  lockAssignee = false,
 }: {
   projectId?: string;
   clientId?: string;
   /** Pré-sélectionne le responsable (ex. depuis la fiche d'un collaborateur). */
   assigneeId?: string;
+  /** Restreint le sélecteur de projet à cette liste (ex. auto-création par un collaborateur). */
+  allowedProjectIds?: string[];
+  /** Masque le champ "Assigné à" : la mission reste assignée à `assigneeId`. */
+  lockAssignee?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const { data: allProjects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
-  const projects = clientId
-    ? (allProjects ?? []).filter((p) => p.client_id === clientId)
-    : allProjects;
+  const projects = allowedProjectIds
+    ? (allProjects ?? []).filter((p) => allowedProjectIds.includes(p.id))
+    : clientId
+      ? (allProjects ?? []).filter((p) => p.client_id === clientId)
+      : allProjects;
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
+  const nameOf = (id: string) => {
+    const u = assignees.find((a) => a.id === id);
+    return u ? `${u.first_name} ${u.last_name}` : "—";
+  };
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     title: "",
@@ -221,6 +252,8 @@ export function CreateMissionDialog({
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
     assignee_id: assigneeId ?? "",
+    collaborators: [] as string[],
+    start_date: today,
     deadline: today,
   });
   const done = useCreate([["missions"], ["notifications"]], () => setOpen(false));
@@ -262,34 +295,81 @@ export function CreateMissionDialog({
               />
             </Field>
           </div>
-          <Field label="Projet">
-            <select
-              className={selectClass}
-              value={form.project_id}
-              onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-            >
-              <option value="">Sélectionner…</option>
-              {(projects ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Assigné à">
-            <select
-              className={selectClass}
-              value={form.assignee_id}
-              onChange={(e) => setForm({ ...form, assignee_id: e.target.value })}
-            >
-              <option value="">Sélectionner…</option>
-              {assignees.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.first_name} {u.last_name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className={lockAssignee ? "sm:col-span-2" : undefined}>
+            <Field label="Projet">
+              <select
+                className={selectClass}
+                value={form.project_id}
+                onChange={(e) => setForm({ ...form, project_id: e.target.value })}
+              >
+                <option value="">Sélectionner…</option>
+                {(projects ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {lockAssignee && (projects ?? []).length === 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Aucun projet disponible : vous devez déjà avoir une mission sur un projet pour en
+                  créer une nouvelle.
+                </p>
+              )}
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label="Assigné à">
+              <div className="flex flex-wrap gap-1.5 empty:hidden">
+                {form.assignee_id && (
+                  <PersonPill
+                    name={nameOf(form.assignee_id)}
+                    onRemove={
+                      lockAssignee
+                        ? undefined
+                        : () => {
+                            const [next, ...rest] = form.collaborators;
+                            setForm({ ...form, assignee_id: next ?? "", collaborators: rest });
+                          }
+                    }
+                  />
+                )}
+                {form.collaborators.map((id) => (
+                  <PersonPill
+                    key={id}
+                    name={nameOf(id)}
+                    onRemove={() =>
+                      setForm({
+                        ...form,
+                        collaborators: form.collaborators.filter((c) => c !== id),
+                      })
+                    }
+                  />
+                ))}
+              </div>
+              <select
+                className={`${selectClass} mt-2`}
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (!id) return;
+                  setForm(
+                    form.assignee_id
+                      ? { ...form, collaborators: [...form.collaborators, id] }
+                      : { ...form, assignee_id: id },
+                  );
+                }}
+              >
+                <option value="">+ Ajouter une personne…</option>
+                {assignees
+                  .filter((u) => u.id !== form.assignee_id && !form.collaborators.includes(u.id))
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.first_name} {u.last_name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+          </div>
           <Field label="Priorité">
             <select
               className={selectClass}
@@ -316,7 +396,14 @@ export function CreateMissionDialog({
               ))}
             </select>
           </Field>
-          <Field label="Deadline">
+          <Field label="Début">
+            <Input
+              type="date"
+              value={form.start_date}
+              onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+            />
+          </Field>
+          <Field label="Échéance">
             <Input
               type="date"
               value={form.deadline}
