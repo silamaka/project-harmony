@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from accounts.models import Role
 
 from .models import Mission
@@ -12,7 +14,13 @@ def missions_visible_to(user):
     ne peut lui-même pas voir.
     """
     if user.role == Role.COLLABORATEUR:
-        return Mission.objects.filter(assignee=user)
+        # Sous-requête (pas un join sur collaborators) : MissionViewSet
+        # applique select_for_update() sur ce queryset en écriture, et
+        # Postgres interdit FOR UPDATE combiné à DISTINCT — nécessaire pour
+        # dédupliquer un join M2M mais pas une sous-requête IN.
+        return Mission.objects.filter(
+            Q(assignee=user) | Q(id__in=user.collaborating_missions.values("id"))
+        )
     if user.role == Role.CLIENT:
         return Mission.objects.filter(client_id=user.client_id)
     return Mission.objects.all()

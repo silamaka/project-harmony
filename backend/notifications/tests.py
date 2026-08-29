@@ -26,6 +26,7 @@ class NotificationSetupMixin:
             project=self.project,
             client=self.other_client_company,
             assignee=self.other_collaborateur,
+            start_date="2026-01-01",
             deadline="2026-12-31",
             status=MissionStatus.A_FAIRE,
         )

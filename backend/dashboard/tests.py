@@ -19,10 +19,10 @@ class DashboardPermissionTests(RoleTestCase):
         res = self.client.get(reverse("dashboard-stats"))
         self.assertEqual(res.status_code, 200)
 
-    def test_collaborateur_cannot_access_stats(self):
+    def test_collaborateur_can_access_stats(self):
         self.auth_as(self.collaborateur)
         res = self.client.get(reverse("dashboard-stats"))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200)
 
     def test_client_cannot_access_alerts(self):
         self.auth_as(self.client_user)
@@ -56,6 +56,7 @@ class StatsAndCompletionRateTests(RoleTestCase):
                 project=self.project,
                 client=self.client_company,
                 assignee=self.collaborateur,
+                start_date="2026-01-01",
                 deadline="2026-12-31",
                 status=status,
             )
@@ -90,6 +91,7 @@ class AlertsTests(RoleTestCase):
             project=self.project,
             client=self.client_company,
             assignee=self.collaborateur,
+            start_date="2026-01-01",
             deadline=deadline,
             status=status,
             **kwargs,

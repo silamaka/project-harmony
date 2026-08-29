@@ -40,6 +40,7 @@ class MissionReadScopingTests(RoleTestCase):
             project=self.project,
             client=self.other_client_company,
             assignee=self.other_collaborateur,
+            start_date="2026-01-01",
             deadline="2026-12-31",
             status=MissionStatus.A_FAIRE,
         )
@@ -84,6 +85,7 @@ class MissionCreateDeleteTests(RoleTestCase):
             "title": "Nouvelle mission",
             "project_id": str(self.project.id),
             "assignee_id": str(self.collaborateur.id),
+            "start_date": "2026-01-01",
             "deadline": "2026-12-31",
             "priority": "normale",
             "status": "a_faire",
@@ -99,9 +101,31 @@ class MissionCreateDeleteTests(RoleTestCase):
         res = self.client.post(mission_list_url(), self._payload())
         self.assertEqual(res.status_code, 201)
 
-    def test_collaborateur_cannot_create_mission(self):
+    def test_collaborateur_can_create_mission_for_self_on_own_project(self):
+        # self.collaborateur est déjà assigné à self.mission sur self.project
+        # (voir RoleTestCase.setUp) : ce projet est donc dans son périmètre.
         self.auth_as(self.collaborateur)
         res = self.client.post(mission_list_url(), self._payload())
+        self.assertEqual(res.status_code, 201)
+
+    def test_collaborateur_cannot_create_mission_for_another_assignee(self):
+        self.auth_as(self.collaborateur)
+        payload = {**self._payload(), "assignee_id": str(self.other_collaborateur.id)}
+        res = self.client.post(mission_list_url(), payload)
+        self.assertEqual(res.status_code, 403)
+
+    def test_collaborateur_cannot_create_mission_on_uninvolved_project(self):
+        other_project = Project.objects.create(
+            name="Projet sans lui",
+            client=self.client_company,
+            owner=self.chef_projet,
+            start_date="2026-01-01",
+            end_date="2026-12-31",
+            status=ProjectStatus.EN_COURS,
+        )
+        self.auth_as(self.collaborateur)
+        payload = {**self._payload(), "project_id": str(other_project.id)}
+        res = self.client.post(mission_list_url(), payload)
         self.assertEqual(res.status_code, 403)
 
     def test_client_cannot_create_mission(self):
@@ -152,12 +176,86 @@ class CollaborateurUpdateTests(RoleTestCase):
             project=self.project,
             client=self.client_company,
             assignee=self.other_collaborateur,
+            start_date="2026-01-01",
             deadline="2026-12-31",
             status=MissionStatus.A_FAIRE,
         )
         self.auth_as(self.collaborateur)
         res = self.client.patch(mission_detail_url(other_mission.id), {"status": "en_cours"})
         self.assertEqual(res.status_code, 404)
+
+
+class MissionCollaboratorsTests(RoleTestCase):
+    """Un collaborateur additionnel (Mission.collaborators) a le même accès
+    en lecture et en édition statut/priorité qu'un assignee, sans être le
+    responsable principal."""
+
+    def setUp(self):
+        super().setUp()
+        # self.mission est assignée à self.collaborateur (fixture de base) ;
+        # on ajoute self.other_collaborateur comme simple contributeur.
+        self.mission.collaborators.add(self.other_collaborateur)
+
+    def test_collaborator_sees_mission_they_are_not_assignee_of(self):
+        self.auth_as(self.other_collaborateur)
+        res = self.client.get(mission_list_url())
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual({m["id"] for m in res.data}, {str(self.mission.id)})
+
+    def test_collaborator_can_update_status(self):
+        self.auth_as(self.other_collaborateur)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "en_cours"})
+        self.assertEqual(res.status_code, 200)
+
+    def test_collaborator_cannot_update_title(self):
+        self.auth_as(self.other_collaborateur)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"title": "Piraté"})
+        self.assertEqual(res.status_code, 403)
+
+    def test_uninvolved_collaborateur_still_gets_404(self):
+        third = User.objects.create_user(
+            email="collab3@test.local",
+            password="pass1234",
+            first_name="Collab3",
+            last_name="Test",
+            role="collaborateur",
+        )
+        self.auth_as(third)
+        res = self.client.get(mission_detail_url(self.mission.id))
+        self.assertEqual(res.status_code, 404)
+
+    def test_admin_can_create_mission_with_collaborators(self):
+        self.auth_as(self.admin)
+        payload = {
+            "title": "Mission à plusieurs",
+            "project_id": str(self.project.id),
+            "assignee_id": str(self.collaborateur.id),
+            "collaborators": [str(self.other_collaborateur.id)],
+            "start_date": "2026-01-01",
+            "deadline": "2026-12-31",
+            "priority": "normale",
+            "status": "a_faire",
+        }
+        res = self.client.post(mission_list_url(), payload)
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["collaborators"], [str(self.other_collaborateur.id)])
+
+    def test_collaborateur_can_create_on_project_where_only_collaborator(self):
+        # self.other_collaborateur n'est assignee d'aucune mission sur
+        # self.project, mais y contribue via self.mission (setUp) : ça
+        # suffit à considérer le projet dans son périmètre.
+        self.auth_as(self.other_collaborateur)
+        payload = {
+            "title": "Nouvelle mission via collab",
+            "project_id": str(self.project.id),
+            "assignee_id": str(self.other_collaborateur.id),
+            "start_date": "2026-01-01",
+            "deadline": "2026-12-31",
+            "priority": "normale",
+            "status": "a_faire",
+        }
+        res = self.client.post(mission_list_url(), payload)
+        self.assertEqual(res.status_code, 201)
 
 
 class ClientValidationGateTests(RoleTestCase):
@@ -277,6 +375,7 @@ class MissionStatusRaceConditionTests(TransactionTestCase):
             project=self.project,
             client=self.client_company,
             assignee=self.collaborateur,
+            start_date="2026-01-01",
             deadline="2026-12-31",
             status=MissionStatus.ENVOYE_CLIENT,
         )

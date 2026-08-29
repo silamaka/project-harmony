@@ -91,6 +91,7 @@ class RoleTestCase(APITestCase):
             project=self.project,
             client=self.client_company,
             assignee=self.collaborateur,
+            start_date="2026-01-01",
             deadline="2026-12-31",
             status=MissionStatus.A_FAIRE,
             priority=Priority.NORMALE,

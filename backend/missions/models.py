@@ -36,6 +36,13 @@ class Mission(models.Model):
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="assigned_missions", on_delete=models.PROTECT
     )
+    # Contributeurs additionnels : accès en lecture (missions_visible_to) et
+    # en édition statut/priorité au même titre que assignee (voir
+    # MissionPermission), mais assignee reste le seul responsable pour les
+    # notifications et les agrégats "par collaborateur" du dashboard.
+    collaborators = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name="collaborating_missions", blank=True
+    )
     project = models.ForeignKey("projects.Project", related_name="missions", on_delete=models.CASCADE)
     # Dénormalisé comme côté frontend (Mission.client_id) : évite de traverser
     # project.client à chaque lecture, et reste cohérent puisqu'une mission
@@ -43,6 +50,7 @@ class Mission(models.Model):
     # nullable côté futures évolutions — pour l'instant aligné sur le
     # frontend actuel où project est obligatoire).
     client = models.ForeignKey("clients.Client", related_name="missions", on_delete=models.CASCADE)
+    start_date = models.DateField()
     deadline = models.DateField()
     status = models.CharField(max_length=20, choices=MissionStatus.choices, default=MissionStatus.A_FAIRE)
     created_at = models.DateTimeField(auto_now_add=True)

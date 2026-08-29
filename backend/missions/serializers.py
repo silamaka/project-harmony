@@ -24,6 +24,13 @@ class ClientPKField(serializers.PrimaryKeyRelatedField):
         return Client.objects.all()
 
 
+class CollaboratorPKField(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.all()
+
+
 class MissionSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     assignee_id = AssigneePKField(source="assignee")
@@ -31,6 +38,9 @@ class MissionSerializer(serializers.ModelSerializer):
     # Optionnel en entrée : dérivé de project.client si absent, comme le
     # fait déjà CreateMissionDialog côté frontend.
     client_id = ClientPKField(source="client", required=False)
+    # Contributeurs additionnels (voir Mission.collaborators) : optionnel,
+    # liste vide par défaut.
+    collaborators = CollaboratorPKField(many=True, required=False)
 
     class Meta:
         model = Mission
@@ -42,6 +52,8 @@ class MissionSerializer(serializers.ModelSerializer):
             "assignee_id",
             "project_id",
             "client_id",
+            "collaborators",
+            "start_date",
             "deadline",
             "status",
             "created_at",
@@ -53,6 +65,7 @@ class MissionSerializer(serializers.ModelSerializer):
         data["assignee_id"] = str(data["assignee_id"])
         data["project_id"] = str(data["project_id"])
         data["client_id"] = str(data["client_id"])
+        data["collaborators"] = [str(c) for c in data["collaborators"]]
         return data
 
     def create(self, validated_data):
