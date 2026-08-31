@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ExpandableText } from "@/components/shared/expandable-text";
 import { PillSelect } from "@/components/shared/pill-select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isLate } from "@/services";
 import {
@@ -214,12 +215,26 @@ function MissionRow({
       )}
       {showResponsable && (
         <td className="overflow-hidden px-3 py-3 pr-4">
-          <PillSelect
-            value={mission.assignee_id}
-            options={assigneeOptions}
-            tone={assigneeTone}
-            onChange={(v) => onAssigneeChange?.(v)}
-          />
+          <div className="flex items-center gap-1.5">
+            <PillSelect
+              value={mission.assignee_id}
+              options={assigneeOptions}
+              tone={assigneeTone}
+              onChange={(v) => onAssigneeChange?.(v)}
+            />
+            {mission.collaborators.length > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex h-5 shrink-0 cursor-help items-center rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">
+                    +{mission.collaborators.length}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="bg-popover text-popover-foreground shadow-lg">
+                  {mission.collaborators.map((id) => assigneeOptions?.[id] ?? "—").join(", ")}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </td>
       )}
       <td
