@@ -36,10 +36,10 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     }),
     viteReact(),
   );
-  // Nitro (Cloudflare Workers target) is build-only — never loaded for the dev server.
+  // Nitro (Node server target, deployed on the VPS) is build-only — never loaded for the dev server.
   if (command === "build") {
     const { nitro } = await import("nitro/vite");
-    plugins.push(nitro({ defaultPreset: "cloudflare-module" }));
+    plugins.push(nitro({ defaultPreset: "node-server" }));
   }
 
   return {
