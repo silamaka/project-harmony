@@ -414,7 +414,7 @@ export function CreateMissionDialog({
             <Field label="Description">
               <Textarea
                 value={form.description}
-                maxLength={800}
+                maxLength={2000}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </Field>
