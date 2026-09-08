@@ -38,7 +38,9 @@ function ProfilePage() {
   const { user } = useAuth();
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
 
-  const mine = (missions ?? []).filter((m) => m.assignee_id === user?.id);
+  const mine = (missions ?? []).filter(
+    (m) => m.assignee_id === user?.id || m.collaborators.includes(user?.id ?? ""),
+  );
 
   return (
     <AppShell title="Mon profil" subtitle={user ? ROLE_LABELS[user.role] : undefined}>

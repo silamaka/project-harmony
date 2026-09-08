@@ -137,7 +137,9 @@ function CollaboratorsPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {filtered.map((u) => {
-          const own = (missions ?? []).filter((m) => m.assignee_id === u.id);
+          const own = (missions ?? []).filter(
+            (m) => m.assignee_id === u.id || m.collaborators.includes(u.id),
+          );
           const workload = u.workload ?? 0;
           return (
             <div

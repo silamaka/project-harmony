@@ -38,8 +38,10 @@ class Mission(models.Model):
     )
     # Contributeurs additionnels : accès en lecture (missions_visible_to) et
     # en édition statut/priorité au même titre que assignee (voir
-    # MissionPermission), mais assignee reste le seul responsable pour les
-    # notifications et les agrégats "par collaborateur" du dashboard.
+    # MissionPermission). Comptent aussi bien que assignee dans les missions
+    # d'un collaborateur (page profil, agrégats "par collaborateur" du
+    # dashboard) — seule la notification de création reste liée à la
+    # mission plutôt qu'à une personne en particulier.
     collaborators = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="collaborating_missions", blank=True
     )

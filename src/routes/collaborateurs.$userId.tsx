@@ -66,7 +66,9 @@ function CollaboratorDetailPage() {
   });
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
 
-  const ownMissions = (missions ?? []).filter((m) => m.assignee_id === userId);
+  const ownMissions = (missions ?? []).filter(
+    (m) => m.assignee_id === userId || m.collaborators.includes(userId),
+  );
   const clientName = (id: string) => (clients ?? []).find((c) => c.id === id)?.name ?? "—";
 
   const filtered = useMemo(

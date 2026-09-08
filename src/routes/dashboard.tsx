@@ -177,7 +177,9 @@ function DashboardPage() {
     () =>
       collaborators.map((u) => ({
         name: `${u.first_name} ${u.last_name}`,
-        missions: filteredMissions.filter((m) => m.assignee_id === u.id).length,
+        missions: filteredMissions.filter(
+          (m) => m.assignee_id === u.id || m.collaborators.includes(u.id),
+        ).length,
       })),
     [collaborators, filteredMissions],
   );
@@ -654,7 +656,12 @@ function DashboardPage() {
                   </span>
                   <span className="text-xs text-muted-foreground">{u.job_title ?? u.email}</span>
                   <span className="text-xs text-muted-foreground">
-                    {(missions ?? []).filter((m) => m.assignee_id === u.id).length} missions
+                    {
+                      (missions ?? []).filter(
+                        (m) => m.assignee_id === u.id || m.collaborators.includes(u.id),
+                      ).length
+                    }{" "}
+                    missions
                   </span>
                 </div>
               ))}

@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from django.db.models import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
@@ -47,7 +48,10 @@ def missions_by_client(request):
 @permission_classes([IsAdminOrChefProjet])
 def missions_by_collaborator(request):
     data = [
-        {"name": f"{u.first_name} {u.last_name}", "missions": Mission.objects.filter(assignee=u).count()}
+        {
+            "name": f"{u.first_name} {u.last_name}",
+            "missions": Mission.objects.filter(Q(assignee=u) | Q(collaborators=u)).distinct().count(),
+        }
         for u in User.objects.filter(role=Role.COLLABORATEUR)
     ]
     return Response(data)

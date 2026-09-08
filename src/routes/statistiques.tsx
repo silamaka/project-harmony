@@ -167,7 +167,8 @@ function StatisticsPage() {
   }));
   const byCollab = collaborators.map((u) => ({
     name: `${u.first_name} ${u.last_name}`,
-    missions: missionList.filter((m) => m.assignee_id === u.id).length,
+    missions: missionList.filter((m) => m.assignee_id === u.id || m.collaborators.includes(u.id))
+      .length,
   }));
 
   const late = missionList.filter(isLate).length;
