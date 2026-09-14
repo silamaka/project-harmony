@@ -8,7 +8,7 @@ from .serializers import CommentSerializer
 
 
 class CommentViewSet(viewsets.ModelViewSet):
-    http_method_names = ["get", "post", "delete", "head", "options"]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
     serializer_class = CommentSerializer
     permission_classes = [CommentPermission]
 
@@ -21,3 +21,9 @@ class CommentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+    def perform_update(self, serializer):
+        # mission/auteur restent ceux d'origine quoi qu'envoie le client :
+        # seuls body/attachment_url sont vraiment éditables (voir aussi
+        # perform_create, même logique pour author).
+        serializer.save(mission=serializer.instance.mission, parent=serializer.instance.parent)

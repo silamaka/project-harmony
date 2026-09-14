@@ -93,21 +93,43 @@ class CommentCreateTests(CommentSetupMixin, RoleTestCase):
         self.assertEqual(res.data["mentions"], ["@admin"])
 
 
-class CommentImmutabilityTests(CommentSetupMixin, RoleTestCase):
-    """CommentPermission.has_permission rejette explicitement PUT/PATCH
-    avant même le lookup de méthode — DRF exécute les permissions dans
-    dispatch() avant de vérifier http_method_names, donc c'est un 403
-    (PermissionDenied), pas un 405, qui sort en premier ici."""
+class CommentEditTests(CommentSetupMixin, RoleTestCase):
+    """PUT reste bloqué pour tout le monde (has_permission) ; PATCH n'est
+    permis qu'à l'auteur du commentaire (has_object_permission)."""
 
     def test_put_always_rejected_even_for_admin(self):
         self.auth_as(self.admin)
         res = self.client.put(comment_detail_url(self.comment.id), {"body": "Modifié"})
         self.assertEqual(res.status_code, 403)
 
-    def test_patch_always_rejected_even_for_admin(self):
+    def test_author_can_edit_own_comment(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(comment_detail_url(self.comment.id), {"body": "Modifié"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["body"], "Modifié")
+
+    def test_admin_cannot_edit_someone_elses_comment(self):
         self.auth_as(self.admin)
         res = self.client.patch(comment_detail_url(self.comment.id), {"body": "Modifié"})
         self.assertEqual(res.status_code, 403)
+
+    def test_edit_cannot_reassign_parent_or_author(self):
+        other_comment = Comment.objects.create(
+            mission=self.mission, author=self.collaborateur, body="Autre message"
+        )
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            comment_detail_url(self.comment.id),
+            {
+                "body": "Modifié",
+                "parent_id": str(other_comment.id),
+                "author_id": str(self.admin.id),
+            },
+        )
+        self.assertEqual(res.status_code, 200)
+        self.comment.refresh_from_db()
+        self.assertIsNone(self.comment.parent_id)
+        self.assertEqual(self.comment.author_id, self.collaborateur.id)
 
 
 class CommentDeleteTests(CommentSetupMixin, RoleTestCase):
@@ -121,18 +143,18 @@ class CommentDeleteTests(CommentSetupMixin, RoleTestCase):
         res = self.client.delete(comment_detail_url(self.comment.id))
         self.assertEqual(res.status_code, 403)
 
-    def test_author_cannot_delete_own_comment(self):
+    def test_author_can_delete_own_comment(self):
         self.auth_as(self.collaborateur)
         res = self.client.delete(comment_detail_url(self.comment.id))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 204)
 
-    def test_other_client_cannot_delete_either(self):
-        """DELETE est réservé à l'admin dès has_permission (pas seulement
-        has_object_permission) : même hors scope, c'est un 403, pas un 404
-        (contrairement à un GET, cf. test_other_client_get_detail_404)."""
+    def test_other_client_cannot_delete(self):
+        """Hors scope, l'objet n'est même pas trouvé (404) : la portée est
+        imposée par le queryset avant que has_object_permission ne soit
+        évalué (même comportement qu'un GET, cf. test_other_client_get_detail_404)."""
         self.auth_as(self.other_client_user)
         res = self.client.delete(comment_detail_url(self.comment.id))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 404)
 
     def test_other_client_get_detail_404(self):
         self.auth_as(self.other_client_user)

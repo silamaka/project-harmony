@@ -32,6 +32,12 @@ class Mission(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    # Liste de liens de référence (brief client, Drive, Figma...), en plus de
+    # description : [{"label": "...", "url": "..."}, ...]. JSONField plutôt
+    # qu'un modèle séparé : pas besoin de CRUD/permissions dédiés, la liste
+    # se lit et s'écrit avec le reste de la mission en un seul appel API,
+    # comme collaborators.
+    sources = models.JSONField(default=list, blank=True)
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.NORMALE)
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="assigned_missions", on_delete=models.PROTECT

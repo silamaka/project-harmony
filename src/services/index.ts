@@ -168,6 +168,14 @@ export const commentService = {
    */
   create: async (payload: Omit<Comment, "id" | "created_at" | "mentions" | "author_id">) =>
     (await api.post<Comment>(endpoints.comments, payload)).data,
+  /** PATCH /api/v1/comments/:id/ — réservé à l'auteur du commentaire. */
+  update: async (id: string, body: string) =>
+    (await api.patch<Comment>(`${endpoints.comments}${id}/`, { body })).data,
+  /** DELETE /api/v1/comments/:id/ — auteur ou admin. */
+  remove: async (id: string) => {
+    await api.delete(`${endpoints.comments}${id}/`);
+    return true;
+  },
 };
 
 /* ------------------------------- Calendrier ------------------------------- */

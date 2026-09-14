@@ -48,6 +48,7 @@ class MissionSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+            "sources",
             "priority",
             "assignee_id",
             "project_id",

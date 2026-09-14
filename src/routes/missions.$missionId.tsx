@@ -9,6 +9,7 @@ import {
   Film,
   ImageIcon,
   LinkIcon,
+  Pencil,
   RefreshCcw,
   Send,
   Trash2,
@@ -66,6 +67,8 @@ function MissionDetailPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [newName, setNewName] = useState("");
   const [newLink, setNewLink] = useState("");
   const [pendingStatus, setPendingStatus] = useState<MissionStatus | null>(null);
@@ -117,6 +120,25 @@ function MissionDetailPage() {
       setDraft("");
       toast.success("Commentaire publié.");
     },
+  });
+
+  const editCommentMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: string }) => commentService.update(id, body),
+    onSuccess: () => {
+      refresh([["comments", missionId]]);
+      setEditingCommentId(null);
+      toast.success("Commentaire modifié.");
+    },
+    onError: () => toast.error("Modification impossible."),
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: (id: string) => commentService.remove(id),
+    onSuccess: () => {
+      refresh([["comments", missionId]]);
+      toast.success("Commentaire supprimé.");
+    },
+    onError: () => toast.error("Suppression impossible."),
   });
 
   const deliverableMutation = useMutation({
@@ -403,6 +425,28 @@ function MissionDetailPage() {
             </span>
           </div>
           <Section title="Description" body={mission?.description} />
+          {mission && mission.sources.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Sources
+              </h3>
+              <ul className="mt-1.5 space-y-1">
+                {mission.sources.map((s, i) => (
+                  <li key={`${s.url}-${i}`} className="flex items-center gap-1.5 text-sm">
+                    <LinkIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-primary hover:underline"
+                    >
+                      {s.label || s.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {mission && mission.collaborators.length > 0 && (
             <Section
               title="Collaborateurs additionnels"
@@ -534,25 +578,77 @@ function MissionDetailPage() {
       <div className="surface-card mt-4 p-5">
         <h2 className="text-sm font-semibold">Discussion</h2>
         <ul className="mt-4 space-y-4">
-          {(comments ?? []).map((c) => (
-            <li key={c.id} className={cn("flex gap-3", c.parent_id && "ml-10")}>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
-                {authorName(c.author_id)
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </div>
-              <div className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold">{authorName(c.author_id)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {new Date(c.created_at).toLocaleString("fr-FR")}
-                  </p>
+          {(comments ?? []).map((c) => {
+            const isAuthor = user?.id === c.author_id;
+            const isEditing = editingCommentId === c.id;
+            return (
+              <li key={c.id} className={cn("flex gap-3", c.parent_id && "ml-10")}>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                  {authorName(c.author_id)
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
                 </div>
-                <p className="mt-1 whitespace-pre-wrap break-words text-sm">{c.body}</p>
-              </div>
-            </li>
-          ))}
+                <div className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold">{authorName(c.author_id)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        {new Date(c.created_at).toLocaleString("fr-FR")}
+                      </p>
+                      {!isEditing && isAuthor && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Modifier"
+                            onClick={() => {
+                              setEditingCommentId(c.id);
+                              setEditDraft(c.body);
+                            }}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Supprimer"
+                            onClick={() => deleteCommentMutation.mutate(c.id)}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {isEditing ? (
+                    <div className="mt-1.5 space-y-1.5">
+                      <Textarea
+                        value={editDraft}
+                        onChange={(e) => setEditDraft(e.target.value)}
+                        maxLength={1000}
+                        className="min-h-16 text-sm"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          disabled={!editDraft.trim() || editCommentMutation.isPending}
+                          onClick={() => editCommentMutation.mutate({ id: c.id, body: editDraft.trim() })}
+                        >
+                          Enregistrer
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setEditingCommentId(null)}>
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm">{c.body}</p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
           {(comments ?? []).length === 0 && (
             <li className="text-xs text-muted-foreground">Aucun commentaire pour le moment.</li>
           )}

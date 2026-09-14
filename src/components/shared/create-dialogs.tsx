@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Link2, Plus, X } from "lucide-react";
 import { useId, useState } from "react";
 import { cloneElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
@@ -26,6 +26,7 @@ import {
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
   type Client,
+  type MissionSource,
   type MissionStatus,
   type Priority,
   type ProjectStatus,
@@ -74,6 +75,75 @@ function PersonPill({ name, onRemove }: { name: string; onRemove?: (() => void) 
         </button>
       )}
     </span>
+  );
+}
+
+/** Liste éditable de liens titrés (brief client, Drive, Figma...), ajoutés un par un. */
+function SourcesEditor({
+  sources,
+  onChange,
+}: {
+  sources: MissionSource[];
+  onChange: (next: MissionSource[]) => void;
+}) {
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const add = () => {
+    const value = url.trim();
+    if (!value) return;
+    onChange([...sources, { label: label.trim(), url: value }]);
+    setLabel("");
+    setUrl("");
+  };
+  return (
+    <div className="space-y-2">
+      {sources.length > 0 && (
+        <ul className="space-y-1">
+          {sources.map((s, i) => (
+            <li
+              key={`${s.url}-${i}`}
+              className="flex items-center gap-2 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs"
+            >
+              <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">
+                {s.label && <span className="font-medium">{s.label} — </span>}
+                <span className="text-muted-foreground">{s.url}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onChange(sources.filter((_, j) => j !== i))}
+                aria-label="Retirer ce lien"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-1.5">
+        <Input
+          value={label}
+          placeholder="Titre (ex. Brief client)"
+          onChange={(e) => setLabel(e.target.value)}
+          className="w-36 shrink-0"
+        />
+        <Input
+          value={url}
+          placeholder="https://..."
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+        />
+        <Button type="button" variant="outline" size="sm" onClick={add} disabled={!url.trim()}>
+          Ajouter
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -248,6 +318,7 @@ export function CreateMissionDialog({
   const [form, setForm] = useState({
     title: "",
     description: "",
+    sources: [] as MissionSource[],
     priority: "normale" as Priority,
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
@@ -416,6 +487,14 @@ export function CreateMissionDialog({
                 value={form.description}
                 maxLength={2000}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label="Sources">
+              <SourcesEditor
+                sources={form.sources}
+                onChange={(sources) => setForm({ ...form, sources })}
               />
             </Field>
           </div>

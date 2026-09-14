@@ -130,10 +130,17 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 /** Ordre du plus urgent au moins urgent, pour trier les listes de missions. */
 export const PRIORITY_ORDER: Priority[] = ["urgente", "haute", "normale", "faible"];
 
+export interface MissionSource {
+  label: string;
+  url: string;
+}
+
 export interface Mission {
   id: string;
   title: string;
   description: string;
+  /** Liens de référence (brief client, Drive, Figma...). */
+  sources: MissionSource[];
   priority: Priority;
   assignee_id: string;
   /** Contributeurs additionnels : même accès en lecture/statut/priorité que le responsable. */
