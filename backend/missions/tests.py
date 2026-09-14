@@ -138,10 +138,24 @@ class MissionCreateDeleteTests(RoleTestCase):
         res = self.client.delete(mission_detail_url(self.mission.id))
         self.assertEqual(res.status_code, 204)
 
-    def test_collaborateur_cannot_delete_mission(self):
+    def test_collaborateur_can_delete_own_mission(self):
         self.auth_as(self.collaborateur)
         res = self.client.delete(mission_detail_url(self.mission.id))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 204)
+
+    def test_collaborateur_cannot_delete_other_collaborateurs_mission(self):
+        other_mission = Mission.objects.create(
+            title="Mission d'un autre",
+            project=self.project,
+            client=self.client_company,
+            assignee=self.other_collaborateur,
+            start_date="2026-01-01",
+            deadline="2026-12-31",
+            status=MissionStatus.A_FAIRE,
+        )
+        self.auth_as(self.collaborateur)
+        res = self.client.delete(mission_detail_url(other_mission.id))
+        self.assertEqual(res.status_code, 404)
 
     def test_client_cannot_delete_mission(self):
         self.auth_as(self.client_user)
@@ -150,8 +164,9 @@ class MissionCreateDeleteTests(RoleTestCase):
 
 
 class CollaborateurUpdateTests(RoleTestCase):
-    """Un collaborateur ne peut modifier que statut/priorité, et uniquement
-    sur sa propre mission."""
+    """Un collaborateur peut modifier le contenu (titre, description,
+    sources, priorité, statut, dates) de sa propre mission, mais jamais la
+    réassigner (assignee/collaborators/projet/client)."""
 
     def test_can_update_status_on_own_mission(self):
         self.auth_as(self.collaborateur)
@@ -165,9 +180,36 @@ class CollaborateurUpdateTests(RoleTestCase):
         res = self.client.patch(mission_detail_url(self.mission.id), {"priority": "urgente"})
         self.assertEqual(res.status_code, 200)
 
-    def test_cannot_update_title_on_own_mission(self):
+    def test_can_update_title_and_description_on_own_mission(self):
         self.auth_as(self.collaborateur)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"title": "Piraté"})
+        res = self.client.patch(
+            mission_detail_url(self.mission.id),
+            {"title": "Nouveau titre", "description": "Nouveau brief"},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.title, "Nouveau titre")
+
+    def test_cannot_reassign_own_mission(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id), {"assignee_id": str(self.other_collaborateur.id)}
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_cannot_move_own_mission_to_another_project(self):
+        other_project = Project.objects.create(
+            name="Autre projet",
+            client=self.client_company,
+            owner=self.chef_projet,
+            start_date="2026-01-01",
+            end_date="2026-12-31",
+            status=ProjectStatus.EN_COURS,
+        )
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id), {"project_id": str(other_project.id)}
+        )
         self.assertEqual(res.status_code, 403)
 
     def test_cannot_update_other_collaborateurs_mission(self):
@@ -207,10 +249,22 @@ class MissionCollaboratorsTests(RoleTestCase):
         res = self.client.patch(mission_detail_url(self.mission.id), {"status": "en_cours"})
         self.assertEqual(res.status_code, 200)
 
-    def test_collaborator_cannot_update_title(self):
+    def test_collaborator_can_update_title(self):
         self.auth_as(self.other_collaborateur)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"title": "Piraté"})
+        res = self.client.patch(mission_detail_url(self.mission.id), {"title": "Nouveau titre"})
+        self.assertEqual(res.status_code, 200)
+
+    def test_collaborator_cannot_reassign_mission(self):
+        self.auth_as(self.other_collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id), {"assignee_id": str(self.other_collaborateur.id)}
+        )
         self.assertEqual(res.status_code, 403)
+
+    def test_collaborator_can_delete_mission(self):
+        self.auth_as(self.other_collaborateur)
+        res = self.client.delete(mission_detail_url(self.mission.id))
+        self.assertEqual(res.status_code, 204)
 
     def test_uninvolved_collaborateur_still_gets_404(self):
         third = User.objects.create_user(

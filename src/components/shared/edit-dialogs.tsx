@@ -5,6 +5,7 @@ import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
 import { AvatarPicker } from "@/components/shared/avatar";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -448,6 +449,11 @@ export function EditMissionDialog({
   const controlled = controlledOpen !== undefined && setControlledOpen !== undefined;
   const open = controlled ? controlledOpen : internalOpen;
   const setOpen = controlled ? setControlledOpen : setInternalOpen;
+  const { user: currentUser } = useAuth();
+  // Un collaborateur ne peut modifier que le contenu de sa mission, jamais
+  // la réassigner (voir MissionPermission.COLLABORATEUR_EDITABLE_FIELDS côté
+  // serveur) : projet et assignation restent masqués et inchangés pour lui.
+  const isManager = currentUser?.role === "admin" || currentUser?.role === "chef_projet";
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
@@ -471,6 +477,17 @@ export function EditMissionDialog({
 
   const mutation = useMutation({
     mutationFn: () => {
+      if (!isManager) {
+        return missionService.update(mission.id, {
+          title: form.title.trim(),
+          description: form.description,
+          sources: form.sources,
+          priority: form.priority,
+          status: form.status,
+          start_date: form.start_date,
+          deadline: form.deadline,
+        });
+      }
       const project = (projects ?? []).find((p) => p.id === form.project_id);
       return missionService.update(mission.id, {
         ...form,
@@ -506,68 +523,72 @@ export function EditMissionDialog({
               />
             </Field>
           </div>
-          <Field label="Projet">
-            <select
-              className={selectClass}
-              value={form.project_id}
-              onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-            >
-              {(projects ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Assigné à">
-              <div className="flex flex-wrap gap-1.5 empty:hidden">
-                {form.assignee_id && (
-                  <PersonPill
-                    name={nameOf(form.assignee_id)}
-                    onRemove={() => {
-                      const [next, ...rest] = form.collaborators;
-                      setForm({ ...form, assignee_id: next ?? "", collaborators: rest });
-                    }}
-                  />
-                )}
-                {form.collaborators.map((id) => (
-                  <PersonPill
-                    key={id}
-                    name={nameOf(id)}
-                    onRemove={() =>
-                      setForm({
-                        ...form,
-                        collaborators: form.collaborators.filter((c) => c !== id),
-                      })
-                    }
-                  />
-                ))}
-              </div>
+          {isManager && (
+            <Field label="Projet">
               <select
-                className={`${selectClass} mt-2`}
-                value=""
-                onChange={(e) => {
-                  const id = e.target.value;
-                  if (!id) return;
-                  setForm(
-                    form.assignee_id
-                      ? { ...form, collaborators: [...form.collaborators, id] }
-                      : { ...form, assignee_id: id },
-                  );
-                }}
+                className={selectClass}
+                value={form.project_id}
+                onChange={(e) => setForm({ ...form, project_id: e.target.value })}
               >
-                <option value="">+ Ajouter une personne…</option>
-                {assignees
-                  .filter((u) => u.id !== form.assignee_id && !form.collaborators.includes(u.id))
-                  .map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.first_name} {u.last_name}
-                    </option>
-                  ))}
+                {(projects ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
               </select>
             </Field>
-          </div>
+          )}
+          {isManager && (
+            <div className="sm:col-span-2">
+              <Field label="Assigné à">
+                <div className="flex flex-wrap gap-1.5 empty:hidden">
+                  {form.assignee_id && (
+                    <PersonPill
+                      name={nameOf(form.assignee_id)}
+                      onRemove={() => {
+                        const [next, ...rest] = form.collaborators;
+                        setForm({ ...form, assignee_id: next ?? "", collaborators: rest });
+                      }}
+                    />
+                  )}
+                  {form.collaborators.map((id) => (
+                    <PersonPill
+                      key={id}
+                      name={nameOf(id)}
+                      onRemove={() =>
+                        setForm({
+                          ...form,
+                          collaborators: form.collaborators.filter((c) => c !== id),
+                        })
+                      }
+                    />
+                  ))}
+                </div>
+                <select
+                  className={`${selectClass} mt-2`}
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id) return;
+                    setForm(
+                      form.assignee_id
+                        ? { ...form, collaborators: [...form.collaborators, id] }
+                        : { ...form, assignee_id: id },
+                    );
+                  }}
+                >
+                  <option value="">+ Ajouter une personne…</option>
+                  {assignees
+                    .filter((u) => u.id !== form.assignee_id && !form.collaborators.includes(u.id))
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.first_name} {u.last_name}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+            </div>
+          )}
           <Field label="Priorité">
             <select
               className={selectClass}

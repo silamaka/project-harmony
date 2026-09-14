@@ -185,8 +185,12 @@ function MissionDetailPage() {
       toast.success("Mission supprimée.");
       // On invalide "missions" seulement une fois la navigation terminée : sinon la requête
       // ["missions", missionId] encore montée se refetch sur une fiche déjà supprimée et échoue
-      // (queryFn qui retourne undefined), ce qui laisse la page dans un état incohérent.
-      void navigate({ to: "/missions" }).then(() => refresh([["missions"]]));
+      // (queryFn qui retourne undefined), ce qui laisse la page dans un état incohérent. La
+      // liste "/missions" est réservée admin/chef de projet (AppShell allow) : un collaborateur
+      // qui supprime sa propre mission doit repartir sur "/mes-missions", pas sur une page qui
+      // lui refuserait l'accès.
+      const listPath = user?.role === "collaborateur" ? "/mes-missions" : "/missions";
+      void navigate({ to: listPath }).then(() => refresh([["missions"]]));
     },
     onError: () => toast.error("Suppression impossible."),
   });
@@ -197,7 +201,18 @@ function MissionDetailPage() {
   };
 
   const currentIndex = mission ? MISSION_WORKFLOW.indexOf(mission.status) : -1;
-  const canManage = user?.role === "admin" || user?.role === "chef_projet";
+  const isManager = user?.role === "admin" || user?.role === "chef_projet";
+  const isInvolved =
+    !!mission &&
+    !!user &&
+    (mission.assignee_id === user.id || mission.collaborators.includes(user.id));
+  /** Modifier/supprimer la mission : l'admin et le chef de projet sur
+   * toute mission, un collaborateur uniquement sur les siennes (voir
+   * MissionPermission côté serveur, qui reste la source de vérité). Les
+   * livrables restent une permission distincte (admin/chef de projet
+   * uniquement, voir DeliverablePermission) : ne pas réutiliser cette
+   * variable pour eux. */
+  const canEditMission = isManager || (user?.role === "collaborateur" && isInvolved);
   /** Le client ne pilote que sa décision (Validé / Corrections), pas le pipeline interne. */
   const isClient = user?.role === "client";
 
@@ -216,7 +231,7 @@ function MissionDetailPage() {
     <AppShell
       title={mission?.title ?? "Mission"}
       actions={
-        mission && canManage ? (
+        mission && canEditMission ? (
           <div className="flex items-center gap-2">
             <EditMissionDialog key={mission.id} mission={mission} />
             <ConfirmDeleteButton
@@ -553,7 +568,7 @@ function MissionDetailPage() {
                   >
                     <Eye className="h-4 w-4" />
                   </a>
-                  {canManage && (
+                  {isManager && (
                     <button
                       type="button"
                       onClick={() => removeDeliverable.mutate(d.id)}
@@ -633,11 +648,17 @@ function MissionDetailPage() {
                         <Button
                           size="sm"
                           disabled={!editDraft.trim() || editCommentMutation.isPending}
-                          onClick={() => editCommentMutation.mutate({ id: c.id, body: editDraft.trim() })}
+                          onClick={() =>
+                            editCommentMutation.mutate({ id: c.id, body: editDraft.trim() })
+                          }
                         >
                           Enregistrer
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => setEditingCommentId(null)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingCommentId(null)}
+                        >
                           Annuler
                         </Button>
                       </div>

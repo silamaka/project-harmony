@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { CreateMissionDialog } from "@/components/shared/create-dialogs";
+import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { MissionsTable } from "@/components/shared/missions-table";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
@@ -12,6 +13,7 @@ import { clientService, commentService, deliverableService, missionService } fro
 import {
   MISSION_STATUS_LABELS,
   MISSION_WORKFLOW,
+  type Mission,
   type MissionStatus,
   type Priority,
 } from "@/types";
@@ -39,6 +41,8 @@ function MyMissionsPage() {
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
+  const [editingMission, setEditingMission] = useState<Mission | null>(null);
+  const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
 
   // Le backend restreint déjà un collaborateur à ses missions (assignee OU
   // collaborator) via missions_visible_to : pas besoin de filtrer par
@@ -95,6 +99,16 @@ function MyMissionsPage() {
     onError: () => toast.error("Mise à jour de la priorité impossible."),
   });
 
+  const removeMission = useMutation({
+    mutationFn: (id: string) => missionService.remove(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["missions"] });
+      toast.success("Mission supprimée.");
+      setDeletingMission(null);
+    },
+    onError: () => toast.error("Suppression impossible."),
+  });
+
   return (
     <AppShell
       title="Mes missions"
@@ -147,9 +161,27 @@ function MyMissionsPage() {
           commentFor={lastComment}
           onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
           onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
+          onEditMission={setEditingMission}
+          onDeleteMission={setDeletingMission}
           emptyMessage="Aucune mission pour ce filtre."
         />
       </div>
+
+      {editingMission && (
+        <EditMissionDialog
+          mission={editingMission}
+          open
+          onOpenChange={(o) => !o && setEditingMission(null)}
+        />
+      )}
+      <ConfirmDeleteButton
+        open={deletingMission !== null}
+        onOpenChange={(o) => !o && setDeletingMission(null)}
+        title={`Supprimer "${deletingMission?.title ?? ""}" ?`}
+        description="La mission sera définitivement retirée. Cette action est irréversible."
+        pending={removeMission.isPending}
+        onConfirm={() => deletingMission && removeMission.mutate(deletingMission.id)}
+      />
     </AppShell>
   );
 }

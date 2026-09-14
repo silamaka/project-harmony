@@ -5,7 +5,15 @@ from accounts.models import Role
 
 from .models import Mission, MissionStatus
 
-COLLABORATEUR_EDITABLE_FIELDS = {"status", "priority"}
+COLLABORATEUR_EDITABLE_FIELDS = {
+    "title",
+    "description",
+    "sources",
+    "priority",
+    "status",
+    "start_date",
+    "deadline",
+}
 CLIENT_EDITABLE_FIELDS = {"status"}
 CLIENT_ALLOWED_STATUSES = {MissionStatus.VALIDE, MissionStatus.CORRECTIONS}
 
@@ -14,15 +22,17 @@ class MissionPermission(BasePermission):
     """Création : admin / chef de projet (tout) ou collaborateur (auto-
     limité, voir `_collaborateur_can_create` — miroir de la contrainte déjà
     posée côté frontend par `CreateMissionDialog(lockAssignee, allowedProjectIds)`).
-    Suppression : admin ou chef de projet uniquement.
 
-    Modification :
+    Modification et suppression :
     - admin / chef de projet : tous les champs, toute mission.
     - collaborateur : uniquement une mission où il est assignee OU
-      collaborator, et uniquement statut/priorité (édition en ligne du
-      tableau).
+      collaborator ; suppression libre, mais modification limitée au
+      contenu (titre, description, sources, priorité, statut, dates) —
+      jamais la réassignation (assignee/collaborators/projet/client),
+      réservée à l'admin/chef de projet, comme à la création.
     - client : uniquement une mission de sa propre entreprise, et
-      uniquement le statut (sa décision : Validé / Corrections).
+      uniquement le statut (sa décision : Validé / Corrections) — jamais
+      la suppression.
 
     La portée en lecture (un collaborateur ne voit que ses missions, un
     client que celles de son entreprise) est gérée par
@@ -35,7 +45,7 @@ class MissionPermission(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         if request.method == "DELETE":
-            return request.user.role in (Role.ADMIN, Role.CHEF_PROJET)
+            return request.user.role in (Role.ADMIN, Role.CHEF_PROJET, Role.COLLABORATEUR)
         if request.method == "POST":
             if request.user.role in (Role.ADMIN, Role.CHEF_PROJET):
                 return True
@@ -67,14 +77,16 @@ class MissionPermission(BasePermission):
             return True
         if request.user.role in (Role.ADMIN, Role.CHEF_PROJET):
             return True
-        if request.method == "DELETE":
-            return False
-        fields_sent = set(request.data.keys())
         if request.user.role == Role.COLLABORATEUR:
             is_involved = obj.assignee_id == request.user.id or obj.collaborators.filter(
                 id=request.user.id
             ).exists()
-            return is_involved and fields_sent <= COLLABORATEUR_EDITABLE_FIELDS
+            if request.method == "DELETE":
+                return is_involved
+            return is_involved and set(request.data.keys()) <= COLLABORATEUR_EDITABLE_FIELDS
+        if request.method == "DELETE":
+            return False
+        fields_sent = set(request.data.keys())
         if request.user.role == Role.CLIENT:
             if not (obj.client_id == request.user.client_id and fields_sent <= CLIENT_EDITABLE_FIELDS):
                 return False
