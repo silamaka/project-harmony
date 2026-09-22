@@ -66,13 +66,21 @@ function ClientsPage() {
       allow={["admin", "chef_projet", "collaborateur"]}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Clients" value={stats.total} icon={Building2} />
+        <StatCard
+          label="Clients"
+          value={stats.total}
+          icon={Building2}
+          active={status === "tous"}
+          onClick={() => setStatus("tous")}
+        />
         <StatCard
           label="Actifs"
           value={stats.actifs}
           icon={CheckCircle2}
           tone="success"
           delay={0.04}
+          active={status === "actif"}
+          onClick={() => setStatus("actif")}
         />
         <StatCard
           label="Prospects"
@@ -80,8 +88,17 @@ function ClientsPage() {
           icon={Sparkles}
           tone="info"
           delay={0.08}
+          active={status === "prospect"}
+          onClick={() => setStatus("prospect")}
         />
-        <StatCard label="Inactifs" value={stats.inactifs} icon={XCircle} delay={0.12} />
+        <StatCard
+          label="Inactifs"
+          value={stats.inactifs}
+          icon={XCircle}
+          delay={0.12}
+          active={status === "inactif"}
+          onClick={() => setStatus("inactif")}
+        />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
