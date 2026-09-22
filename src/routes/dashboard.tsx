@@ -153,7 +153,18 @@ function DashboardPage() {
   const missionTitle = (id: string) => missions?.find((m) => m.id === id)?.title ?? "—";
 
   const filteredMissions = useMemo(
-    () => (missions ?? []).filter((m) => !range || isWithinInterval(new Date(m.deadline), range)),
+    () =>
+      (missions ?? []).filter((m) => {
+        if (!range) return true;
+        const deadline = new Date(m.deadline);
+        if (isWithinInterval(deadline, range)) return true;
+        // Une mission en retard et toujours ouverte reste à traiter sur la
+        // période en cours même si son échéance est antérieure au début du
+        // filtre (ex. "Aujourd'hui" doit aussi montrer ce qui aurait dû
+        // être fait hier et ne l'a toujours pas été) : on ne veut pas
+        // qu'un filtre de période la fasse disparaître du dashboard.
+        return deadline < range.end && isLate(m);
+      }),
     [missions, range],
   );
   const filteredDeliverables = useMemo(
