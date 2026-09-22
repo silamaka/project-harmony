@@ -45,6 +45,7 @@ function MissionsPage() {
   });
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
   const [query, setQuery] = useState("");
+  const [statFilter, setStatFilter] = useState<"enCours" | "enRetard" | "terminees" | null>(null);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
 
@@ -54,13 +55,18 @@ function MissionsPage() {
       const u = users?.find((x) => x.id === id);
       return u ? `${u.first_name} ${u.last_name}` : "";
     };
-    return (missions ?? []).filter(
-      (m) =>
+    return (missions ?? []).filter((m) => {
+      const matchesQuery =
         m.title.toLowerCase().includes(q) ||
         userName(m.assignee_id).toLowerCase().includes(q) ||
-        m.collaborators.some((id) => userName(id).toLowerCase().includes(q)),
-    );
-  }, [missions, query, users]);
+        m.collaborators.some((id) => userName(id).toLowerCase().includes(q));
+      if (!matchesQuery) return false;
+      if (statFilter === "enCours") return m.status === "en_cours";
+      if (statFilter === "enRetard") return isLate(m);
+      if (statFilter === "terminees") return ["valide", "publie", "termine"].includes(m.status);
+      return true;
+    });
+  }, [missions, query, users, statFilter]);
 
   const allMissions = missions ?? [];
   const stats = {
@@ -126,14 +132,30 @@ function MissionsPage() {
       actions={<CreateMissionDialog />}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Missions" value={stats.total} icon={ListChecks} />
-        <StatCard label="En cours" value={stats.enCours} icon={Clock} tone="info" delay={0.04} />
+        <StatCard
+          label="Missions"
+          value={stats.total}
+          icon={ListChecks}
+          active={statFilter === null}
+          onClick={() => setStatFilter(null)}
+        />
+        <StatCard
+          label="En cours"
+          value={stats.enCours}
+          icon={Clock}
+          tone="info"
+          delay={0.04}
+          active={statFilter === "enCours"}
+          onClick={() => setStatFilter(statFilter === "enCours" ? null : "enCours")}
+        />
         <StatCard
           label="En retard"
           value={stats.enRetard}
           icon={AlertTriangle}
           tone="danger"
           delay={0.08}
+          active={statFilter === "enRetard"}
+          onClick={() => setStatFilter(statFilter === "enRetard" ? null : "enRetard")}
         />
         <StatCard
           label="Terminées"
@@ -141,6 +163,8 @@ function MissionsPage() {
           icon={CheckCircle2}
           tone="success"
           delay={0.12}
+          active={statFilter === "terminees"}
+          onClick={() => setStatFilter(statFilter === "terminees" ? null : "terminees")}
         />
       </div>
 

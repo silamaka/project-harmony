@@ -12,6 +12,7 @@ export function StatCard({
   delay = 0,
   onClick,
   testId,
+  active = false,
 }: {
   label: string;
   value: number | string;
@@ -21,6 +22,8 @@ export function StatCard({
   delay?: number;
   onClick?: () => void;
   testId?: string;
+  /** Surligne la carte comme filtre actif (ex. clic sur une carte pour filtrer une liste en dessous). */
+  active?: boolean;
 }) {
   const interactive = typeof onClick === "function";
   return (
@@ -39,6 +42,7 @@ export function StatCard({
               "surface-card w-full p-5 text-left transition",
               interactive &&
                 "cursor-pointer hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              active && "border-primary/50 ring-2 ring-primary/40",
             )}
           >
             <div className="flex items-start justify-between gap-3">
