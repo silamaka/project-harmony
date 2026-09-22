@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   Link2,
   Package,
+  Trash2,
   Video,
 } from "lucide-react";
 import { useState } from "react";
@@ -69,8 +70,10 @@ const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
 function DeliverablesPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
+  const canDelete = (d: Deliverable) =>
+    hasRole("admin", "chef_projet") || d.uploaded_by === user?.id;
   const queryClient = useQueryClient();
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
@@ -86,6 +89,15 @@ function DeliverablesPage() {
       queryClient.invalidateQueries({ queryKey: ["deliverables"] });
       toast.success(variables.status === "valide" ? "Livrable validé." : "Corrections demandées.");
     },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deliverableService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deliverables"] });
+      toast.success("Livrable supprimé.");
+    },
+    onError: () => toast.error("Suppression impossible."),
   });
 
   /** Le backend ne renvoie déjà que les livrables visibles pour le rôle courant. */
@@ -200,6 +212,17 @@ function DeliverablesPage() {
                     <Eye className="h-4 w-4" /> Ouvrir
                   </a>
                 </Button>
+                {canDelete(d) && (
+                  <button
+                    type="button"
+                    onClick={() => removeMutation.mutate(d.id)}
+                    disabled={removeMutation.isPending}
+                    aria-label={`Supprimer ${d.name}`}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}

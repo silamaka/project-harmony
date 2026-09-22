@@ -158,12 +158,47 @@ class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
         res = self.client.delete(deliverable_detail_url(self.deliverable.id))
         self.assertEqual(res.status_code, 204)
 
-    def test_collaborateur_cannot_delete_even_own_upload(self):
+    def test_collaborateur_can_delete_own_upload(self):
         self.auth_as(self.collaborateur)
         res = self.client.delete(deliverable_detail_url(self.deliverable.id))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 204)
+
+    def test_collaborateur_cannot_delete_someone_elses_upload(self):
+        """Sans filtre ?mission=, get_queryset restreint déjà un collaborateur
+        à ses propres dépôts (voir DeliverableViewSet.get_queryset) : le
+        dépôt d'un autre n'est même pas trouvé (404), avant même d'évaluer
+        has_object_permission."""
+        other_upload = Deliverable.objects.create(
+            mission=self.mission,
+            name="Dépôt d'un autre",
+            type="lien",
+            url="https://example.com/autre-depot",
+            uploaded_by=self.other_collaborateur,
+            status=DeliverableStatus.EN_ATTENTE,
+        )
+        self.auth_as(self.collaborateur)
+        res = self.client.delete(deliverable_detail_url(other_upload.id))
+        self.assertEqual(res.status_code, 404)
 
     def test_client_cannot_delete(self):
         self.auth_as(self.client_user)
         res = self.client.delete(deliverable_detail_url(self.deliverable.id))
+        self.assertEqual(res.status_code, 403)
+
+    def test_collaborator_sharing_mission_cannot_delete_teammates_upload(self):
+        """Même visible (mission partagée, cf. get_queryset avec ?mission=),
+        le dépôt d'un coéquipier reste hors de portée : has_object_permission
+        vérifie l'auteur du dépôt, pas seulement la visibilité de la mission."""
+        other_upload = Deliverable.objects.create(
+            mission=self.mission,
+            name="Dépôt d'un autre",
+            type="lien",
+            url="https://example.com/autre-depot",
+            uploaded_by=self.other_collaborateur,
+            status=DeliverableStatus.EN_ATTENTE,
+        )
+        self.auth_as(self.collaborateur)
+        res = self.client.delete(
+            f"{deliverable_detail_url(other_upload.id)}?mission={self.mission.id}"
+        )
         self.assertEqual(res.status_code, 403)

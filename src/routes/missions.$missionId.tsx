@@ -568,7 +568,7 @@ function MissionDetailPage() {
                   >
                     <Eye className="h-4 w-4" />
                   </a>
-                  {isManager && (
+                  {(isManager || d.uploaded_by === user?.id) && (
                     <button
                       type="button"
                       onClick={() => removeDeliverable.mutate(d.id)}
