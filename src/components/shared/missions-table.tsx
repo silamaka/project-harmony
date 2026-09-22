@@ -86,15 +86,14 @@ export function MissionsTable({
           ? COLUMN_WIDTHS.clientOnlyActions
           : COLUMN_WIDTHS.clientOnly;
   const columnCount = 6 + (showClient ? 1 : 0) + (showResponsable ? 1 : 0) + (showActions ? 1 : 0);
-  const isDone = (m: Mission) =>
-    m.status === "valide" || m.status === "publie" || m.status === "termine";
+  // Seul "Terminé" clôt vraiment la mission (priorité déjà remise à
+  // "Normale" côté serveur, voir Mission.save) : "Validé"/"Publié" restent
+  // triés comme une mission active, ils peuvent encore bouger.
+  const isClosed = (m: Mission) => m.status === "termine";
   const sortedMissions = [...missions].sort((a, b) => {
-    // Une mission terminée descend systématiquement sous les missions
-    // actives, quelle que soit sa priorité d'origine — celle-ci n'est pas
-    // réécrite pour autant (elle reste correcte dans les stats/historique).
-    const doneDiff = Number(isDone(a)) - Number(isDone(b));
+    const doneDiff = Number(isClosed(a)) - Number(isClosed(b));
     if (doneDiff !== 0) return doneDiff;
-    if (isDone(a)) {
+    if (isClosed(a)) {
       // Parmi les terminées, la plus récemment échue en premier.
       return new Date(b.deadline).getTime() - new Date(a.deadline).getTime();
     }
