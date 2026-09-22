@@ -86,7 +86,18 @@ export function MissionsTable({
           ? COLUMN_WIDTHS.clientOnlyActions
           : COLUMN_WIDTHS.clientOnly;
   const columnCount = 6 + (showClient ? 1 : 0) + (showResponsable ? 1 : 0) + (showActions ? 1 : 0);
+  const isDone = (m: Mission) =>
+    m.status === "valide" || m.status === "publie" || m.status === "termine";
   const sortedMissions = [...missions].sort((a, b) => {
+    // Une mission terminée descend systématiquement sous les missions
+    // actives, quelle que soit sa priorité d'origine — celle-ci n'est pas
+    // réécrite pour autant (elle reste correcte dans les stats/historique).
+    const doneDiff = Number(isDone(a)) - Number(isDone(b));
+    if (doneDiff !== 0) return doneDiff;
+    if (isDone(a)) {
+      // Parmi les terminées, la plus récemment échue en premier.
+      return new Date(b.deadline).getTime() - new Date(a.deadline).getTime();
+    }
     const priorityDiff = PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority);
     if (priorityDiff !== 0) return priorityDiff;
     // À priorité égale, la deadline la plus proche remonte en premier.
