@@ -374,6 +374,51 @@ class ClientValidationGateTests(RoleTestCase):
         self.assertEqual(res.status_code, 403)
 
 
+class MissionTermineResetsPriorityTests(RoleTestCase):
+    """Une mission qui passe à "Terminé" retombe automatiquement en priorité
+    "Normale" (Mission.save) : plus rien n'y est urgent une fois clôturée.
+    "Validé"/"Publié" gardent leur priorité d'origine, seul "Terminé" clôt
+    vraiment la mission."""
+
+    def test_priority_reset_to_normale_on_termine(self):
+        self.mission.priority = "urgente"
+        self.mission.save()
+        self.auth_as(self.admin)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "termine"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["priority"], "normale")
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.priority, "normale")
+
+    def test_priority_untouched_on_valide(self):
+        self.mission.priority = "urgente"
+        self.mission.status = MissionStatus.ENVOYE_CLIENT
+        self.mission.save()
+        self.auth_as(self.admin)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "valide"})
+        self.assertEqual(res.status_code, 200)
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.priority, "urgente")
+
+    def test_priority_untouched_on_publie(self):
+        self.mission.priority = "haute"
+        self.mission.status = MissionStatus.VALIDE
+        self.mission.save()
+        self.auth_as(self.admin)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "publie"})
+        self.assertEqual(res.status_code, 200)
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.priority, "haute")
+
+    def test_collaborateur_setting_termine_also_gets_priority_reset(self):
+        self.mission.priority = "urgente"
+        self.mission.save()
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "termine"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["priority"], "normale")
+
+
 class MissionStatusRaceConditionTests(TransactionTestCase):
     """Reproduit le scénario signalé : l'admin valide une mission au moment
     précis où le client demande des corrections sur la même mission. Sans

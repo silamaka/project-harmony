@@ -68,3 +68,12 @@ class Mission(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def save(self, *args, **kwargs):
+        # Une mission "Terminée" n'a plus rien d'urgent à traiter : on
+        # ramène sa priorité à "Normale" quel que soit le chemin d'écriture
+        # (API, admin, shell). "Validé"/"Publié" gardent leur priorité
+        # d'origine — seul "Terminé" clôt vraiment la mission.
+        if self.status == MissionStatus.TERMINE:
+            self.priority = Priority.NORMALE
+        super().save(*args, **kwargs)
