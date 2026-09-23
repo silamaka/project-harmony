@@ -9,6 +9,7 @@ import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit
 import { MissionsTable } from "@/components/shared/missions-table";
 import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import {
   clientService,
   commentService,
@@ -17,7 +18,27 @@ import {
   missionService,
   userService,
 } from "@/services";
-import { type Mission, type MissionStatus, type Priority } from "@/types";
+import {
+  TASK_TYPE_LABELS,
+  type Mission,
+  type MissionStatus,
+  type Priority,
+  type TaskType,
+} from "@/types";
+
+const TASK_TYPE_TONE: Record<TaskType, string> = {
+  mission: "bg-primary/10 text-primary border-primary/20",
+  editos: "bg-accent text-accent-foreground border-accent",
+  livrable: "bg-info/15 text-info border-info/20",
+  reunion: "bg-warning/20 text-warning border-warning/30",
+};
+
+const TASK_TYPE_DOT: Record<TaskType, string> = {
+  mission: "bg-primary",
+  editos: "bg-foreground",
+  livrable: "bg-info",
+  reunion: "bg-warning",
+};
 
 export const Route = createFileRoute("/missions/")({
   head: () => ({
@@ -46,6 +67,7 @@ function MissionsPage() {
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
   const [query, setQuery] = useState("");
   const [statFilter, setStatFilter] = useState<"enCours" | "enRetard" | "terminees" | null>(null);
+  const [taskTypeFilter, setTaskTypeFilter] = useState<"tous" | TaskType>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
 
@@ -61,12 +83,13 @@ function MissionsPage() {
         userName(m.assignee_id).toLowerCase().includes(q) ||
         m.collaborators.some((id) => userName(id).toLowerCase().includes(q));
       if (!matchesQuery) return false;
+      if (taskTypeFilter !== "tous" && m.task_type !== taskTypeFilter) return false;
       if (statFilter === "enCours") return m.status === "en_cours";
       if (statFilter === "enRetard") return isLate(m);
       if (statFilter === "terminees") return ["valide", "publie", "termine"].includes(m.status);
       return true;
     });
-  }, [missions, query, users, statFilter]);
+  }, [missions, query, users, statFilter, taskTypeFilter]);
 
   const allMissions = missions ?? [];
   const stats = {
@@ -177,6 +200,36 @@ function MissionsPage() {
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setTaskTypeFilter("tous")}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+              taskTypeFilter === "tous"
+                ? "border-foreground/30 bg-foreground/10 text-foreground"
+                : "border-border text-muted-foreground opacity-50 hover:opacity-80",
+            )}
+          >
+            Tous
+          </button>
+          {(Object.keys(TASK_TYPE_LABELS) as TaskType[])
+            .filter((t) => t !== "livrable")
+            .map((t) => (
+              <button
+                key={t}
+                onClick={() => setTaskTypeFilter(t)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  taskTypeFilter === t
+                    ? TASK_TYPE_TONE[t]
+                    : "border-border text-muted-foreground opacity-50 hover:opacity-80",
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full", TASK_TYPE_DOT[t])} />
+                {TASK_TYPE_LABELS[t]}
+              </button>
+            ))}
         </div>
       </div>
 
