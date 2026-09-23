@@ -36,7 +36,7 @@ import {
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn } from "@/lib/utils";
 import { calendarService, missionService } from "@/services";
-import type { CalendarEvent } from "@/types";
+import { TASK_TYPE_LABELS, type CalendarEvent } from "@/types";
 
 export const Route = createFileRoute("/calendrier")({
   head: () => ({
@@ -66,21 +66,28 @@ const VIEWS: { key: ViewMode; label: string }[] = [
 
 const TYPE_TONE: Record<EventType, string> = {
   mission: "bg-primary/10 text-primary border-primary/20",
+  editos: "bg-accent text-accent-foreground border-accent",
   livrable: "bg-info/15 text-info border-info/20",
   reunion: "bg-warning/20 text-warning border-warning/30",
 };
 
 const TYPE_DOT: Record<EventType, string> = {
   mission: "bg-primary",
+  editos: "bg-foreground",
   livrable: "bg-info",
   reunion: "bg-warning",
 };
 
-const TYPE_LABEL: Record<EventType, string> = {
-  mission: "Mission",
-  livrable: "Livrable",
-  reunion: "Réunion",
-};
+const TYPE_LABEL = TASK_TYPE_LABELS;
+
+/** Échéance de mission (générée côté serveur, id "ev-<uuid>") : à distinguer
+ * d'un livrable réellement déposé ou d'une réunion réellement créée, qui
+ * partagent parfois le même `type` (une mission peut être taguée "Réunion"
+ * sans être une vraie réunion du modèle Meeting). */
+const isMissionEvent = (e: CalendarEvent) => e.id.startsWith("ev-");
+/** Vraie réunion (modèle Meeting) : jamais de mission_id, contrairement à
+ * une mission taguée "Réunion" ou à un livrable déposé sur une mission. */
+const isRealMeeting = (e: CalendarEvent) => e.type === "reunion" && !e.mission_id;
 
 function CalendarPage() {
   const qc = useQueryClient();
@@ -88,9 +95,7 @@ function CalendarPage() {
   const [view, setView] = useState<ViewMode>("mois");
   const [cursor, setCursor] = useState(() => new Date());
   const [query, setQuery] = useState("");
-  const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
-    new Set<EventType>(["mission", "livrable", "reunion"]),
-  );
+  const [typeFilter, setTypeFilter] = useState<"tous" | EventType>("tous");
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [dayView, setDayView] = useState<Date | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -124,22 +129,15 @@ function CalendarPage() {
     onError: () => toast.error("Déplacement impossible."),
   });
 
-  const toggleType = (t: EventType) => {
-    setActiveTypes((prev) => {
-      const next = new Set(prev);
-      if (next.has(t)) next.delete(t);
-      else next.add(t);
-      return next;
-    });
-  };
-
   /** Le backend ne renvoie déjà que les événements de mission/livrable visibles pour le rôle courant. */
   const visibleEvents = useMemo(
     () =>
       (events ?? []).filter(
-        (e) => activeTypes.has(e.type) && e.title.toLowerCase().includes(query.toLowerCase()),
+        (e) =>
+          (typeFilter === "tous" || e.type === typeFilter) &&
+          e.title.toLowerCase().includes(query.toLowerCase()),
       ),
-    [events, activeTypes, query],
+    [events, typeFilter, query],
   );
 
   const eventsOn = (date: Date) => visibleEvents.filter((e) => isSameDay(parseISO(e.date), date));
@@ -151,9 +149,9 @@ function CalendarPage() {
     const ev = visibleEvents.find((e) => e.id === eventId);
     if (!ev) return;
     const iso = format(date, "yyyy-MM-dd");
-    if (ev.type === "mission" && ev.mission_id) {
+    if (isMissionEvent(ev) && ev.mission_id) {
       updateMissionDeadline.mutate({ id: ev.mission_id, deadline: iso });
-    } else if (ev.type === "reunion") {
+    } else if (isRealMeeting(ev)) {
       updateMeeting.mutate({ id: ev.id, patch: { date: iso } });
     }
   };
@@ -253,13 +251,24 @@ function CalendarPage() {
         </div>
 
         <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => setTypeFilter("tous")}
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+              typeFilter === "tous"
+                ? "border-foreground/30 bg-foreground/10 text-foreground"
+                : "border-border text-muted-foreground opacity-50 hover:opacity-80",
+            )}
+          >
+            Tous
+          </button>
           {(Object.keys(TYPE_LABEL) as EventType[]).map((t) => (
             <button
               key={t}
-              onClick={() => toggleType(t)}
+              onClick={() => setTypeFilter(t)}
               className={cn(
                 "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                activeTypes.has(t)
+                typeFilter === t
                   ? TYPE_TONE[t]
                   : "border-border text-muted-foreground opacity-50 hover:opacity-80",
               )}
@@ -574,7 +583,7 @@ function EventChip({
   onClick: (event: CalendarEvent) => void;
   full?: boolean;
 }) {
-  const draggable = event.type === "mission" || event.type === "reunion";
+  const draggable = isMissionEvent(event) || isRealMeeting(event);
   return (
     <p
       draggable={draggable}
@@ -650,7 +659,7 @@ function EventDetailDialog({
               ) : (
                 <span />
               )}
-              {event.type === "reunion" && (
+              {isRealMeeting(event) && (
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => onEdit(event)}>
                     Modifier

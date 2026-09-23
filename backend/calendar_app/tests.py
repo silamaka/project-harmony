@@ -62,6 +62,14 @@ class CalendarEventsTests(RoleTestCase):
         self.assertEqual(len(livrable_events), 1)
         self.assertEqual(livrable_events[0]["mission_id"], str(self.mission.id))
 
+    def test_mission_event_type_reflects_task_type(self):
+        self.mission.task_type = "editos"
+        self.mission.save()
+        self.auth_as(self.admin)
+        res = self.client.get(reverse("calendar"))
+        event = next(e for e in res.data if e.get("mission_id") == str(self.mission.id))
+        self.assertEqual(event["type"], "editos")
+
     def test_meetings_are_visible_to_everyone_including_client(self):
         """Design documenté : contrairement aux missions/livrables, les
         réunions ne sont pas scopées à l'entreprise."""
