@@ -9,6 +9,7 @@ COLLABORATEUR_EDITABLE_FIELDS = {
     "title",
     "description",
     "sources",
+    "task_type",
     "priority",
     "status",
     "start_date",

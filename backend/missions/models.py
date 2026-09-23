@@ -9,6 +9,13 @@ class Priority(models.TextChoices):
     URGENTE = "urgente", "Urgente"
 
 
+class TaskType(models.TextChoices):
+    MISSION = "mission", "Mission"
+    EDITOS = "editos", "Editos"
+    LIVRABLE = "livrable", "Livrable"
+    REUNION = "reunion", "Réunion"
+
+
 class MissionStatus(models.TextChoices):
     A_FAIRE = "a_faire", "À faire"
     EN_COURS = "en_cours", "En cours"
@@ -39,6 +46,10 @@ class Mission(models.Model):
     # comme collaborators.
     sources = models.JSONField(default=list, blank=True)
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.NORMALE)
+    # Étiquette de catégorisation (filtre côté création) : n'affecte ni la
+    # portée ni les permissions, une "Mission" de type "Réunion" reste une
+    # Mission comme les autres.
+    task_type = models.CharField(max_length=20, choices=TaskType.choices, default=TaskType.MISSION)
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="assigned_missions", on_delete=models.PROTECT
     )

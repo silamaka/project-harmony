@@ -24,6 +24,7 @@ import {
   MISSION_WORKFLOW,
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
+  TASK_TYPE_LABELS,
   type Client,
   type Mission,
   type MissionSource,
@@ -31,6 +32,7 @@ import {
   type Priority,
   type Project,
   type ProjectStatus,
+  type TaskType,
 } from "@/types";
 
 const selectClass =
@@ -465,6 +467,7 @@ export function EditMissionDialog({
     title: mission.title,
     description: mission.description,
     sources: mission.sources,
+    task_type: mission.task_type,
     priority: mission.priority,
     status: mission.status,
     assignee_id: mission.assignee_id,
@@ -482,6 +485,7 @@ export function EditMissionDialog({
           title: form.title.trim(),
           description: form.description,
           sources: form.sources,
+          task_type: form.task_type,
           priority: form.priority,
           status: form.status,
           start_date: form.start_date,
@@ -538,6 +542,19 @@ export function EditMissionDialog({
               </select>
             </Field>
           )}
+          <Field label="Tâche">
+            <select
+              className={selectClass}
+              value={form.task_type}
+              onChange={(e) => setForm({ ...form, task_type: e.target.value as TaskType })}
+            >
+              {Object.entries(TASK_TYPE_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
           {isManager && (
             <div className="sm:col-span-2">
               <Field label="Assigné à">

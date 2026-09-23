@@ -25,12 +25,14 @@ import {
   MISSION_WORKFLOW,
   PRIORITY_LABELS,
   PROJECT_STATUS_LABELS,
+  TASK_TYPE_LABELS,
   type Client,
   type MissionSource,
   type MissionStatus,
   type Priority,
   type ProjectStatus,
   type Role,
+  type TaskType,
   type User,
 } from "@/types";
 
@@ -319,6 +321,7 @@ export function CreateMissionDialog({
     title: "",
     description: "",
     sources: [] as MissionSource[],
+    task_type: "mission" as TaskType,
     priority: "normale" as Priority,
     status: "a_faire" as MissionStatus,
     project_id: projectId ?? "",
@@ -366,7 +369,7 @@ export function CreateMissionDialog({
               />
             </Field>
           </div>
-          <div className={lockAssignee ? "sm:col-span-2" : undefined}>
+          <div>
             <Field label="Projet">
               <select
                 className={selectClass}
@@ -388,6 +391,21 @@ export function CreateMissionDialog({
               )}
             </Field>
           </div>
+          <Field label="Tâche">
+            <select
+              className={selectClass}
+              value={form.task_type}
+              onChange={(e) => setForm({ ...form, task_type: e.target.value as TaskType })}
+            >
+              {Object.entries(TASK_TYPE_LABELS)
+                .filter(([v]) => v !== "livrable")
+                .map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+            </select>
+          </Field>
           <div className="sm:col-span-2">
             <Field label="Assigné à">
               <div className="flex flex-wrap gap-1.5 empty:hidden">

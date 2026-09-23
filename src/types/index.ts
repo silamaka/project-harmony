@@ -130,6 +130,15 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 /** Ordre du plus urgent au moins urgent, pour trier les listes de missions. */
 export const PRIORITY_ORDER: Priority[] = ["urgente", "haute", "normale", "faible"];
 
+export type TaskType = "mission" | "editos" | "livrable" | "reunion";
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  mission: "Mission",
+  editos: "Editos",
+  livrable: "Livrable",
+  reunion: "Réunion",
+};
+
 export interface MissionSource {
   label: string;
   url: string;
@@ -141,6 +150,8 @@ export interface Mission {
   description: string;
   /** Liens de référence (brief client, Drive, Figma...). */
   sources: MissionSource[];
+  /** Étiquette de catégorisation, purement indicative (n'affecte pas le modèle de données ni les permissions). */
+  task_type: TaskType;
   priority: Priority;
   assignee_id: string;
   /** Contributeurs additionnels : même accès en lecture/statut/priorité que le responsable. */
@@ -185,7 +196,7 @@ export interface CalendarEvent {
   date: string;
   time?: string;
   description?: string;
-  type: "mission" | "livrable" | "reunion";
+  type: TaskType;
   mission_id?: string;
   color?: string;
 }
