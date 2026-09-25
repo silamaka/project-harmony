@@ -74,3 +74,8 @@ class MissionSerializer(serializers.ModelSerializer):
         if "client" not in validated_data:
             validated_data["client"] = validated_data["project"].client
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "project" in validated_data and "client" not in validated_data:
+            validated_data["client"] = validated_data["project"].client
+        return super().update(instance, validated_data)

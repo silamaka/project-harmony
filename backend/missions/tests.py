@@ -164,9 +164,9 @@ class MissionCreateDeleteTests(RoleTestCase):
 
 
 class CollaborateurUpdateTests(RoleTestCase):
-    """Un collaborateur peut modifier le contenu (titre, description,
-    sources, priorité, statut, dates) de sa propre mission, mais jamais la
-    réassigner (assignee/collaborators/projet/client)."""
+    """Un collaborateur peut modifier sa mission comme il peut la créer :
+    contenu, dates, contributeurs additionnels et projet (dans son
+    périmètre) — jamais le responsable principal."""
 
     def test_can_update_status_on_own_mission(self):
         self.auth_as(self.collaborateur)
@@ -209,6 +209,64 @@ class CollaborateurUpdateTests(RoleTestCase):
         self.auth_as(self.collaborateur)
         res = self.client.patch(
             mission_detail_url(self.mission.id), {"project_id": str(other_project.id)}
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_can_update_collaborators_on_own_mission(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id),
+            {"collaborators": [str(self.other_collaborateur.id)]},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["collaborators"], [str(self.other_collaborateur.id)])
+
+    def _second_project_with_own_mission(self):
+        project = Project.objects.create(
+            name="Projet où il est déjà",
+            client=self.other_client_company,
+            owner=self.chef_projet,
+            start_date="2026-01-01",
+            end_date="2026-12-31",
+            status=ProjectStatus.EN_COURS,
+        )
+        Mission.objects.create(
+            title="Autre mission à lui",
+            project=project,
+            client=project.client,
+            assignee=self.collaborateur,
+            start_date="2026-01-01",
+            deadline="2026-12-31",
+            status=MissionStatus.A_FAIRE,
+        )
+        return project
+
+    def test_can_move_own_mission_to_involved_project(self):
+        project = self._second_project_with_own_mission()
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id), {"project_id": str(project.id)}
+        )
+        self.assertEqual(res.status_code, 200)
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.project_id, project.id)
+        # Le client suit le projet même s'il n'est pas envoyé.
+        self.assertEqual(self.mission.client_id, project.client_id)
+
+    def test_cannot_move_with_mismatched_client(self):
+        project = self._second_project_with_own_mission()
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id),
+            {"project_id": str(project.id), "client_id": str(self.client_company.id)},
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_cannot_change_client_alone(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            mission_detail_url(self.mission.id), {"client_id": str(self.other_client_company.id)}
         )
         self.assertEqual(res.status_code, 403)
 

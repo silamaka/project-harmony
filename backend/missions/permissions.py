@@ -14,6 +14,9 @@ COLLABORATEUR_EDITABLE_FIELDS = {
     "status",
     "start_date",
     "deadline",
+    "collaborators",
+    "project_id",
+    "client_id",
 }
 CLIENT_EDITABLE_FIELDS = {"status"}
 CLIENT_ALLOWED_STATUSES = {MissionStatus.VALIDE, MissionStatus.CORRECTIONS}
@@ -27,10 +30,10 @@ class MissionPermission(BasePermission):
     Modification et suppression :
     - admin / chef de projet : tous les champs, toute mission.
     - collaborateur : uniquement une mission où il est assignee OU
-      collaborator ; suppression libre, mais modification limitée au
-      contenu (titre, description, sources, priorité, statut, dates) —
-      jamais la réassignation (assignee/collaborators/projet/client),
-      réservée à l'admin/chef de projet, comme à la création.
+      collaborator ; suppression libre, et modification alignée sur ce
+      qu'il peut faire à la création : contenu, dates, contributeurs
+      additionnels et projet (limité à son périmètre, comme à la
+      création) — jamais le responsable principal (assignee_id).
     - client : uniquement une mission de sa propre entreprise, et
       uniquement le statut (sa décision : Validé / Corrections) — jamais
       la suppression.
@@ -68,10 +71,31 @@ class MissionPermission(BasePermission):
         project_id = request.data.get("project_id")
         if not project_id:
             return False
+        return MissionPermission._collaborateur_involved_in_project(request.user, project_id)
+
+    @staticmethod
+    def _collaborateur_involved_in_project(user, project_id) -> bool:
         return Mission.objects.filter(
-            Q(assignee_id=request.user.id) | Q(collaborators__id=request.user.id),
+            Q(assignee_id=user.id) | Q(collaborators__id=user.id),
             project_id=project_id,
         ).exists()
+
+    @staticmethod
+    def _collaborateur_can_move_project(request) -> bool:
+        """Changer de projet en modification obéit à la même règle qu'à la
+        création : uniquement vers un projet de son périmètre, et le client
+        envoyé (s'il l'est) doit être celui du projet."""
+        if "project_id" not in request.data:
+            return "client_id" not in request.data
+        from projects.models import Project
+
+        project = Project.objects.filter(id=request.data.get("project_id")).first()
+        if project is None:
+            return False
+        client_id = request.data.get("client_id")
+        if client_id is not None and str(client_id) != str(project.client_id):
+            return False
+        return MissionPermission._collaborateur_involved_in_project(request.user, project.id)
 
     def has_object_permission(self, request, view, obj) -> bool:
         if request.method in SAFE_METHODS:
@@ -84,7 +108,11 @@ class MissionPermission(BasePermission):
             ).exists()
             if request.method == "DELETE":
                 return is_involved
-            return is_involved and set(request.data.keys()) <= COLLABORATEUR_EDITABLE_FIELDS
+            return (
+                is_involved
+                and set(request.data.keys()) <= COLLABORATEUR_EDITABLE_FIELDS
+                and self._collaborateur_can_move_project(request)
+            )
         if request.method == "DELETE":
             return False
         fields_sent = set(request.data.keys())
