@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
 import { MissionStatusBadge } from "@/components/shared/badges";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
 import { missionService } from "@/services";
 import { ROLE_LABELS } from "@/types";
@@ -76,13 +75,6 @@ function ProfilePage() {
                   {user ? ROLE_LABELS[user.role] : ""}
                 </p>
               </div>
-            </div>
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Charge de travail</span>
-                <span className="font-semibold">{user?.workload ?? 0}%</span>
-              </div>
-              <Progress value={user?.workload ?? 0} className="mt-2 h-2" />
             </div>
           </div>
 
