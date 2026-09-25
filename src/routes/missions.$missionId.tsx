@@ -19,6 +19,7 @@ import {
 import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { UserAvatar } from "@/components/shared/avatar";
 import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
 import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
@@ -439,6 +440,39 @@ function MissionDetailPage() {
               {mission && new Date(mission.deadline).toLocaleDateString("fr-FR")}
             </span>
           </div>
+          {mission && (
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Équipe
+              </h3>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {[mission.assignee_id, ...mission.collaborators].map((id, i) => {
+                  const member = users?.find((u) => u.id === id);
+                  return (
+                    <li
+                      key={id}
+                      className="flex items-center gap-2 rounded-full border border-border py-1 pr-3 pl-1"
+                    >
+                      {member ? (
+                        <UserAvatar user={member} className="h-6 w-6 text-[10px]" />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-muted" />
+                      )}
+                      <span className="text-sm">{authorName(id)}</span>
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                          i === 0 ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {i === 0 ? "Responsable" : "Collaborateur"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           <Section title="Description" body={mission?.description} />
           {mission && mission.sources.length > 0 && (
             <div className="mt-5">
@@ -461,12 +495,6 @@ function MissionDetailPage() {
                 ))}
               </ul>
             </div>
-          )}
-          {mission && mission.collaborators.length > 0 && (
-            <Section
-              title="Collaborateurs additionnels"
-              body={mission.collaborators.map((id) => authorName(id)).join(", ")}
-            />
           )}
         </div>
 
@@ -536,7 +564,7 @@ function MissionDetailPage() {
                     <p className="truncate text-sm font-medium">{d.name}</p>
                     <p className="text-[11px] text-muted-foreground">
                       v{d.version} ·{" "}
-                      {d.size_kb === undefined
+                      {d.size_kb == null
                         ? "lien"
                         : d.size_kb >= 1024
                           ? `${(d.size_kb / 1024).toFixed(1)} Mo`
