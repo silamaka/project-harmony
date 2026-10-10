@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Deliverable
@@ -25,6 +26,9 @@ class DeliverableSerializer(serializers.ModelSerializer):
     # client (voir DeliverableViewSet.perform_create) : lecture seule ici,
     # get_queryset n'est donc jamais sollicité.
     uploaded_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Publier / dépublier s'écrit via `published` ; la date est toujours
+    # posée par le serveur, jamais envoyée par le client.
+    published = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = Deliverable
@@ -38,9 +42,25 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "size_kb",
             "uploaded_by",
             "status",
+            "published",
+            "published_at",
             "created_at",
         ]
-        read_only_fields = ["created_at", "uploaded_by"]
+        read_only_fields = ["created_at", "uploaded_by", "published_at"]
+
+    def create(self, validated_data):
+        # Un dépôt n'est jamais publié d'emblée : la publication passe
+        # toujours par un PATCH, soumis à DeliverablePermission.
+        validated_data.pop("published", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if "published" in validated_data:
+            if not validated_data.pop("published"):
+                validated_data["published_at"] = None
+            elif instance.published_at is None:
+                validated_data["published_at"] = timezone.now()
+        return super().update(instance, validated_data)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

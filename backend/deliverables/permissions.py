@@ -7,7 +7,9 @@ class DeliverablePermission(BasePermission):
     """Lecture/dépôt : tout utilisateur authentifié pouvant voir la mission
     (portée déjà imposée par le queryset et par MissionPKField). Changer le
     statut (valider / demander des corrections) : admin, chef de projet, ou
-    client (sa propre décision côté portail/fiche mission). Suppression :
+    client (sa propre décision côté portail/fiche mission). Publier /
+    dépublier : admin, chef de projet, ou collaborateur de la mission.
+    Suppression :
     admin, chef de projet, ou le collaborateur qui a lui-même déposé le
     livrable (jamais celui d'un autre)."""
 
@@ -27,4 +29,8 @@ class DeliverablePermission(BasePermission):
             return True
         if request.user.role == Role.CLIENT:
             return obj.mission.client_id == request.user.client_id and set(request.data.keys()) <= {"status"}
+        if request.user.role == Role.COLLABORATEUR:
+            # Publier un livrable de sa mission (portée déjà imposée par le
+            # queryset), mais jamais le valider lui-même.
+            return set(request.data.keys()) <= {"published"}
         return False

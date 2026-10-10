@@ -152,6 +152,65 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 403)
 
 
+class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
+    """Chaque livrable se publie séparément (published_at), indépendamment
+    de sa validation ; la date est toujours posée par le serveur."""
+
+    def _publish(self, published=True):
+        return self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"published": published}, format="json"
+        )
+
+    def test_collaborateur_can_publish_and_unpublish(self):
+        self.auth_as(self.collaborateur)
+        res = self._publish()
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNotNone(res.data["published_at"])
+        res = self._publish(False)
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.data["published_at"])
+
+    def test_republishing_keeps_original_date(self):
+        self.auth_as(self.admin)
+        first = self._publish().data["published_at"]
+        self.assertEqual(self._publish().data["published_at"], first)
+
+    def test_publishing_does_not_change_status(self):
+        self.auth_as(self.chef_projet)
+        self._publish()
+        self.deliverable.refresh_from_db()
+        self.assertEqual(self.deliverable.status, DeliverableStatus.EN_ATTENTE)
+
+    def test_client_cannot_publish(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(self._publish().status_code, 403)
+
+    def test_collaborateur_cannot_publish_and_validate_together(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id),
+            {"published": True, "status": "valide"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_deposit_is_never_published_on_creation(self):
+        self.auth_as(self.client_user)
+        res = self.client.post(
+            deliverable_list_url(),
+            {
+                "mission_id": str(self.mission.id),
+                "name": "Dépôt",
+                "type": "lien",
+                "url": "https://example.com/depot",
+                "published": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertIsNone(res.data["published_at"])
+
+
 class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
     def test_admin_can_delete(self):
         self.auth_as(self.admin)

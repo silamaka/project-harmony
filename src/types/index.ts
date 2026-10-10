@@ -176,6 +176,8 @@ export interface Deliverable {
   size_kb?: number;
   uploaded_by: string;
   status: "en_attente" | "valide" | "corrections";
+  /** Date de publication (posée par le serveur), null tant que non publié. */
+  published_at?: string | null;
   created_at: string;
 }
 

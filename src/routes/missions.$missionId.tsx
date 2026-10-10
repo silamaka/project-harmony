@@ -9,6 +9,7 @@ import {
   Film,
   ImageIcon,
   LinkIcon,
+  Megaphone,
   Pencil,
   RefreshCcw,
   Send,
@@ -171,6 +172,16 @@ function MissionDetailPage() {
     },
   });
 
+  const deliverablePublish = useMutation({
+    mutationFn: ({ id, published }: { id: string; published: boolean }) =>
+      deliverableService.setPublished(id, published),
+    onSuccess: (_d, { published }) => {
+      refresh([["deliverables", missionId], ["deliverables"]]);
+      toast.success(published ? "Livrable marqué comme publié." : "Publication annulée.");
+    },
+    onError: () => toast.error("Mise à jour de la publication impossible."),
+  });
+
   const navigate = useNavigate();
   const removeDeliverable = useMutation({
     mutationFn: (id: string) => deliverableService.remove(id),
@@ -216,6 +227,11 @@ function MissionDetailPage() {
   const canEditMission = isManager || (user?.role === "collaborateur" && isInvolved);
   /** Le client ne pilote que sa décision (Validé / Corrections), pas le pipeline interne. */
   const isClient = user?.role === "client";
+  /** Livrables (voir DeliverablePermission) : valider = admin, chef de projet
+   * ou client ; publier = l'agence (admin, chef de projet, collaborateur de
+   * la mission), jamais le client. */
+  const canValidateDeliverable = isManager || isClient;
+  const canPublishDeliverable = isManager || (user?.role === "collaborateur" && isInvolved);
 
   const requestStatusChange = (status: MissionStatus) => {
     if (!mission || status === mission.status) return;
@@ -569,24 +585,54 @@ function MissionDetailPage() {
                         : d.size_kb >= 1024
                           ? `${(d.size_kb / 1024).toFixed(1)} Mo`
                           : `${d.size_kb} Ko`}
+                      {d.published_at && (
+                        <span className="font-medium text-primary">
+                          {" "}
+                          · Publié le {new Date(d.published_at).toLocaleDateString("fr-FR")}
+                        </span>
+                      )}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      deliverableStatus.mutate({
-                        id: d.id,
-                        status: d.status === "valide" ? "en_attente" : "valide",
-                      })
-                    }
-                    aria-label={`Valider ${d.name}`}
-                    className={cn(
-                      "text-muted-foreground hover:text-success",
-                      d.status === "valide" && "text-success",
-                    )}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                  </button>
+                  {canValidateDeliverable && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        deliverableStatus.mutate({
+                          id: d.id,
+                          status: d.status === "valide" ? "en_attente" : "valide",
+                        })
+                      }
+                      aria-label={`Valider ${d.name}`}
+                      title={d.status === "valide" ? "Validé" : "Valider"}
+                      className={cn(
+                        "text-muted-foreground hover:text-success",
+                        d.status === "valide" && "text-success",
+                      )}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </button>
+                  )}
+                  {canPublishDeliverable && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        deliverablePublish.mutate({ id: d.id, published: !d.published_at })
+                      }
+                      disabled={deliverablePublish.isPending}
+                      aria-label={
+                        d.published_at ? `Annuler la publication de ${d.name}` : `Publier ${d.name}`
+                      }
+                      title={
+                        d.published_at ? "Publié — cliquer pour annuler" : "Marquer comme publié"
+                      }
+                      className={cn(
+                        "text-muted-foreground hover:text-primary",
+                        d.published_at && "text-primary",
+                      )}
+                    >
+                      <Megaphone className="h-4 w-4" />
+                    </button>
+                  )}
                   <a
                     href={d.url}
                     target="_blank"

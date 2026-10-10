@@ -34,6 +34,9 @@ class Deliverable(models.Model):
     status = models.CharField(
         max_length=20, choices=DeliverableStatus.choices, default=DeliverableStatus.EN_ATTENTE
     )
+    # Indépendant de `status` : un livrable validé n'est pas forcément déjà
+    # publié, et une mission à plusieurs livrables les publie un par un.
+    published_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
