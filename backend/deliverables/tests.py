@@ -57,11 +57,30 @@ class DeliverableReadScopingTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 2)
 
-    def test_collaborateur_without_mission_filter_sees_only_own_uploads(self):
+    def test_collaborateur_sees_teammates_uploads_on_own_missions(self):
+        """Sans filtre ?mission= (tableau Mes missions, page Livrables), un
+        collaborateur voit aussi les livrables déposés par d'autres sur ses
+        missions."""
         self.auth_as(self.collaborateur)
         res = self.client.get(deliverable_list_url())
         self.assertEqual(res.status_code, 200)
-        self.assertEqual({d["id"] for d in res.data}, {str(self.deliverable.id)})
+        self.assertEqual(
+            {d["id"] for d in res.data},
+            {str(self.deliverable.id), str(self.other_collab_deliverable.id)},
+        )
+
+    def test_collaborateur_does_not_see_deliverables_of_other_missions(self):
+        Deliverable.objects.create(
+            mission=self.foreign_mission,
+            name="Hors périmètre",
+            type="lien",
+            url="https://example.com/hors",
+            uploaded_by=self.other_collaborateur,
+            status=DeliverableStatus.EN_ATTENTE,
+        )
+        self.auth_as(self.collaborateur)
+        res = self.client.get(deliverable_list_url())
+        self.assertNotIn("Hors périmètre", {d["name"] for d in res.data})
 
     def test_collaborateur_with_mission_filter_sees_all_deliverables_on_it(self):
         self.auth_as(self.collaborateur)
@@ -170,6 +189,17 @@ class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIsNone(res.data["published_at"])
 
+    def test_additional_collaborator_can_publish(self):
+        self.mission.collaborators.add(self.other_collaborateur)
+        self.auth_as(self.other_collaborateur)
+        self.assertEqual(self._publish().status_code, 200)
+
+    def test_uninvolved_collaborateur_cannot_publish(self):
+        # self.other_collaborateur n'est ni responsable ni collaborateur de
+        # self.mission : le livrable est hors de sa portée.
+        self.auth_as(self.other_collaborateur)
+        self.assertEqual(self._publish().status_code, 404)
+
     def test_republishing_keeps_original_date(self):
         self.auth_as(self.admin)
         first = self._publish().data["published_at"]
@@ -223,10 +253,8 @@ class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 204)
 
     def test_collaborateur_cannot_delete_someone_elses_upload(self):
-        """Sans filtre ?mission=, get_queryset restreint déjà un collaborateur
-        à ses propres dépôts (voir DeliverableViewSet.get_queryset) : le
-        dépôt d'un autre n'est même pas trouvé (404), avant même d'évaluer
-        has_object_permission."""
+        """Le dépôt d'un autre sur sa mission lui est visible (portée de la
+        mission), mais has_object_permission refuse la suppression (403)."""
         other_upload = Deliverable.objects.create(
             mission=self.mission,
             name="Dépôt d'un autre",
@@ -237,7 +265,8 @@ class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
         )
         self.auth_as(self.collaborateur)
         res = self.client.delete(deliverable_detail_url(other_upload.id))
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.status_code, 403)
+        self.assertTrue(Deliverable.objects.filter(id=other_upload.id).exists())
 
     def test_client_cannot_delete(self):
         self.auth_as(self.client_user)
