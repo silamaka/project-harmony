@@ -156,10 +156,8 @@ export function AppShell({
         <div className="flex items-center gap-3 px-5 py-5">
           <img src="/beba-logo.png" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
           <div className="leading-tight">
-            <p className="text-sm font-extrabold tracking-tight text-sidebar-foreground">
-              BEBA EMPIRE
-            </p>
-            <p className="text-[11px] text-muted-foreground">Agence 360°</p>
+            <p className="text-sm font-extrabold tracking-tight text-sidebar-foreground">OLYMPE</p>
+            <p className="text-[11px] text-muted-foreground">by BEBA EMPIRE</p>
           </div>
           <button
             className="ml-auto md:hidden"

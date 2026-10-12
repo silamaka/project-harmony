@@ -10,12 +10,12 @@ import { ROLE_LABELS } from "@/types";
 export const Route = createFileRoute("/profil")({
   head: () => ({
     meta: [
-      { title: "Mon profil — BEBA EMPIRE" },
+      { title: "Mon profil — OLYMPE" },
       {
         name: "description",
-        content: "Coordonnées, rôle, charge de travail et missions en cours du compte connecté.",
+        content: "Coordonnées, rôle et missions en cours du compte connecté.",
       },
-      { property: "og:title", content: "Mon profil — BEBA EMPIRE" },
+      { property: "og:title", content: "Mon profil — OLYMPE" },
       { property: "og:description", content: "Gérez vos informations personnelles." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

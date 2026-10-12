@@ -33,9 +33,9 @@ import {
 export const Route = createFileRoute("/clients/$clientId")({
   head: () => ({
     meta: [
-      { title: "Missions client — BEBA EMPIRE" },
+      { title: "Missions client — OLYMPE" },
       { name: "description", content: "Suivi détaillé des missions du compte client." },
-      { property: "og:title", content: "Missions client — BEBA EMPIRE" },
+      { property: "og:title", content: "Missions client — OLYMPE" },
       { property: "og:description", content: "Priorité, actions, deadline et statut par mission." },
     ],
   }),

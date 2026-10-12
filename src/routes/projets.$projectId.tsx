@@ -37,9 +37,9 @@ import {
 export const Route = createFileRoute("/projets/$projectId")({
   head: () => ({
     meta: [
-      { title: "Détail projet — BEBA EMPIRE" },
+      { title: "Détail projet — OLYMPE" },
       { name: "description", content: "Détail du projet, missions associées et progression." },
-      { property: "og:title", content: "Détail projet — BEBA EMPIRE" },
+      { property: "og:title", content: "Détail projet — OLYMPE" },
       { property: "og:description", content: "Suivi complet du projet client." },
     ],
   }),

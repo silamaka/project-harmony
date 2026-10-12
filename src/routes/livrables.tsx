@@ -27,12 +27,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/livrables")({
   head: () => ({
     meta: [
-      { title: "Livrables — BEBA EMPIRE" },
+      { title: "Livrables — OLYMPE" },
       {
         name: "description",
         content: "Bibliothèque des livrables : versions, statuts de validation et téléchargement.",
       },
-      { property: "og:title", content: "Livrables — BEBA EMPIRE" },
+      { property: "og:title", content: "Livrables — OLYMPE" },
       { property: "og:description", content: "Tous les fichiers livrés par l'agence, versionnés." },
     ],
   }),

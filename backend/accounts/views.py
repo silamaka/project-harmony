@@ -54,7 +54,7 @@ class ForgotPasswordView(APIView):
             token = PasswordResetTokenGenerator().make_token(user)
             reset_url = f"{settings.FRONTEND_URL}/reinitialiser-mot-de-passe?uid={uid}&token={token}"
             send_mail(
-                subject="Réinitialisation de votre mot de passe BEBA EMPIRE",
+                subject="Réinitialisation de votre mot de passe OLYMPE",
                 message=(
                     f"Bonjour {user.first_name},\n\n"
                     "Une demande de réinitialisation de mot de passe a été effectuée pour ce "

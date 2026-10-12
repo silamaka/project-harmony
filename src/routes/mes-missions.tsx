@@ -22,12 +22,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/mes-missions")({
   head: () => ({
     meta: [
-      { title: "Mes missions — BEBA EMPIRE" },
+      { title: "Mes missions — OLYMPE" },
       {
         name: "description",
         content: "Vos missions assignées, leurs échéances et leur avancement.",
       },
-      { property: "og:title", content: "Mes missions — BEBA EMPIRE" },
+      { property: "og:title", content: "Mes missions — OLYMPE" },
       { property: "og:description", content: "Suivi personnel des missions assignées." },
     ],
   }),

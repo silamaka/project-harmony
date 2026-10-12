@@ -14,9 +14,9 @@ import { ROLE_HOME } from "@/types";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Connexion — BEBA EMPIRE" },
-      { name: "description", content: "Connectez-vous à votre espace BEBA EMPIRE." },
-      { property: "og:title", content: "Connexion — BEBA EMPIRE" },
+      { title: "Connexion — OLYMPE" },
+      { name: "description", content: "Connectez-vous à votre espace OLYMPE." },
+      { property: "og:title", content: "Connexion — OLYMPE" },
       { property: "og:description", content: "Accédez à la plateforme de gestion de l'agence." },
     ],
   }),
@@ -66,9 +66,9 @@ function LoginPage() {
             alt="Logo BEBA EMPIRE"
             className="h-20 w-20 rounded-full shadow-sm"
           />
-          <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Bienvenue sur BEBA</h1>
+          <h1 className="mt-7 text-3xl font-extrabold tracking-tight">Bienvenue sur OLYMPE</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Connectez-vous à votre espace de gestion d'agence.
+            La plateforme de gestion d'agence de BEBA EMPIRE.
           </p>
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="mt-9 space-y-5">

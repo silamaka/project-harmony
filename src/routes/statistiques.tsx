@@ -67,13 +67,13 @@ const PERIOD_LABELS: Record<Period, string> = {
 export const Route = createFileRoute("/statistiques")({
   head: () => ({
     meta: [
-      { title: "Statistiques & reporting — BEBA EMPIRE" },
+      { title: "Statistiques & reporting — OLYMPE" },
       {
         name: "description",
         content:
           "Analyse de la performance : missions par client, par collaborateur, respect des délais et évolution mensuelle.",
       },
-      { property: "og:title", content: "Statistiques & reporting — BEBA EMPIRE" },
+      { property: "og:title", content: "Statistiques & reporting — OLYMPE" },
       {
         property: "og:description",
         content: "Reporting complet de l'activité de l'agence BEBA EMPIRE.",
@@ -216,7 +216,7 @@ function StatisticsPage() {
   const exportExcel = async () => {
     const { default: ExcelJSLib } = await import("exceljs");
     const wb = new ExcelJSLib.Workbook();
-    wb.creator = "BEBA EMPIRE";
+    wb.creator = "OLYMPE by BEBA EMPIRE";
     wb.created = new Date();
 
     const styleHeader = (row: ExcelJS.Row) => {

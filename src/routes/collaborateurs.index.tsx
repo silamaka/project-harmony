@@ -16,9 +16,9 @@ import { missionService, userService } from "@/services";
 export const Route = createFileRoute("/collaborateurs/")({
   head: () => ({
     meta: [
-      { title: "Collaborateurs — BEBA EMPIRE" },
+      { title: "Collaborateurs — OLYMPE" },
       { name: "description", content: "Équipe, charge de travail et missions assignées." },
-      { property: "og:title", content: "Collaborateurs — BEBA EMPIRE" },
+      { property: "og:title", content: "Collaborateurs — OLYMPE" },
       { property: "og:description", content: "Pilotez l'équipe et la charge de travail." },
     ],
   }),

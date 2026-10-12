@@ -47,9 +47,9 @@ import {
 export const Route = createFileRoute("/missions/$missionId")({
   head: () => ({
     meta: [
-      { title: "Détail mission — BEBA EMPIRE" },
+      { title: "Détail mission — OLYMPE" },
       { name: "description", content: "Brief, livrables, discussion et workflow de la mission." },
-      { property: "og:title", content: "Détail mission — BEBA EMPIRE" },
+      { property: "og:title", content: "Détail mission — OLYMPE" },
       { property: "og:description", content: "Toute la mission au même endroit." },
     ],
   }),

@@ -18,12 +18,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/notifications")({
   head: () => ({
     meta: [
-      { title: "Notifications — BEBA EMPIRE" },
+      { title: "Notifications — OLYMPE" },
       {
         name: "description",
         content: "Alertes missions, commentaires, livrables et validations en temps réel.",
       },
-      { property: "og:title", content: "Notifications — BEBA EMPIRE" },
+      { property: "og:title", content: "Notifications — OLYMPE" },
       { property: "og:description", content: "Centre de notifications de la plateforme." },
     ],
   }),

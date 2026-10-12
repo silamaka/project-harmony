@@ -16,9 +16,9 @@ export const Route = createFileRoute("/reinitialiser-mot-de-passe")({
   }),
   head: () => ({
     meta: [
-      { title: "Réinitialiser le mot de passe — BEBA EMPIRE" },
+      { title: "Réinitialiser le mot de passe — OLYMPE" },
       { name: "description", content: "Choisissez un nouveau mot de passe sécurisé." },
-      { property: "og:title", content: "Réinitialiser le mot de passe — BEBA EMPIRE" },
+      { property: "og:title", content: "Réinitialiser le mot de passe — OLYMPE" },
       {
         property: "og:description",
         content: "Définissez un nouveau mot de passe pour votre compte.",

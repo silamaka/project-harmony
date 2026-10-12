@@ -29,9 +29,9 @@ import {
 export const Route = createFileRoute("/collaborateurs/$userId")({
   head: () => ({
     meta: [
-      { title: "Missions du collaborateur — BEBA EMPIRE" },
+      { title: "Missions du collaborateur — OLYMPE" },
       { name: "description", content: "Toutes les missions assignées à ce collaborateur." },
-      { property: "og:title", content: "Missions du collaborateur — BEBA EMPIRE" },
+      { property: "og:title", content: "Missions du collaborateur — OLYMPE" },
       {
         property: "og:description",
         content: "Priorité, statut, deadline et livrables par mission.",

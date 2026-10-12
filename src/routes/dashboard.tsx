@@ -82,9 +82,9 @@ const PERIOD_LABELS: Record<Period, string> = {
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — BEBA EMPIRE" },
+      { title: "Dashboard — OLYMPE" },
       { name: "description", content: "KPIs, graphiques et alertes de l'agence en temps réel." },
-      { property: "og:title", content: "Dashboard — BEBA EMPIRE" },
+      { property: "og:title", content: "Dashboard — OLYMPE" },
       { property: "og:description", content: "Pilotage global de l'activité de l'agence." },
     ],
   }),

@@ -21,9 +21,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/clients/")({
   head: () => ({
     meta: [
-      { title: "Clients — BEBA EMPIRE" },
+      { title: "Clients — OLYMPE" },
       { name: "description", content: "Consultez le portefeuille clients de l'agence." },
-      { property: "og:title", content: "Clients — BEBA EMPIRE" },
+      { property: "og:title", content: "Clients — OLYMPE" },
       { property: "og:description", content: "Vue d'ensemble du portefeuille clients." },
     ],
   }),

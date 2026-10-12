@@ -1,4 +1,4 @@
-"""Django settings for the Project Harmony (BEBA EMPIRE) backend."""
+"""Django settings for the OLYMPE (BEBA EMPIRE) backend."""
 
 from datetime import timedelta
 from pathlib import Path

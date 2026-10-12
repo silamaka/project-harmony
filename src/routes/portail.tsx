@@ -13,12 +13,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/portail")({
   head: () => ({
     meta: [
-      { title: "Portail client — BEBA EMPIRE" },
+      { title: "Portail client — OLYMPE" },
       {
         name: "description",
         content: "Suivez l'avancement de vos projets et missions avec BEBA EMPIRE.",
       },
-      { property: "og:title", content: "Portail client — BEBA EMPIRE" },
+      { property: "og:title", content: "Portail client — OLYMPE" },
       { property: "og:description", content: "Espace client : projets et missions." },
     ],
   }),

@@ -1,5 +1,5 @@
 /**
- * Types métier partagés de la plateforme BEBA EMPIRE.
+ * Types métier partagés de la plateforme OLYMPE (BEBA EMPIRE).
  * Ces types reflètent les schémas attendus de l'API Django REST Framework.
  */
 

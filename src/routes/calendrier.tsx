@@ -41,13 +41,13 @@ import { TASK_TYPE_LABELS, type CalendarEvent } from "@/types";
 export const Route = createFileRoute("/calendrier")({
   head: () => ({
     meta: [
-      { title: "Calendrier — BEBA EMPIRE" },
+      { title: "Calendrier — OLYMPE" },
       {
         name: "description",
         content:
           "Vue jour, semaine, mois et agenda des échéances de missions, livrables et réunions.",
       },
-      { property: "og:title", content: "Calendrier — BEBA EMPIRE" },
+      { property: "og:title", content: "Calendrier — OLYMPE" },
       { property: "og:description", content: "Planning complet de l'agence, façon Google Agenda." },
     ],
   }),

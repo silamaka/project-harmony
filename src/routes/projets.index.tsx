@@ -18,9 +18,9 @@ import { PROJECT_STATUS_LABELS, type Project, type ProjectStatus } from "@/types
 export const Route = createFileRoute("/projets/")({
   head: () => ({
     meta: [
-      { title: "Projets — BEBA EMPIRE" },
+      { title: "Projets — OLYMPE" },
       { name: "description", content: "Suivi des projets clients, statuts et progression." },
-      { property: "og:title", content: "Projets — BEBA EMPIRE" },
+      { property: "og:title", content: "Projets — OLYMPE" },
       { property: "og:description", content: "Tous les projets de l'agence en un coup d'œil." },
     ],
   }),

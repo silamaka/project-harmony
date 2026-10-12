@@ -1,4 +1,4 @@
-# Backend — Project Harmony (BEBA EMPIRE)
+# Backend — OLYMPE (BEBA EMPIRE)
 
 Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
 

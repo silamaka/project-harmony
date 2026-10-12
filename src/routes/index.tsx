@@ -6,13 +6,13 @@ import { ROLE_HOME } from "@/types";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BEBA EMPIRE — Plateforme de gestion d'agence marketing" },
+      { title: "OLYMPE by BEBA EMPIRE — Plateforme de gestion d'agence marketing" },
       {
         name: "description",
         content:
           "Pilotez clients, projets, missions et livrables de votre agence de communication digitale depuis une plateforme unique.",
       },
-      { property: "og:title", content: "BEBA EMPIRE — Plateforme de gestion d'agence" },
+      { property: "og:title", content: "OLYMPE by BEBA EMPIRE — Plateforme de gestion d'agence" },
       {
         property: "og:description",
         content: "Clients, projets, missions, livrables et portail client en un seul outil.",

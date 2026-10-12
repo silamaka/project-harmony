@@ -76,7 +76,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "BEBA EMPIRE — Gestion d'agence marketing" },
+      { title: "OLYMPE by BEBA EMPIRE — Gestion d'agence marketing" },
       {
         name: "description",
         content:

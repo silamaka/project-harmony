@@ -43,12 +43,12 @@ const TASK_TYPE_DOT: Record<TaskType, string> = {
 export const Route = createFileRoute("/missions/")({
   head: () => ({
     meta: [
-      { title: "Missions — BEBA EMPIRE" },
+      { title: "Missions — OLYMPE" },
       {
         name: "description",
         content: "Suivi détaillé des missions : du brief à la validation client.",
       },
-      { property: "og:title", content: "Missions — BEBA EMPIRE" },
+      { property: "og:title", content: "Missions — OLYMPE" },
       { property: "og:description", content: "Priorité, actions, deadline et statut par mission." },
     ],
   }),

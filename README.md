@@ -1,4 +1,4 @@
-# Project Harmony
+# OLYMPE
 
 Plateforme web de gestion d'agence de marketing et communication digitale
 (BEBA EMPIRE) : clients, projets, missions, livrables, calendrier,

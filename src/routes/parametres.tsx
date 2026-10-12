@@ -32,12 +32,12 @@ const ACTIVE_TONE: Record<"1" | "0", string> = {
 export const Route = createFileRoute("/parametres")({
   head: () => ({
     meta: [
-      { title: "Paramètres — BEBA EMPIRE" },
+      { title: "Paramètres — OLYMPE" },
       {
         name: "description",
         content: "Administration : gestion des utilisateurs, rôles et statuts de compte.",
       },
-      { property: "og:title", content: "Paramètres — BEBA EMPIRE" },
+      { property: "og:title", content: "Paramètres — OLYMPE" },
       {
         property: "og:description",
         content: "Gestion des utilisateurs et des rôles de la plateforme.",

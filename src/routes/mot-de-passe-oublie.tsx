@@ -13,9 +13,9 @@ import { authService } from "@/services";
 export const Route = createFileRoute("/mot-de-passe-oublie")({
   head: () => ({
     meta: [
-      { title: "Mot de passe oublié — BEBA EMPIRE" },
+      { title: "Mot de passe oublié — OLYMPE" },
       { name: "description", content: "Recevez un lien de réinitialisation par e-mail." },
-      { property: "og:title", content: "Mot de passe oublié — BEBA EMPIRE" },
+      { property: "og:title", content: "Mot de passe oublié — OLYMPE" },
       { property: "og:description", content: "Réinitialisez l'accès à votre compte." },
     ],
   }),
