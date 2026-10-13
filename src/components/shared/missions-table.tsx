@@ -23,14 +23,20 @@ import {
 
 type DeliverableRef = { id: string; name: string; url: string; version?: number };
 
-/** Largeurs de colonnes (%) selon les colonnes optionnelles affichées ; chaque set totalise 100%. */
-const COLUMN_WIDTHS = {
-  withClientAndResponsable: [7, 17, 12, 10, 10, 8, 14, 10, 12],
-  withClientAndResponsableActions: [7, 13, 11, 10, 10, 8, 14, 10, 12, 5],
-  responsableOnly: [9, 19, 13, 12, 8, 16, 10, 13],
-  responsableOnlyActions: [9, 15, 12, 12, 8, 16, 10, 13, 5],
-  clientOnly: [8, 20, 14, 12, 9, 16, 11, 10],
-  clientOnlyActions: [8, 16, 13, 12, 9, 16, 11, 10, 5],
+/** Poids relatifs des colonnes, ramenés à 100% selon celles réellement
+ * affichées : aucune combinaison (client, responsable, actions) ne peut
+ * plus se retrouver avec des largeurs décalées d'une colonne. */
+const COLUMN_WEIGHTS = {
+  priorite: 8,
+  mission: 17,
+  description: 13,
+  client: 11,
+  responsable: 11,
+  deadline: 9,
+  etat: 16,
+  livrable: 10,
+  commentaires: 12,
+  actions: 4,
 } as const;
 
 /**
@@ -73,19 +79,23 @@ export function MissionsTable({
   emptyMessage?: string;
 }) {
   const showActions = onEditMission !== undefined || onDeleteMission !== undefined;
-  const widths =
-    showClient && showResponsable
-      ? showActions
-        ? COLUMN_WIDTHS.withClientAndResponsableActions
-        : COLUMN_WIDTHS.withClientAndResponsable
-      : showResponsable
-        ? showActions
-          ? COLUMN_WIDTHS.responsableOnlyActions
-          : COLUMN_WIDTHS.responsableOnly
-        : showActions
-          ? COLUMN_WIDTHS.clientOnlyActions
-          : COLUMN_WIDTHS.clientOnly;
-  const columnCount = 6 + (showClient ? 1 : 0) + (showResponsable ? 1 : 0) + (showActions ? 1 : 0);
+  const columns = (
+    [
+      "priorite",
+      "mission",
+      "description",
+      showClient && "client",
+      showResponsable && "responsable",
+      "deadline",
+      "etat",
+      "livrable",
+      "commentaires",
+      showActions && "actions",
+    ] as const
+  ).filter((c): c is keyof typeof COLUMN_WEIGHTS => Boolean(c));
+  const totalWeight = columns.reduce((sum, c) => sum + COLUMN_WEIGHTS[c], 0);
+  const widths = columns.map((c) => (COLUMN_WEIGHTS[c] / totalWeight) * 100);
+  const columnCount = columns.length;
   // Seul "Terminé" clôt vraiment la mission (priorité déjà remise à
   // "Normale" côté serveur, voir Mission.save) : "Validé"/"Publié" restent
   // triés comme une mission active, ils peuvent encore bouger.
@@ -109,11 +119,11 @@ export function MissionsTable({
         <table className="w-full min-w-[860px] table-fixed border-collapse text-sm">
           <colgroup>
             {widths.map((w, i) => (
-              <col key={i} className={`w-[${w}%]`} style={{ width: `${w}%` }} />
+              <col key={i} style={{ width: `${w}%` }} />
             ))}
           </colgroup>
           <thead>
-            <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)]">
+            <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase [&>th]:truncate tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)]">
               <th className="px-3 py-3">Priorité</th>
               <th className="px-3 py-3">Mission</th>
               <th className="px-3 py-3">Description</th>
