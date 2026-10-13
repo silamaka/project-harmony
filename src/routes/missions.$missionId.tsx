@@ -21,7 +21,13 @@ import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
-import { MissionStatusBadge, PriorityBadge } from "@/components/shared/badges";
+import {
+  DeliverableStateBadge,
+  MissionStatusBadge,
+  PriorityBadge,
+  deliverableBorderTone,
+  deliverableState,
+} from "@/components/shared/badges";
 import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
 import {
@@ -573,7 +579,10 @@ function MissionDetailPage() {
               return (
                 <li
                   key={d.id}
-                  className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border border-l-4 border-border px-3 py-2.5",
+                    deliverableBorderTone[deliverableState(d)],
+                  )}
                 >
                   <Icon className="h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
@@ -585,13 +594,10 @@ function MissionDetailPage() {
                         : d.size_kb >= 1024
                           ? `${(d.size_kb / 1024).toFixed(1)} Mo`
                           : `${d.size_kb} Ko`}
-                      {d.published_at && (
-                        <span className="font-medium text-primary">
-                          {" "}
-                          · Publié le {new Date(d.published_at).toLocaleDateString("fr-FR")}
-                        </span>
-                      )}
                     </p>
+                    <div className="mt-1.5">
+                      <DeliverableStateBadge deliverable={d} />
+                    </div>
                   </div>
                   {canValidateDeliverable && (
                     <button

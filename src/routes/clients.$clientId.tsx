@@ -4,6 +4,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { ClientDeliverables } from "@/components/shared/client-deliverables";
 import { CreateMissionDialog } from "@/components/shared/create-dialogs";
 import {
   ConfirmDeleteButton,
@@ -33,9 +34,12 @@ import {
 export const Route = createFileRoute("/clients/$clientId")({
   head: () => ({
     meta: [
-      { title: "Missions client — OLYMPE" },
-      { name: "description", content: "Suivi détaillé des missions du compte client." },
-      { property: "og:title", content: "Missions client — OLYMPE" },
+      { title: "Fiche client — OLYMPE" },
+      {
+        name: "description",
+        content: "Suivi détaillé des missions et des livrables du compte client.",
+      },
+      { property: "og:title", content: "Fiche client — OLYMPE" },
       { property: "og:description", content: "Priorité, actions, deadline et statut par mission." },
     ],
   }),
@@ -53,6 +57,7 @@ function ClientDetailPage() {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
+  const [tab, setTab] = useState<"missions" | "livrables">("missions");
 
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
@@ -133,6 +138,8 @@ function ClientDetailPage() {
 
   const missionDeliverables = (missionId: string) =>
     (deliverables ?? []).filter((d) => d.mission_id === missionId);
+  const clientMissionIds = new Set(clientMissions.map((m) => m.id));
+  const clientDeliverables = (deliverables ?? []).filter((d) => clientMissionIds.has(d.mission_id));
 
   return (
     <AppShell
@@ -155,55 +162,90 @@ function ClientDetailPage() {
         <ArrowLeft className="h-3.5 w-3.5" /> Retour aux clients
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-56 flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher une mission..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap gap-1 rounded-lg border border-border p-1">
-          {STATUS_FILTERS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                statusFilter === s
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-accent",
-              )}
-            >
-              {s === "tous" ? "Tous" : MISSION_STATUS_LABELS[s]}
-            </button>
-          ))}
-        </div>
+      <div className="mt-4 flex gap-1 border-b border-border">
+        {(
+          [
+            ["missions", "Missions", clientMissions.length],
+            ["livrables", "Livrables", clientDeliverables.length],
+          ] as const
+        ).map(([value, label, count]) => (
+          <button
+            key={value}
+            onClick={() => setTab(value)}
+            className={cn(
+              "-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+              tab === value
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}{" "}
+            <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[11px]">{count}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="mt-4">
-        <MissionsTable
-          missions={filtered}
-          showResponsable={canManage}
-          assigneeOptions={assigneeOptions}
-          assigneeTone={assigneeTone}
-          deliverablesFor={missionDeliverables}
-          commentFor={lastComment}
-          onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
-          onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
-          emptyMessage="Aucune mission pour ce client."
-          {...(canManage
-            ? {
-                onAssigneeChange: (id: string, assignee_id: string) =>
-                  updateAssignee.mutate({ id, assignee_id }),
-                onEditMission: setEditingMission,
-                onDeleteMission: setDeletingMission,
-              }
-            : {})}
-        />
-      </div>
+      {tab === "livrables" ? (
+        <div className="mt-4">
+          <ClientDeliverables
+            deliverables={clientDeliverables}
+            missions={clientMissions}
+            users={users ?? []}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="relative min-w-56 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher une mission..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1 rounded-lg border border-border p-1">
+              {STATUS_FILTERS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    statusFilter === s
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {s === "tous" ? "Tous" : MISSION_STATUS_LABELS[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <MissionsTable
+              missions={filtered}
+              showResponsable={canManage}
+              assigneeOptions={assigneeOptions}
+              assigneeTone={assigneeTone}
+              deliverablesFor={missionDeliverables}
+              commentFor={lastComment}
+              onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+              onPriorityChange={(id, priority) => updatePriority.mutate({ id, priority })}
+              emptyMessage="Aucune mission pour ce client."
+              {...(canManage
+                ? {
+                    onAssigneeChange: (id: string, assignee_id: string) =>
+                      updateAssignee.mutate({ id, assignee_id }),
+                    onEditMission: setEditingMission,
+                    onDeleteMission: setDeletingMission,
+                  }
+                : {})}
+            />
+          </div>
+        </>
+      )}
 
       {editingMission && (
         <EditMissionDialog

@@ -1,0 +1,286 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import {
+  CheckCircle2,
+  Eye,
+  FileArchive,
+  FileText,
+  Film,
+  ImageIcon,
+  LinkIcon,
+  Megaphone,
+  Search,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import {
+  DELIVERABLE_STATES,
+  DeliverableStateBadge,
+  deliverableRowTone,
+  deliverableState,
+  type DeliverableState,
+} from "@/components/shared/badges";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
+import { deliverableService } from "@/services";
+import type { Deliverable, DeliverableType, Mission, User } from "@/types";
+
+const TYPE_ICON: Record<DeliverableType, typeof FileText> = {
+  pdf: FileText,
+  image: ImageIcon,
+  zip: FileArchive,
+  video: Film,
+  lien: LinkIcon,
+};
+
+type Filter = "tous" | DeliverableState;
+const FILTERS: Filter[] = ["tous", ...DELIVERABLE_STATES];
+const FILTER_LABELS: Record<Filter, string> = {
+  tous: "Tous",
+  corrections: "Corrections",
+  en_attente: "En attente",
+  pret: "Prêt à publier",
+  publie: "Publiés",
+};
+
+/** Ordre d'affichage : un livrable validé mais pas encore publié remonte en
+ * tête (prochaine action), puis Corrections, En attente, et les publiés en
+ * bas ; à état égal, le plus récent en premier. */
+const SORT_ORDER: DeliverableState[] = ["pret", "corrections", "en_attente", "publie"];
+
+const matchesFilter = (d: Deliverable, filter: Filter) =>
+  filter === "tous" || deliverableState(d) === filter;
+
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
+
+/**
+ * Tous les livrables d'un client (onglet "Livrables" de la fiche client),
+ * publiés ou non. `deliverables` et `missions` sont déjà restreints au
+ * client et, pour un collaborateur, à ses propres missions (portée imposée
+ * par le backend). Mêmes actions et mêmes droits que sur la fiche mission :
+ * valider = admin/chef de projet, publier = l'agence (un collaborateur ne
+ * voit ici que ses missions, il peut donc publier tout ce qu'il voit).
+ */
+export function ClientDeliverables({
+  deliverables,
+  missions,
+  users,
+}: {
+  deliverables: Deliverable[];
+  missions: Mission[];
+  users: User[];
+}) {
+  const { hasRole } = useAuth();
+  const canValidate = hasRole("admin", "chef_projet");
+  const canPublish = hasRole("admin", "chef_projet", "collaborateur");
+  const qc = useQueryClient();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("tous");
+
+  const refresh = () => void qc.invalidateQueries({ queryKey: ["deliverables"] });
+
+  const publish = useMutation({
+    mutationFn: ({ id, published }: { id: string; published: boolean }) =>
+      deliverableService.setPublished(id, published),
+    onSuccess: (_d, { published }) => {
+      refresh();
+      toast.success(published ? "Livrable marqué comme publié." : "Publication annulée.");
+    },
+    onError: () => toast.error("Mise à jour de la publication impossible."),
+  });
+
+  const validate = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Deliverable["status"] }) =>
+      deliverableService.updateStatus(id, status),
+    onSuccess: () => {
+      refresh();
+      toast.success("Statut du livrable mis à jour.");
+    },
+    onError: () => toast.error("Mise à jour du statut impossible."),
+  });
+
+  const missionById = useMemo(() => new Map(missions.map((m) => [m.id, m])), [missions]);
+  const nameOf = (id: string) => {
+    const u = users.find((x) => x.id === id);
+    return u ? `${u.first_name} ${u.last_name}` : "—";
+  };
+
+  const counts = Object.fromEntries(
+    FILTERS.map((f) => [f, deliverables.filter((d) => matchesFilter(d, f)).length]),
+  ) as Record<Filter, number>;
+
+  const list = deliverables
+    .filter((d) => {
+      const q = query.trim().toLowerCase();
+      const missionTitle = missionById.get(d.mission_id)?.title.toLowerCase() ?? "";
+      return (
+        matchesFilter(d, filter) && (d.name.toLowerCase().includes(q) || missionTitle.includes(q))
+      );
+    })
+    .sort(
+      (a, b) =>
+        SORT_ORDER.indexOf(deliverableState(a)) - SORT_ORDER.indexOf(deliverableState(b)) ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-56 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un livrable ou une mission..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1 rounded-lg border border-border p-1">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                filter === f
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent",
+              )}
+            >
+              {FILTER_LABELS[f]} ({counts[f]})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="surface-card mt-4 overflow-hidden">
+        <div className="max-h-[70vh] overflow-auto">
+          <table className="w-full min-w-[860px] border-collapse text-sm">
+            <thead>
+              <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)] [&>th]:px-3 [&>th]:py-3 [&>th]:whitespace-nowrap">
+                <th>Livrable</th>
+                <th>Mission</th>
+                <th>Déposé par</th>
+                <th>Déposé le</th>
+                <th>État</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((d) => {
+                const Icon = TYPE_ICON[d.type];
+                const mission = missionById.get(d.mission_id);
+                return (
+                  <tr
+                    key={d.id}
+                    className={cn(
+                      "border-t border-border align-middle transition-colors hover:brightness-[0.98]",
+                      deliverableRowTone[deliverableState(d)],
+                    )}
+                  >
+                    <td className="px-3 py-2.5">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Icon className="h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{d.name}</p>
+                          <p className="text-[11px] text-muted-foreground">v{d.version}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {mission ? (
+                        <Link
+                          to="/missions/$missionId"
+                          params={{ missionId: mission.id }}
+                          className="text-primary hover:underline"
+                        >
+                          {mission.title}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{nameOf(d.uploaded_by)}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">
+                      {formatDate(d.created_at)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <DeliverableStateBadge deliverable={d} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center justify-end gap-3">
+                        <a
+                          href={d.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`Voir ${d.name}`}
+                          title="Ouvrir"
+                          className="text-muted-foreground hover:text-primary"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </a>
+                        {canPublish && (
+                          <button
+                            type="button"
+                            onClick={() => publish.mutate({ id: d.id, published: !d.published_at })}
+                            disabled={publish.isPending}
+                            aria-label={
+                              d.published_at
+                                ? `Annuler la publication de ${d.name}`
+                                : `Publier ${d.name}`
+                            }
+                            title={
+                              d.published_at
+                                ? "Publié — cliquer pour annuler"
+                                : "Marquer comme publié"
+                            }
+                            className={cn(
+                              "text-muted-foreground hover:text-primary",
+                              d.published_at && "text-primary",
+                            )}
+                          >
+                            <Megaphone className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canValidate && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              validate.mutate({
+                                id: d.id,
+                                status: d.status === "valide" ? "en_attente" : "valide",
+                              })
+                            }
+                            disabled={validate.isPending}
+                            aria-label={`Valider ${d.name}`}
+                            title={d.status === "valide" ? "Validé" : "Valider"}
+                            className={cn(
+                              "text-muted-foreground hover:text-success",
+                              d.status === "valide" && "text-success",
+                            )}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-10 text-center text-sm text-muted-foreground">
+                    {deliverables.length === 0
+                      ? "Aucun livrable pour ce client."
+                      : "Aucun livrable pour ce filtre."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
