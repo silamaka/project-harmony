@@ -420,7 +420,7 @@ function MonthView({
               onClick={() => onDayClick(date)}
               aria-label={`Voir les événements du ${format(date, "d MMMM yyyy", { locale: fr })}`}
               className={cn(
-                "min-h-24 w-full cursor-pointer rounded-lg border border-border/60 p-1.5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex min-h-24 w-full flex-col justify-start cursor-pointer rounded-lg border border-border/60 p-1.5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 !inMonth && "bg-muted/30 opacity-50",
                 isToday(date) && "border-primary bg-primary/5",
               )}
@@ -486,7 +486,7 @@ function WeekView({
             onClick={() => onDayClick(date)}
             aria-label={`Voir les événements du ${format(date, "d MMMM yyyy", { locale: fr })}`}
             className={cn(
-              "min-h-40 w-full cursor-pointer rounded-lg border border-border/60 p-2 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex min-h-40 w-full flex-col justify-start cursor-pointer rounded-lg border border-border/60 p-2 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isToday(date) && "border-primary bg-primary/5",
             )}
           >
