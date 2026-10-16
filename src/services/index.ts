@@ -219,11 +219,20 @@ export const notificationService = {
 /** Toujours calculable côté client à partir d'une liste de missions déjà
  * chargée (filtre de période du Dashboard, etc.) — ce n'est pas un appel
  * réseau, donc ça reste une fonction pure locale. */
-const isLate = (m: Mission) =>
-  new Date(m.deadline).getTime() < Date.now() &&
-  m.status !== "termine" &&
-  m.status !== "valide" &&
-  m.status !== "publie";
+/** Une mission est "finie" une fois Terminée, Validée ou Publiée. */
+const isMissionDone = (status: Mission["status"]) =>
+  status === "termine" || status === "valide" || status === "publie";
+
+/** Fin (23:59:59, heure locale) du jour d'échéance : une mission due
+ * aujourd'hui n'est en retard qu'à partir de demain, pas dès minuit UTC
+ * comme le donnerait `new Date("2026-10-16")`. */
+const deadlineEnd = (deadline: string) => {
+  const [y = 0, mo = 1, d = 1] = deadline.slice(0, 10).split("-").map(Number);
+  return new Date(y, mo - 1, d, 23, 59, 59, 999);
+};
+
+const isLate = (m: Pick<Mission, "deadline" | "status">) =>
+  deadlineEnd(m.deadline).getTime() < Date.now() && !isMissionDone(m.status);
 
 /** Même logique que isLate, côté projet : date de fin dépassée alors que le
  * projet n'est pas dans un état final (terminé/archivé). */
@@ -250,4 +259,4 @@ export const dashboardService = {
     ).data,
 };
 
-export { isLate, isProjectLate };
+export { isLate, isMissionDone, isProjectLate };
