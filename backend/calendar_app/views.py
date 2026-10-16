@@ -31,6 +31,9 @@ def calendar_events(request):
             "date": m.deadline.isoformat(),
             "type": m.task_type,
             "mission_id": str(m.id),
+            # Permet au calendrier de reporter sur aujourd'hui une mission
+            # échue et pas encore finie (même règle que le dashboard).
+            "status": m.status,
         }
         for m in missions
     ]

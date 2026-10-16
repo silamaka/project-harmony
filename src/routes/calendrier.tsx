@@ -35,8 +35,13 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn } from "@/lib/utils";
-import { calendarService, missionService } from "@/services";
-import { TASK_TYPE_LABELS, type CalendarEvent } from "@/types";
+import { calendarService, isLate, missionService } from "@/services";
+import { TASK_TYPE_LABELS, type CalendarEvent as ApiCalendarEvent } from "@/types";
+
+/** Événement tel qu'affiché : `late` marque une échéance de mission dépassée
+ * et pas finie ; `overdueSince` marque sa copie reportée sur aujourd'hui
+ * (date d'échéance d'origine). Champs purement d'affichage. */
+type CalendarEvent = ApiCalendarEvent & { late?: boolean; overdueSince?: string };
 
 export const Route = createFileRoute("/calendrier")({
   head: () => ({
@@ -80,18 +85,48 @@ const TYPE_DOT: Record<EventType, string> = {
 
 const TYPE_LABEL = TASK_TYPE_LABELS;
 
+const LATE_TONE = "bg-destructive/12 text-destructive border-destructive/30";
+
+const formatShort = (iso: string) => format(parseISO(iso), "dd/MM", { locale: fr });
+
+/** Même règle que le dashboard : une mission échue et pas finie (ni
+ * Terminée, ni Validée, ni Publiée) reste à traiter. Elle garde sa date
+ * d'origine (marquée en retard) et une copie est reportée sur aujourd'hui,
+ * jusqu'à ce qu'elle soit finie — comme Google Tasks / Todoist. */
+function withOverdueRollover(events: ApiCalendarEvent[]): CalendarEvent[] {
+  const today = format(new Date(), "yyyy-MM-dd");
+  const result: CalendarEvent[] = [];
+  for (const e of events) {
+    const late = isMissionEvent(e) && !!e.status && isLate({ deadline: e.date, status: e.status });
+    result.push(late ? { ...e, late } : e);
+    if (late) {
+      // Id toujours préfixé "ev-" : la copie reste une échéance de mission,
+      // donc glissable (la déposer sur un autre jour replanifie l'échéance).
+      result.push({ ...e, id: `${e.id}:retard`, date: today, late, overdueSince: e.date });
+    }
+  }
+  return result;
+}
+
+/** Les retards en tête de journée, puis l'ordre horaire. */
+const byDayOrder = (a: CalendarEvent, b: CalendarEvent) =>
+  Number(!!b.overdueSince) - Number(!!a.overdueSince) || (a.time ?? "").localeCompare(b.time ?? "");
+
+const toneOf = (e: CalendarEvent) => (e.late ? LATE_TONE : TYPE_TONE[e.type]);
+
 /** Échéance de mission (générée côté serveur, id "ev-<uuid>") : à distinguer
  * d'un livrable réellement déposé ou d'une réunion réellement créée, qui
  * partagent parfois le même `type` (une mission peut être taguée "Réunion"
  * sans être une vraie réunion du modèle Meeting). */
-const isMissionEvent = (e: CalendarEvent) => e.id.startsWith("ev-");
+const isMissionEvent = (e: ApiCalendarEvent) => e.id.startsWith("ev-");
 /** Vraie réunion (modèle Meeting) : jamais de mission_id, contrairement à
  * une mission taguée "Réunion" ou à un livrable déposé sur une mission. */
 const isRealMeeting = (e: CalendarEvent) => e.type === "reunion" && !e.mission_id;
 
 function CalendarPage() {
   const qc = useQueryClient();
-  const { data: events } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
+  const { data: rawEvents } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
+  const events = useMemo(() => withOverdueRollover(rawEvents ?? []), [rawEvents]);
   const [view, setView] = useState<ViewMode>("mois");
   const [cursor, setCursor] = useState(() => new Date());
   const [query, setQuery] = useState("");
@@ -132,7 +167,7 @@ function CalendarPage() {
   /** Le backend ne renvoie déjà que les événements de mission/livrable visibles pour le rôle courant. */
   const visibleEvents = useMemo(
     () =>
-      (events ?? []).filter(
+      events.filter(
         (e) =>
           (typeFilter === "tous" || e.type === typeFilter) &&
           e.title.toLowerCase().includes(query.toLowerCase()),
@@ -140,10 +175,11 @@ function CalendarPage() {
     [events, typeFilter, query],
   );
 
-  const eventsOn = (date: Date) => visibleEvents.filter((e) => isSameDay(parseISO(e.date), date));
+  const eventsOn = (date: Date) =>
+    visibleEvents.filter((e) => isSameDay(parseISO(e.date), date)).sort(byDayOrder);
   /** Volontairement non filtré : cliquer sur une date doit montrer tout ce qui s'y passe, même si des filtres masquent certains types sur la grille. */
   const allEventsOn = (date: Date) =>
-    (events ?? []).filter((e) => isSameDay(parseISO(e.date), date));
+    events.filter((e) => isSameDay(parseISO(e.date), date)).sort(byDayOrder);
 
   const handleDrop = (date: Date, eventId: string) => {
     const ev = visibleEvents.find((e) => e.id === eventId);
@@ -483,7 +519,7 @@ function DayView({
   eventsOn: (date: Date) => CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
 }) {
-  const list = eventsOn(cursor).sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+  const list = eventsOn(cursor);
 
   return (
     <div className="surface-card p-4">
@@ -499,15 +535,17 @@ function DayView({
             onClick={() => onEventClick(e)}
             className={cn(
               "flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm transition-colors hover:brightness-95",
-              TYPE_TONE[e.type],
+              toneOf(e),
             )}
           >
             <span className="w-14 shrink-0 text-xs font-semibold">
-              {e.time ?? "Toute la journée"}
+              {e.overdueSince ? "⚠ Retard" : (e.time ?? "Toute la journée")}
             </span>
             <span className="flex-1 truncate font-medium">{e.title}</span>
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
-              {TYPE_LABEL[e.type]}
+              {e.overdueSince
+                ? `En retard depuis le ${formatShort(e.overdueSince)}`
+                : TYPE_LABEL[e.type]}
             </span>
           </button>
         ))}
@@ -525,9 +563,7 @@ function AgendaView({
   onEventClick: (event: CalendarEvent) => void;
 }) {
   const grouped = useMemo(() => {
-    const sorted = [...events].sort(
-      (a, b) => a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? ""),
-    );
+    const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date) || byDayOrder(a, b));
     const map = new Map<string, CalendarEvent[]>();
     for (const e of sorted) {
       const key = e.date.slice(0, 10);
@@ -558,11 +594,27 @@ function AgendaView({
                 onClick={() => onEventClick(e)}
                 className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-accent/40"
               >
-                <span className={cn("h-2 w-2 shrink-0 rounded-full", TYPE_DOT[e.type])} />
+                <span
+                  className={cn(
+                    "h-2 w-2 shrink-0 rounded-full",
+                    e.late ? "bg-destructive" : TYPE_DOT[e.type],
+                  )}
+                />
                 <span className="w-12 shrink-0 text-xs text-muted-foreground">{e.time ?? "—"}</span>
-                <span className="flex-1 truncate font-medium">{e.title}</span>
-                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {TYPE_LABEL[e.type]}
+                <span className={cn("flex-1 truncate font-medium", e.late && "text-destructive")}>
+                  {e.title}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+                    e.late && "text-destructive",
+                  )}
+                >
+                  {e.overdueSince
+                    ? `En retard depuis le ${formatShort(e.overdueSince)}`
+                    : e.late
+                      ? "En retard"
+                      : TYPE_LABEL[e.type]}
                 </span>
               </button>
             ))}
@@ -595,16 +647,29 @@ function EventChip({
         e.stopPropagation();
         onClick(event);
       }}
-      title={event.title}
+      title={
+        event.overdueSince
+          ? `${event.title} — en retard depuis le ${formatShort(event.overdueSince)}`
+          : event.late
+            ? `${event.title} — en retard`
+            : event.title
+      }
       className={cn(
         "truncate rounded px-1.5 py-0.5 text-[10px] font-medium",
         draggable && "cursor-grab active:cursor-grabbing",
-        TYPE_TONE[event.type],
+        toneOf(event),
+        event.overdueSince && "font-semibold",
         full && "whitespace-normal",
       )}
     >
+      {event.overdueSince && <span className="mr-1">⚠</span>}
       {event.time && <span className="mr-1 font-semibold">{event.time}</span>}
       {event.title}
+      {event.overdueSince && full && (
+        <span className="block text-[10px] font-normal opacity-80">
+          En retard depuis le {formatShort(event.overdueSince)}
+        </span>
+      )}
     </p>
   );
 }
@@ -637,10 +702,18 @@ function EventDetailDialog({
               </div>
               <DialogTitle>{event.title}</DialogTitle>
               <DialogDescription>
-                {format(parseISO(event.date), "EEEE d MMMM yyyy", { locale: fr })}
+                {format(parseISO(event.overdueSince ?? event.date), "EEEE d MMMM yyyy", {
+                  locale: fr,
+                })}
                 {event.time && ` · ${event.time}`}
               </DialogDescription>
             </DialogHeader>
+            {event.late && (
+              <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                En retard : échéance dépassée et mission pas encore terminée. Glisse-la sur un autre
+                jour du calendrier pour replanifier son échéance.
+              </p>
+            )}
             {event.description && (
               <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
                 {event.description}
@@ -696,7 +769,7 @@ function DayEventsDialog({
   onEventClick: (event: CalendarEvent) => void;
   onAdd: (date: Date) => void;
 }) {
-  const sorted = [...events].sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
+  const sorted = [...events].sort(byDayOrder);
 
   return (
     <Dialog open={date !== null} onOpenChange={(o) => !o && onClose()}>
@@ -721,15 +794,17 @@ function DayEventsDialog({
                     onClick={() => onEventClick(e)}
                     className={cn(
                       "flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm transition-colors hover:brightness-95",
-                      TYPE_TONE[e.type],
+                      toneOf(e),
                     )}
                   >
                     <span className="w-14 shrink-0 text-xs font-semibold">
-                      {e.time ?? "Toute la journée"}
+                      {e.overdueSince ? "⚠ Retard" : (e.time ?? "Toute la journée")}
                     </span>
                     <span className="flex-1 truncate font-medium">{e.title}</span>
                     <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
-                      {TYPE_LABEL[e.type]}
+                      {e.overdueSince
+                        ? `En retard depuis le ${formatShort(e.overdueSince)}`
+                        : TYPE_LABEL[e.type]}
                     </span>
                   </button>
                 ))}

@@ -200,6 +200,8 @@ export interface CalendarEvent {
   description?: string;
   type: TaskType;
   mission_id?: string;
+  /** Statut de la mission, présent sur les échéances de mission uniquement. */
+  status?: MissionStatus;
   color?: string;
 }
 
