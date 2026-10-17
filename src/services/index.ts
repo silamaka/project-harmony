@@ -144,6 +144,9 @@ export const deliverableService = {
   /** PATCH /api/v1/deliverables/:id/ (status) */
   updateStatus: async (id: string, status: Deliverable["status"]) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { status })).data,
+  /** PATCH /api/v1/deliverables/:id/ (nom / lien ; lien vide = "Lien à venir") */
+  update: async (id: string, patch: Pick<Deliverable, "name" | "url">) =>
+    (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, patch)).data,
   /** PATCH /api/v1/deliverables/:id/ (publier / dépublier, date posée par le serveur) */
   setPublished: async (id: string, published: boolean) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { published })).data,

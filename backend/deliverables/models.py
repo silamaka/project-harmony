@@ -25,7 +25,9 @@ class Deliverable(models.Model):
     # TextField (pas URLField) : les liens Drive/Figma/S3 réels dépassent
     # souvent les 200 caractères par défaut d'un URLField (paramètres de
     # partage, node-id...), comme constaté pour User.avatar_url.
-    url = models.TextField()
+    # Vide tant que le livrable est seulement annoncé ("Lien à venir") :
+    # il ne peut alors être ni validé ni publié (voir DeliverableSerializer).
+    url = models.TextField(blank=True, default="")
     version = models.PositiveSmallIntegerField(default=1)
     size_kb = models.PositiveIntegerField(null=True, blank=True)
     uploaded_by = models.ForeignKey(

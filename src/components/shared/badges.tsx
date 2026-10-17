@@ -42,23 +42,29 @@ export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
 }
 
 /**
- * État unique d'un livrable, combinant validation et publication dans
- * l'ordre du circuit réel : Corrections → En attente → Prêt à publier →
- * Publié. La publication l'emporte (un livrable en ligne est "Publié"),
- * même non validé : `DeliverableStateBadge` le signale alors à part.
+ * État unique d'un livrable, combinant lien, validation et publication
+ * dans l'ordre du circuit réel : Lien à venir → Corrections → En attente →
+ * Prêt à publier → Publié. La publication l'emporte (un livrable en ligne
+ * est "Publié"), même non validé : `DeliverableStateBadge` le signale alors
+ * à part. Sans lien, le livrable est seulement annoncé ("Lien à venir").
  */
-export type DeliverableState = "corrections" | "en_attente" | "pret" | "publie";
+export type DeliverableState = "a_venir" | "corrections" | "en_attente" | "pret" | "publie";
 
 export const DELIVERABLE_STATES: DeliverableState[] = [
+  "a_venir",
   "corrections",
   "en_attente",
   "pret",
   "publie",
 ];
 
+/** Le livrable a-t-il déjà un lien (sinon il est seulement annoncé) ? */
+export const hasDeliverableLink = (d: Pick<Deliverable, "url">) => !!d.url?.trim();
+
 export function deliverableState(
-  d: Pick<Deliverable, "status" | "published_at">,
+  d: Pick<Deliverable, "status" | "published_at" | "url">,
 ): DeliverableState {
+  if (!hasDeliverableLink(d)) return "a_venir";
   if (d.published_at) return "publie";
   if (d.status === "corrections") return "corrections";
   if (d.status === "valide") return "pret";
@@ -66,6 +72,7 @@ export function deliverableState(
 }
 
 export const DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> = {
+  a_venir: "Lien à venir",
   corrections: "Corrections",
   en_attente: "En attente",
   pret: "Prêt à publier",
@@ -74,6 +81,7 @@ export const DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> = {
 
 /** Pastille (fond + texte) — mêmes teintes que les statuts de mission. */
 export const deliverableTone: Record<DeliverableState, string> = {
+  a_venir: "bg-muted text-muted-foreground",
   corrections: "bg-destructive/12 text-destructive",
   en_attente: "bg-warning/20 text-warning",
   pret: "bg-primary/10 text-primary",
@@ -82,6 +90,7 @@ export const deliverableTone: Record<DeliverableState, string> = {
 
 /** Fond de ligne (tableau) et liseré gauche (cartes) pour le même état. */
 export const deliverableRowTone: Record<DeliverableState, string> = {
+  a_venir: "bg-muted/40",
   corrections: "bg-destructive/8",
   en_attente: "bg-warning/12",
   pret: "bg-primary/8",
@@ -89,6 +98,7 @@ export const deliverableRowTone: Record<DeliverableState, string> = {
 };
 
 export const deliverableBorderTone: Record<DeliverableState, string> = {
+  a_venir: "border-dashed border-l-muted-foreground/50",
   corrections: "border-l-destructive",
   en_attente: "border-l-warning",
   pret: "border-l-primary",
@@ -98,7 +108,7 @@ export const deliverableBorderTone: Record<DeliverableState, string> = {
 export function DeliverableStateBadge({
   deliverable,
 }: {
-  deliverable: Pick<Deliverable, "status" | "published_at">;
+  deliverable: Pick<Deliverable, "status" | "published_at" | "url">;
 }) {
   const state = deliverableState(deliverable);
   return (

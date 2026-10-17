@@ -10,12 +10,15 @@ import {
   Image as ImageIcon,
   Link2,
   Package,
+  Pencil,
   Trash2,
   Video,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
+import { hasDeliverableLink } from "@/components/shared/badges";
+import { EditDeliverableDialog } from "@/components/shared/edit-dialogs";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,8 +75,10 @@ function DeliverablesPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
   const { user, hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
+  /** Modifier (nom / lien) et supprimer : admin, chef de projet, ou l'auteur. */
   const canDelete = (d: Deliverable) =>
     hasRole("admin", "chef_projet") || d.uploaded_by === user?.id;
+  const [editing, setEditing] = useState<Deliverable | null>(null);
   const queryClient = useQueryClient();
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
@@ -185,16 +190,20 @@ function DeliverablesPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{d.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    v{d.version} · {d.size_kb ? `${d.size_kb} Ko` : d.type.toUpperCase()}
+                    {hasDeliverableLink(d)
+                      ? `v${d.version} · ${d.size_kb ? `${d.size_kb} Ko` : d.type.toUpperCase()}`
+                      : "Lien pas encore disponible"}
                   </p>
                 </div>
                 <span
                   className={cn(
                     "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                    STATUS_TONE[d.status],
+                    hasDeliverableLink(d)
+                      ? STATUS_TONE[d.status]
+                      : "bg-muted text-muted-foreground",
                   )}
                 >
-                  {STATUS_LABEL[d.status]}
+                  {hasDeliverableLink(d) ? STATUS_LABEL[d.status] : "Lien à venir"}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -207,11 +216,26 @@ function DeliverablesPage() {
                     {mission.title}
                   </Link>
                 )}
-                <Button variant="outline" size="sm" className="ml-auto shrink-0" asChild>
-                  <a href={d.url} target="_blank" rel="noreferrer">
-                    <Eye className="h-4 w-4" /> Ouvrir
-                  </a>
-                </Button>
+                {hasDeliverableLink(d) ? (
+                  <Button variant="outline" size="sm" className="ml-auto shrink-0" asChild>
+                    <a href={d.url} target="_blank" rel="noreferrer">
+                      <Eye className="h-4 w-4" /> Ouvrir
+                    </a>
+                  </Button>
+                ) : (
+                  <span className="ml-auto" />
+                )}
+                {canDelete(d) && (
+                  <button
+                    type="button"
+                    onClick={() => setEditing(d)}
+                    aria-label={`Modifier ${d.name}`}
+                    title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
+                    className="shrink-0 text-muted-foreground hover:text-primary"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
                 {canDelete(d) && (
                   <button
                     type="button"
@@ -228,7 +252,7 @@ function DeliverablesPage() {
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}
                 {new Date(d.created_at).toLocaleDateString("fr-FR")}
               </p>
-              {canValidate && (
+              {canValidate && hasDeliverableLink(d) && (
                 <div className="flex gap-2 border-t border-border pt-3">
                   <Button
                     size="sm"
@@ -256,6 +280,7 @@ function DeliverablesPage() {
           <p className="text-sm text-muted-foreground">Aucun livrable trouvé.</p>
         )}
       </div>
+      <EditDeliverableDialog deliverable={editing} onOpenChange={(o) => !o && setEditing(null)} />
     </AppShell>
   );
 }

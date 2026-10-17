@@ -9,6 +9,7 @@ import {
   ImageIcon,
   LinkIcon,
   Megaphone,
+  Pencil,
   Search,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -18,8 +19,10 @@ import {
   DeliverableStateBadge,
   deliverableRowTone,
   deliverableState,
+  hasDeliverableLink,
   type DeliverableState,
 } from "@/components/shared/badges";
+import { EditDeliverableDialog } from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
@@ -38,6 +41,7 @@ type Filter = "tous" | DeliverableState;
 const FILTERS: Filter[] = ["tous", ...DELIVERABLE_STATES];
 const FILTER_LABELS: Record<Filter, string> = {
   tous: "Tous",
+  a_venir: "Lien à venir",
   corrections: "Corrections",
   en_attente: "En attente",
   pret: "Prêt à publier",
@@ -45,9 +49,10 @@ const FILTER_LABELS: Record<Filter, string> = {
 };
 
 /** Ordre d'affichage : un livrable validé mais pas encore publié remonte en
- * tête (prochaine action), puis Corrections, En attente, et les publiés en
- * bas ; à état égal, le plus récent en premier. */
-const SORT_ORDER: DeliverableState[] = ["pret", "corrections", "en_attente", "publie"];
+ * tête (prochaine action), puis Corrections, En attente, les livrables
+ * encore sans lien, et les publiés en bas ; à état égal, le plus récent en
+ * premier. */
+const SORT_ORDER: DeliverableState[] = ["pret", "corrections", "en_attente", "a_venir", "publie"];
 
 const matchesFilter = (d: Deliverable, filter: Filter) =>
   filter === "tous" || deliverableState(d) === filter;
@@ -60,7 +65,9 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
  * client et, pour un collaborateur, à ses propres missions (portée imposée
  * par le backend). Mêmes actions et mêmes droits que sur la fiche mission :
  * valider = admin/chef de projet, publier = l'agence (un collaborateur ne
- * voit ici que ses missions, il peut donc publier tout ce qu'il voit).
+ * voit ici que ses missions, il peut donc publier tout ce qu'il voit),
+ * modifier = admin/chef de projet ou l'auteur. Sans lien ("Lien à venir"),
+ * seul Modifier reste proposé : rien à ouvrir, valider ni publier.
  */
 export function ClientDeliverables({
   deliverables,
@@ -71,12 +78,16 @@ export function ClientDeliverables({
   missions: Mission[];
   users: User[];
 }) {
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
   const canPublish = hasRole("admin", "chef_projet", "collaborateur");
+  /** Nom / lien : admin, chef de projet, ou le collaborateur auteur du dépôt. */
+  const canEdit = (d: Deliverable) =>
+    hasRole("admin", "chef_projet") || (hasRole("collaborateur") && d.uploaded_by === user?.id);
   const qc = useQueryClient();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("tous");
+  const [editing, setEditing] = useState<Deliverable | null>(null);
 
   const refresh = () => void qc.invalidateQueries({ queryKey: ["deliverables"] });
 
@@ -184,7 +195,9 @@ export function ClientDeliverables({
                         <Icon className="h-4 w-4 shrink-0 text-primary" />
                         <div className="min-w-0">
                           <p className="truncate font-medium">{d.name}</p>
-                          <p className="text-[11px] text-muted-foreground">v{d.version}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {hasDeliverableLink(d) ? `v${d.version}` : "Lien pas encore disponible"}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -210,17 +223,30 @@ export function ClientDeliverables({
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-3">
-                        <a
-                          href={d.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={`Voir ${d.name}`}
-                          title="Ouvrir"
-                          className="text-muted-foreground hover:text-primary"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </a>
-                        {canPublish && (
+                        {canEdit(d) && (
+                          <button
+                            type="button"
+                            onClick={() => setEditing(d)}
+                            aria-label={`Modifier ${d.name}`}
+                            title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {hasDeliverableLink(d) && (
+                          <a
+                            href={d.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`Voir ${d.name}`}
+                            title="Ouvrir"
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </a>
+                        )}
+                        {canPublish && hasDeliverableLink(d) && (
                           <button
                             type="button"
                             onClick={() => publish.mutate({ id: d.id, published: !d.published_at })}
@@ -243,7 +269,7 @@ export function ClientDeliverables({
                             <Megaphone className="h-4 w-4" />
                           </button>
                         )}
-                        {canValidate && (
+                        {canValidate && hasDeliverableLink(d) && (
                           <button
                             type="button"
                             onClick={() =>
@@ -281,6 +307,8 @@ export function ClientDeliverables({
           </table>
         </div>
       </div>
+
+      <EditDeliverableDialog deliverable={editing} onOpenChange={(o) => !o && setEditing(null)} />
     </div>
   );
 }

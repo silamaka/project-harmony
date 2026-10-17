@@ -9,6 +9,8 @@ class DeliverablePermission(BasePermission):
     statut (valider / demander des corrections) : admin, chef de projet, ou
     client (sa propre décision côté portail/fiche mission). Publier /
     dépublier : admin, chef de projet, ou collaborateur de la mission.
+    Modifier le nom / le lien : admin, chef de projet, ou le collaborateur
+    auteur du dépôt.
     Suppression :
     admin, chef de projet, ou le collaborateur qui a lui-même déposé le
     livrable (jamais celui d'un autre)."""
@@ -30,7 +32,12 @@ class DeliverablePermission(BasePermission):
         if request.user.role == Role.CLIENT:
             return obj.mission.client_id == request.user.client_id and set(request.data.keys()) <= {"status"}
         if request.user.role == Role.COLLABORATEUR:
+            fields_sent = set(request.data.keys())
             # Publier un livrable de sa mission (portée déjà imposée par le
             # queryset), mais jamais le valider lui-même.
-            return set(request.data.keys()) <= {"published"}
+            if fields_sent <= {"published"}:
+                return True
+            # Modifier le nom / le lien : seulement son propre dépôt, comme
+            # pour la suppression (ex. ajouter le lien d'un livrable annoncé).
+            return obj.uploaded_by_id == request.user.id and fields_sent <= {"name", "url"}
         return False

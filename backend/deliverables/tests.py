@@ -241,6 +241,79 @@ class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
         self.assertIsNone(res.data["published_at"])
 
 
+class DeliverableWithoutLinkTests(DeliverableSetupMixin, RoleTestCase):
+    """Un livrable peut être annoncé sans lien ("Lien à venir"), puis
+    complété ; tant qu'il n'a pas de lien il n'est ni validable ni publiable."""
+
+    def setUp(self):
+        super().setUp()
+        self.pending = Deliverable.objects.create(
+            mission=self.mission,
+            name="Vidéo finale",
+            type="lien",
+            url="",
+            uploaded_by=self.collaborateur,
+        )
+
+    def _patch(self, data, deliverable=None):
+        return self.client.patch(
+            deliverable_detail_url((deliverable or self.pending).id), data, format="json"
+        )
+
+    def test_can_create_without_link(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.post(
+            deliverable_list_url(),
+            {"mission_id": str(self.mission.id), "name": "À venir", "type": "lien"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["url"], "")
+
+    def test_cannot_validate_without_link(self):
+        self.auth_as(self.admin)
+        self.assertEqual(self._patch({"status": "valide"}).status_code, 400)
+
+    def test_cannot_publish_without_link(self):
+        self.auth_as(self.collaborateur)
+        self.assertEqual(self._patch({"published": True}).status_code, 400)
+
+    def test_author_can_add_link_and_rename(self):
+        self.auth_as(self.collaborateur)
+        res = self._patch({"name": "Vidéo finale v2", "url": "https://example.com/video"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["url"], "https://example.com/video")
+        self.assertEqual(res.data["name"], "Vidéo finale v2")
+
+    def test_other_collaborator_cannot_edit_link(self):
+        self.mission.collaborators.add(self.other_collaborateur)
+        self.auth_as(self.other_collaborateur)
+        self.assertEqual(self._patch({"url": "https://example.com/x"}).status_code, 403)
+
+    def test_manager_can_edit_anyones_link(self):
+        self.auth_as(self.chef_projet)
+        self.assertEqual(self._patch({"url": "https://example.com/x"}).status_code, 200)
+
+    def test_client_cannot_edit_link(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(self._patch({"url": "https://example.com/x"}).status_code, 403)
+
+    def test_changing_link_of_validated_deliverable_resets_to_pending(self):
+        self.deliverable.status = DeliverableStatus.VALIDE
+        self.deliverable.save()
+        self.auth_as(self.collaborateur)
+        res = self._patch({"url": "https://example.com/nouveau"}, self.deliverable)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["status"], "en_attente")
+
+    def test_removing_link_unpublishes(self):
+        self.auth_as(self.admin)
+        self._patch({"published": True}, self.deliverable)
+        res = self._patch({"url": ""}, self.deliverable)
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.data["published_at"])
+
+
 class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
     def test_admin_can_delete(self):
         self.auth_as(self.admin)

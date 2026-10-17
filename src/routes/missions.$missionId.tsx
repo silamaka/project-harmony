@@ -27,8 +27,13 @@ import {
   PriorityBadge,
   deliverableBorderTone,
   deliverableState,
+  hasDeliverableLink,
 } from "@/components/shared/badges";
-import { ConfirmDeleteButton, EditMissionDialog } from "@/components/shared/edit-dialogs";
+import {
+  ConfirmDeleteButton,
+  EditDeliverableDialog,
+  EditMissionDialog,
+} from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,6 +51,7 @@ import { commentService, deliverableService, missionService, userService } from 
 import {
   MISSION_WORKFLOW,
   MISSION_STATUS_LABELS,
+  type Deliverable,
   type DeliverableType,
   type MissionStatus,
 } from "@/types";
@@ -79,6 +85,7 @@ function MissionDetailPage() {
   const [editDraft, setEditDraft] = useState("");
   const [newName, setNewName] = useState("");
   const [newLink, setNewLink] = useState("");
+  const [editingDeliverable, setEditingDeliverable] = useState<Deliverable | null>(null);
   const [pendingStatus, setPendingStatus] = useState<MissionStatus | null>(null);
 
   const { data: mission } = useQuery({
@@ -160,11 +167,11 @@ function MissionDetailPage() {
         version: ((deliverables ?? []).length || 0) + 1,
         status: "en_attente",
       }),
-    onSuccess: () => {
+    onSuccess: (_d, { url }) => {
       refresh([["deliverables", missionId], ["deliverables"]]);
       setNewName("");
       setNewLink("");
-      toast.success("Livrable ajouté.");
+      toast.success(url ? "Livrable ajouté." : "Livrable ajouté — lien à venir.");
     },
     onError: () => toast.error("Dépôt impossible."),
   });
@@ -238,6 +245,14 @@ function MissionDetailPage() {
    * la mission), jamais le client. */
   const canValidateDeliverable = isManager || isClient;
   const canPublishDeliverable = isManager || (user?.role === "collaborateur" && isInvolved);
+  /** Modifier (nom / lien) et supprimer : admin, chef de projet, ou le
+   * collaborateur auteur du dépôt (voir DeliverablePermission). */
+  const canManageDeliverable = (uploadedBy: string) =>
+    isManager || (user?.role === "collaborateur" && uploadedBy === user.id);
+  const submitDeliverable = () => {
+    if (!newName.trim() || deliverableMutation.isPending) return;
+    deliverableMutation.mutate({ name: newName.trim(), url: newLink.trim(), type: "lien" });
+  };
 
   const requestStatusChange = (status: MissionStatus) => {
     if (!mission || status === mission.status) return;
@@ -524,7 +539,8 @@ function MissionDetailPage() {
           <h2 className="text-sm font-semibold">Livrables</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Donne un nom clair au livrable, colle son lien (Drive, Figma, S3...), puis clique sur
-            Déposer.
+            Déposer. Lien pas encore prêt ? Dépose-le sans lien : il apparaîtra « Lien à venir » et
+            tu pourras l'ajouter plus tard.
           </p>
 
           <div className="mt-3 space-y-2">
@@ -540,33 +556,16 @@ function MissionDetailPage() {
                 value={newLink}
                 onChange={(e) => setNewLink(e.target.value)}
                 onKeyDown={(e) => {
-                  if (
-                    e.key === "Enter" &&
-                    newName.trim() &&
-                    newLink.trim() &&
-                    !deliverableMutation.isPending
-                  ) {
-                    deliverableMutation.mutate({
-                      name: newName.trim(),
-                      url: newLink.trim(),
-                      type: "lien",
-                    });
-                  }
+                  if (e.key === "Enter") submitDeliverable();
                 }}
-                placeholder="Lien du livrable (Drive, Figma, S3...)"
+                placeholder="Lien du livrable (facultatif)"
                 className="h-9"
               />
               <Button
                 size="sm"
-                variant={newName.trim() && newLink.trim() ? "default" : "outline"}
-                disabled={!newName.trim() || !newLink.trim() || deliverableMutation.isPending}
-                onClick={() =>
-                  deliverableMutation.mutate({
-                    name: newName.trim(),
-                    url: newLink.trim(),
-                    type: "lien",
-                  })
-                }
+                variant={newName.trim() ? "default" : "outline"}
+                disabled={!newName.trim() || deliverableMutation.isPending}
+                onClick={submitDeliverable}
                 className="shrink-0"
               >
                 Déposer
@@ -588,18 +587,21 @@ function MissionDetailPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{d.name}</p>
                     <p className="text-[11px] text-muted-foreground">
-                      v{d.version} ·{" "}
-                      {d.size_kb == null
-                        ? "lien"
-                        : d.size_kb >= 1024
-                          ? `${(d.size_kb / 1024).toFixed(1)} Mo`
-                          : `${d.size_kb} Ko`}
+                      {!hasDeliverableLink(d)
+                        ? "Lien pas encore disponible"
+                        : `v${d.version} · ${
+                            d.size_kb == null
+                              ? "lien"
+                              : d.size_kb >= 1024
+                                ? `${(d.size_kb / 1024).toFixed(1)} Mo`
+                                : `${d.size_kb} Ko`
+                          }`}
                     </p>
                     <div className="mt-1.5">
                       <DeliverableStateBadge deliverable={d} />
                     </div>
                   </div>
-                  {canValidateDeliverable && (
+                  {canValidateDeliverable && hasDeliverableLink(d) && (
                     <button
                       type="button"
                       onClick={() =>
@@ -618,7 +620,7 @@ function MissionDetailPage() {
                       <CheckCircle2 className="h-4 w-4" />
                     </button>
                   )}
-                  {canPublishDeliverable && (
+                  {canPublishDeliverable && hasDeliverableLink(d) && (
                     <button
                       type="button"
                       onClick={() =>
@@ -639,16 +641,29 @@ function MissionDetailPage() {
                       <Megaphone className="h-4 w-4" />
                     </button>
                   )}
-                  <a
-                    href={d.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`Voir ${d.name}`}
-                    className="text-muted-foreground hover:text-primary"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </a>
-                  {(isManager || d.uploaded_by === user?.id) && (
+                  {hasDeliverableLink(d) && (
+                    <a
+                      href={d.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={`Voir ${d.name}`}
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </a>
+                  )}
+                  {canManageDeliverable(d.uploaded_by) && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingDeliverable(d)}
+                      aria-label={`Modifier ${d.name}`}
+                      title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
+                      className="text-muted-foreground hover:text-primary"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
+                  {canManageDeliverable(d.uploaded_by) && (
                     <button
                       type="button"
                       onClick={() => removeDeliverable.mutate(d.id)}
@@ -668,6 +683,11 @@ function MissionDetailPage() {
           </ul>
         </div>
       </div>
+
+      <EditDeliverableDialog
+        deliverable={editingDeliverable}
+        onOpenChange={(o) => !o && setEditingDeliverable(null)}
+      />
 
       {/* Discussion */}
       <div className="surface-card mt-4 p-5">

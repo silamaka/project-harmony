@@ -276,6 +276,14 @@ function MissionRow({
       <td className="px-3 py-3 text-xs">
         {deliverables[0] === undefined ? (
           <span className="text-muted-foreground">—</span>
+        ) : !deliverables[0].url ? (
+          <span
+            title="Lien pas encore disponible"
+            className="line-clamp-2 break-words text-muted-foreground italic"
+          >
+            {deliverables[0].name} (lien à venir)
+            {deliverables.length > 1 && ` +${deliverables.length - 1}`}
+          </span>
         ) : (
           <a
             href={deliverables[0].url}

@@ -18,7 +18,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { clientService, missionService, projectService, userService } from "@/services";
+import {
+  clientService,
+  deliverableService,
+  missionService,
+  projectService,
+  userService,
+} from "@/services";
 import {
   MISSION_STATUS_LABELS,
   MISSION_WORKFLOW,
@@ -26,6 +32,7 @@ import {
   PROJECT_STATUS_LABELS,
   TASK_TYPE_LABELS,
   type Client,
+  type Deliverable,
   type Mission,
   type MissionSource,
   type MissionStatus,
@@ -678,5 +685,81 @@ export function EditMissionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ------------------------------- Livrable --------------------------------- */
+/** Nom et lien d'un livrable. Lien vide = livrable seulement annoncé ("Lien
+ * à venir") ; changer le lien d'un livrable déjà revu le repasse "En attente"
+ * côté serveur. Piloté de l'extérieur (pas de bouton déclencheur intégré). */
+export function EditDeliverableDialog({
+  deliverable,
+  onOpenChange,
+}: {
+  deliverable: Deliverable | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={deliverable !== null} onOpenChange={onOpenChange}>
+      <DialogContent>
+        {deliverable && (
+          <EditDeliverableForm
+            key={deliverable.id}
+            deliverable={deliverable}
+            onDone={() => onOpenChange(false)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditDeliverableForm({
+  deliverable,
+  onDone,
+}: {
+  deliverable: Deliverable;
+  onDone: () => void;
+}) {
+  const [name, setName] = useState(deliverable.name);
+  const [url, setUrl] = useState(deliverable.url);
+  const done = useSaved([["deliverables"], ["deliverables", deliverable.mission_id]], onDone);
+  const mutation = useMutation({
+    mutationFn: () =>
+      deliverableService.update(deliverable.id, { name: name.trim(), url: url.trim() }),
+    onSuccess: () =>
+      done(url.trim() ? "Livrable mis à jour." : "Livrable mis à jour — lien à venir."),
+    onError: () => toast.error("Mise à jour impossible."),
+  });
+  const linkChanged = url.trim() !== deliverable.url && deliverable.url !== "" && url.trim() !== "";
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Modifier le livrable</DialogTitle>
+        <DialogDescription>
+          Laisse le lien vide s'il n'est pas encore disponible : le livrable restera « Lien à venir
+          ».
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-3">
+        <Field label="Nom">
+          <Input value={name} maxLength={140} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Lien (Drive, Figma, S3...)">
+          <Input value={url} placeholder="https://..." onChange={(e) => setUrl(e.target.value)} />
+        </Field>
+        {linkChanged && deliverable.status !== "en_attente" && (
+          <p className="text-xs text-warning">
+            Le lien change : le livrable repassera « En attente » pour être revu.
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button disabled={!name.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
+          {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
+        </Button>
+      </DialogFooter>
+    </>
   );
 }

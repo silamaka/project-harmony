@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Deliverable
+from .models import Deliverable, DeliverableStatus
 
 
 class MissionPKField(serializers.PrimaryKeyRelatedField):
@@ -52,9 +52,33 @@ class DeliverableSerializer(serializers.ModelSerializer):
         # Un dépôt n'est jamais publié d'emblée : la publication passe
         # toujours par un PATCH, soumis à DeliverablePermission.
         validated_data.pop("published", None)
+        validated_data["url"] = validated_data.get("url", "").strip()
+        if not validated_data["url"]:
+            # Annoncé sans lien : pas de validation possible avant le lien.
+            validated_data["status"] = DeliverableStatus.EN_ATTENTE
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        url = validated_data.get("url", instance.url).strip()
+        if "url" in validated_data:
+            validated_data["url"] = url
+            if not url:
+                # Lien retiré : le livrable redevient "à venir", ce qui
+                # annule une validation ou une publication devenues sans objet.
+                validated_data["status"] = DeliverableStatus.EN_ATTENTE
+                validated_data["published_at"] = None
+            elif url != instance.url and instance.status != DeliverableStatus.EN_ATTENTE:
+                # Nouveau contenu : il doit être revu, quelle que soit la
+                # décision prise sur l'ancien lien.
+                validated_data["status"] = DeliverableStatus.EN_ATTENTE
+
+        if not url and (
+            validated_data.get("published") or validated_data.get("status") == DeliverableStatus.VALIDE
+        ):
+            raise serializers.ValidationError(
+                "Ce livrable n'a pas encore de lien : il ne peut être ni validé ni publié."
+            )
+
         if "published" in validated_data:
             if not validated_data.pop("published"):
                 validated_data["published_at"] = None

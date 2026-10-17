@@ -171,6 +171,7 @@ export interface Deliverable {
   mission_id: string;
   name: string;
   type: DeliverableType;
+  /** Vide tant que le livrable est seulement annoncé ("Lien à venir"). */
   url: string;
   version: number;
   size_kb?: number;
