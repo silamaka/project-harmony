@@ -41,5 +41,10 @@ class UserWritePermission(BasePermission):
         if request.user.role == Role.ADMIN:
             return True
         if request.user.role == Role.CHEF_PROJET:
-            return obj.role == Role.COLLABORATEUR
+            # Un collaborateur uniquement, et sans jamais lui donner un autre
+            # rôle : sinon un chef de projet pourrait promouvoir n'importe qui
+            # admin en modifiant simplement le champ `role`.
+            return obj.role == Role.COLLABORATEUR and request.data.get(
+                "role", Role.COLLABORATEUR.value
+            ) == Role.COLLABORATEUR.value
         return False

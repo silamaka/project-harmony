@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientDeliverables } from "@/components/shared/client-deliverables";
+import { ClientPortalAccess } from "@/components/shared/client-portal-access";
 import { CreateMissionDialog } from "@/components/shared/create-dialogs";
 import {
   ConfirmDeleteButton,
@@ -57,7 +58,9 @@ function ClientDetailPage() {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
-  const [tab, setTab] = useState<"missions" | "livrables">("missions");
+  const [tab, setTab] = useState<"missions" | "livrables" | "acces">("missions");
+  /** Les comptes clients sont gérés par l'admin seul (voir UserWritePermission). */
+  const isAdmin = hasRole("admin");
 
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
@@ -81,6 +84,9 @@ function ClientDetailPage() {
   );
 
   const collaborators = (users ?? []).filter((u) => u.role !== "client");
+  const portalAccounts = (users ?? []).filter(
+    (u) => u.role === "client" && u.client_id === clientId,
+  ).length;
   const assigneeOptions: Record<string, string> = Object.fromEntries(
     collaborators.map((u) => [u.id, `${u.first_name} ${u.last_name}`]),
   );
@@ -167,6 +173,7 @@ function ClientDetailPage() {
           [
             ["missions", "Missions", clientMissions.length],
             ["livrables", "Livrables", clientDeliverables.length],
+            ...(isAdmin ? [["acces", "Accès portail", portalAccounts] as const] : []),
           ] as const
         ).map(([value, label, count]) => (
           <button
@@ -185,7 +192,15 @@ function ClientDetailPage() {
         ))}
       </div>
 
-      {tab === "livrables" ? (
+      {tab === "acces" && isAdmin ? (
+        <div className="mt-4">
+          <ClientPortalAccess
+            clientId={clientId}
+            clientName={client?.name ?? "ce client"}
+            users={users ?? []}
+          />
+        </div>
+      ) : tab === "livrables" ? (
         <div className="mt-4">
           <ClientDeliverables
             deliverables={clientDeliverables}

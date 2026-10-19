@@ -104,8 +104,9 @@ class MeView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """La suppression cascade vers l'entreprise liée (rôle "client") via le
-    signal post_delete (accounts/signals.py), pas ici."""
+    """Supprimer un compte "client" ne supprime jamais son entreprise : elle
+    peut avoir d'autres contacts, et surtout tout son historique (projets,
+    missions) en dépend."""
 
     queryset = User.objects.all()
     serializer_class = UserSerializer

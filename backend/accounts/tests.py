@@ -107,6 +107,27 @@ class UpdateDeleteUserPermissionTests(RoleTestCase):
         res = self.client.patch(user_detail_url(self.client_user.id), {"job_title": "Piraté"})
         self.assertEqual(res.status_code, 403)
 
+    def test_chef_projet_cannot_promote_collaborateur(self):
+        self.auth_as(self.chef_projet)
+        for role in ["admin", "chef_projet", "client"]:
+            res = self.client.patch(user_detail_url(self.collaborateur.id), {"role": role})
+            self.assertEqual(res.status_code, 403, f"promotion to {role} should be refused")
+        self.collaborateur.refresh_from_db()
+        self.assertEqual(self.collaborateur.role, "collaborateur")
+
+    def test_deleting_client_account_keeps_company_and_missions(self):
+        """Une entreprise peut avoir plusieurs contacts : supprimer l'un
+        d'eux ne doit jamais effacer l'entreprise ni son historique."""
+        from clients.models import Client
+        from missions.models import Mission
+
+        company_id = self.client_user.client_id
+        self.auth_as(self.admin)
+        res = self.client.delete(user_detail_url(self.client_user.id))
+        self.assertEqual(res.status_code, 204)
+        self.assertTrue(Client.objects.filter(id=company_id).exists())
+        self.assertTrue(Mission.objects.filter(id=self.mission.id).exists())
+
     def test_collaborateur_cannot_update_another_user(self):
         self.auth_as(self.collaborateur)
         res = self.client.patch(user_detail_url(self.other_collaborateur.id), {"job_title": "Piraté"})

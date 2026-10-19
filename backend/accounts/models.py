@@ -54,9 +54,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     job_title = models.CharField(max_length=150, blank=True)
     workload = models.PositiveSmallIntegerField(default=0)
     # Entreprise associée, uniquement pertinent pour un compte de rôle "client"
-    # (voir User.client_id côté frontend). La cascade de suppression est gérée
-    # par des signaux (accounts/signals.py), pas par on_delete=CASCADE, pour
-    # rester symétrique dans les deux sens (supprimer l'un détache l'autre).
+    # (voir User.client_id côté frontend). Une entreprise peut avoir plusieurs
+    # contacts : supprimer un compte ne touche jamais l'entreprise (ni ses
+    # projets / missions), et supprimer l'entreprise détache ses comptes.
     client = models.ForeignKey(
         "clients.Client", null=True, blank=True, on_delete=models.SET_NULL, related_name="users"
     )
