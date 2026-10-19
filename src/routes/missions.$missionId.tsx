@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
 import {
+  ClientMissionStatusBadge,
   DeliverableStateBadge,
   MissionStatusBadge,
   PriorityBadge,
@@ -29,6 +30,7 @@ import {
   deliverableState,
   hasDeliverableLink,
 } from "@/components/shared/badges";
+import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import {
   ConfirmDeleteButton,
   EditDeliverableDialog,
@@ -243,7 +245,9 @@ function MissionDetailPage() {
   /** Livrables (voir DeliverablePermission) : valider = admin, chef de projet
    * ou client ; publier = l'agence (admin, chef de projet, collaborateur de
    * la mission), jamais le client. */
-  const canValidateDeliverable = isManager || isClient;
+  /** Icône ✓ (bascule Validé / En attente) : l'agence. Le client a ses
+   * propres boutons Valider / Corrections (DeliverableDecision). */
+  const canValidateDeliverable = isManager;
   const canPublishDeliverable = isManager || (user?.role === "collaborateur" && isInvolved);
   /** Modifier (nom / lien) et supprimer : admin, chef de projet, ou le
    * collaborateur auteur du dépôt (voir DeliverablePermission). */
@@ -471,7 +475,12 @@ function MissionDetailPage() {
         <div className="surface-card p-5 lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
             {mission && <PriorityBadge priority={mission.priority} />}
-            {mission && <MissionStatusBadge status={mission.status} />}
+            {mission &&
+              (isClient ? (
+                <ClientMissionStatusBadge status={mission.status} />
+              ) : (
+                <MissionStatusBadge status={mission.status} />
+              ))}
             <span className="text-xs text-muted-foreground">
               {mission && new Date(mission.start_date).toLocaleDateString("fr-FR")} →{" "}
               {mission && new Date(mission.deadline).toLocaleDateString("fr-FR")}
@@ -598,8 +607,18 @@ function MissionDetailPage() {
                           }`}
                     </p>
                     <div className="mt-1.5">
-                      <DeliverableStateBadge deliverable={d} />
+                      <DeliverableStateBadge
+                        deliverable={d}
+                        audience={isClient ? "client" : "agence"}
+                      />
                     </div>
+                    {isClient &&
+                      d.uploaded_by !== user?.id &&
+                      deliverableState(d) === "en_attente" && (
+                        <div className="mt-2">
+                          <DeliverableDecision deliverable={d} />
+                        </div>
+                      )}
                   </div>
                   {canValidateDeliverable && hasDeliverableLink(d) && (
                     <button

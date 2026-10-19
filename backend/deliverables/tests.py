@@ -17,6 +17,10 @@ def deliverable_detail_url(deliverable_id):
 class DeliverableSetupMixin:
     def setUp(self):
         super().setUp()
+        # Mission déjà envoyée : ses livrables sont visibles du client (voir
+        # DeliverableClientVisibilityTests pour les cas où ils ne le sont pas).
+        self.mission.status = MissionStatus.ENVOYE_CLIENT
+        self.mission.save()
         self.deliverable = Deliverable.objects.create(
             mission=self.mission,
             name="Maquette",
@@ -296,7 +300,10 @@ class DeliverableWithoutLinkTests(DeliverableSetupMixin, RoleTestCase):
 
     def test_client_cannot_edit_link(self):
         self.auth_as(self.client_user)
-        self.assertEqual(self._patch({"url": "https://example.com/x"}).status_code, 403)
+        # Livrable sans lien : invisible du client (404) ; avec lien : refusé (403).
+        self.assertEqual(self._patch({"url": "https://example.com/x"}).status_code, 404)
+        res = self._patch({"url": "https://example.com/x"}, self.deliverable)
+        self.assertEqual(res.status_code, 403)
 
     def test_changing_link_of_validated_deliverable_resets_to_pending(self):
         self.deliverable.status = DeliverableStatus.VALIDE
@@ -312,6 +319,58 @@ class DeliverableWithoutLinkTests(DeliverableSetupMixin, RoleTestCase):
         res = self._patch({"url": ""}, self.deliverable)
         self.assertEqual(res.status_code, 200)
         self.assertIsNone(res.data["published_at"])
+
+
+class DeliverableClientVisibilityTests(DeliverableSetupMixin, RoleTestCase):
+    """Le client ne voit que ce que l'agence lui a envoyé : livrables avec un
+    lien, sur une mission "Envoyé au client" ou plus loin, plus ses propres
+    dépôts. Brouillons internes et "Lien à venir" restent invisibles."""
+
+    def _client_ids(self):
+        self.auth_as(self.client_user)
+        res = self.client.get(deliverable_list_url())
+        self.assertEqual(res.status_code, 200)
+        return {d["id"] for d in res.data}
+
+    def test_sees_deliverables_once_mission_sent(self):
+        self.assertIn(str(self.deliverable.id), self._client_ids())
+
+    def test_does_not_see_drafts_before_mission_is_sent(self):
+        for status in ["a_faire", "en_cours", "livrable_depose", "validation_interne"]:
+            self.mission.status = status
+            self.mission.save()
+            self.assertNotIn(str(self.deliverable.id), self._client_ids(), status)
+
+    def test_sees_deliverables_after_validation_and_publication(self):
+        for status in ["valide", "corrections", "publie", "termine"]:
+            self.mission.status = status
+            self.mission.save()
+            self.assertIn(str(self.deliverable.id), self._client_ids(), status)
+
+    def test_does_not_see_deliverable_without_link(self):
+        pending = Deliverable.objects.create(
+            mission=self.mission, name="À venir", type="lien", url="", uploaded_by=self.collaborateur
+        )
+        self.assertNotIn(str(pending.id), self._client_ids())
+
+    def test_always_sees_own_uploads(self):
+        self.mission.status = "en_cours"
+        self.mission.save()
+        own = Deliverable.objects.create(
+            mission=self.mission,
+            name="Brief du client",
+            type="lien",
+            url="https://example.com/brief",
+            uploaded_by=self.client_user,
+        )
+        self.assertIn(str(own.id), self._client_ids())
+
+    def test_cannot_validate_a_draft(self):
+        self.mission.status = "validation_interne"
+        self.mission.save()
+        self.auth_as(self.client_user)
+        res = self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
+        self.assertEqual(res.status_code, 404)
 
 
 class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):

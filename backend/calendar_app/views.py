@@ -3,7 +3,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from accounts.models import Role
 from deliverables.models import Deliverable
+from deliverables.views import client_visible_q
 from missions.scoping import missions_visible_to
 
 from .models import Meeting
@@ -39,6 +41,9 @@ def calendar_events(request):
     ]
 
     deliverables = Deliverable.objects.filter(mission__in=missions)
+    if request.user.role == Role.CLIENT:
+        # Même règle que DeliverableViewSet : pas de brouillon interne.
+        deliverables = deliverables.filter(client_visible_q(request.user))
     deliverable_events = [
         {
             "id": f"liv-{d.id}",

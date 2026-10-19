@@ -105,25 +105,85 @@ export const deliverableBorderTone: Record<DeliverableState, string> = {
   publie: "border-l-success",
 };
 
+/** Mêmes états, formulés pour le client (ce qu'on attend de lui). */
+export const CLIENT_DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> = {
+  a_venir: "Lien à venir",
+  corrections: "Corrections demandées",
+  en_attente: "En attente de votre validation",
+  pret: "Validé",
+  publie: "Publié",
+};
+
 export function DeliverableStateBadge({
   deliverable,
+  audience = "agence",
 }: {
   deliverable: Pick<Deliverable, "status" | "published_at" | "url">;
+  audience?: "agence" | "client";
 }) {
   const state = deliverableState(deliverable);
+  const labels = audience === "client" ? CLIENT_DELIVERABLE_STATE_LABELS : DELIVERABLE_STATE_LABELS;
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={cn(base, deliverableTone[state])}>{DELIVERABLE_STATE_LABELS[state]}</span>
+      <span className={cn(base, deliverableTone[state])}>{labels[state]}</span>
       {deliverable.published_at && (
         <span className="text-[11px] text-muted-foreground">
           le {new Date(deliverable.published_at).toLocaleDateString("fr-FR")}
-          {deliverable.status !== "valide" && (
+          {audience === "agence" && deliverable.status !== "valide" && (
             <span className="font-medium text-warning"> · non validé</span>
           )}
         </span>
       )}
     </span>
   );
+}
+
+/**
+ * Statut d'une mission tel que le client le voit : le circuit interne de
+ * l'agence (À faire, En cours, Livrable déposé, Validation interne) se
+ * résume pour lui à "En préparation" ; seule compte sa propre étape.
+ */
+export type ClientMissionStatus =
+  "preparation" | "a_valider" | "corrections" | "valide" | "publie" | "termine";
+
+export function clientMissionStatus(status: MissionStatus): ClientMissionStatus {
+  switch (status) {
+    case "envoye_client":
+      return "a_valider";
+    case "corrections":
+      return "corrections";
+    case "valide":
+      return "valide";
+    case "publie":
+      return "publie";
+    case "termine":
+      return "termine";
+    default:
+      return "preparation";
+  }
+}
+
+const CLIENT_MISSION_STATUS_LABELS: Record<ClientMissionStatus, string> = {
+  preparation: "En préparation",
+  a_valider: "À valider",
+  corrections: "Corrections en cours",
+  valide: "Validé",
+  publie: "Publié",
+  termine: "Terminé",
+};
+
+const clientMissionTone: Record<ClientMissionStatus, string> = {
+  preparation: "bg-primary/10 text-primary",
+  a_valider: "bg-warning/20 text-warning",
+  corrections: "bg-destructive/12 text-destructive",
+  valide: "bg-success/15 text-success",
+  publie: "bg-success/15 text-success",
+  termine: "bg-success/20 text-success",
+};
+
+export function ClientMissionStatusBadge({ status }: { status: MissionStatus }) {
+  const s = clientMissionStatus(status);
+  return <span className={cn(base, clientMissionTone[s])}>{CLIENT_MISSION_STATUS_LABELS[s]}</span>;
 }
 
 export const priorityTone: Record<Priority, string> = {
