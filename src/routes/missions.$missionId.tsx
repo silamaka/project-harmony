@@ -546,41 +546,52 @@ function MissionDetailPage() {
 
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Livrables</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Donne un nom clair au livrable, colle son lien (Drive, Figma, S3...), puis clique sur
-            Déposer. Lien pas encore prêt ? Dépose-le sans lien : il apparaîtra « Lien à venir » et
-            tu pourras l'ajouter plus tard.
-          </p>
+          {/* Un livrable est produit par l'agence : le client le consulte et
+              le valide, mais n'en dépose pas (refusé aussi côté serveur). */}
+          {isClient ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Les livrables que l'équipe vous envoie apparaissent ici. Ouvrez-les, puis validez-les
+              ou demandez des corrections.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Donne un nom clair au livrable, colle son lien (Drive, Figma, S3...), puis clique
+                sur Déposer. Lien pas encore prêt ? Dépose-le sans lien : il apparaîtra « Lien à
+                venir » et tu pourras l'ajouter plus tard.
+              </p>
 
-          <div className="mt-3 space-y-2">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nom du livrable (ex. Maquette homepage v2)"
-              maxLength={140}
-              className="h-9"
-            />
-            <div className="flex items-center gap-2">
-              <Input
-                value={newLink}
-                onChange={(e) => setNewLink(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitDeliverable();
-                }}
-                placeholder="Lien du livrable (facultatif)"
-                className="h-9"
-              />
-              <Button
-                size="sm"
-                variant={newName.trim() ? "default" : "outline"}
-                disabled={!newName.trim() || deliverableMutation.isPending}
-                onClick={submitDeliverable}
-                className="shrink-0"
-              >
-                Déposer
-              </Button>
-            </div>
-          </div>
+              <div className="mt-3 space-y-2">
+                <Input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Nom du livrable (ex. Maquette homepage v2)"
+                  maxLength={140}
+                  className="h-9"
+                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newLink}
+                    onChange={(e) => setNewLink(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") submitDeliverable();
+                    }}
+                    placeholder="Lien du livrable (facultatif)"
+                    className="h-9"
+                  />
+                  <Button
+                    size="sm"
+                    variant={newName.trim() ? "default" : "outline"}
+                    disabled={!newName.trim() || deliverableMutation.isPending}
+                    onClick={submitDeliverable}
+                    className="shrink-0"
+                  >
+                    Déposer
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
           <ul className="mt-4 space-y-2">
             {(deliverables ?? []).map((d) => {
               const Icon = typeIcon[d.type];
@@ -697,7 +708,9 @@ function MissionDetailPage() {
               );
             })}
             {(deliverables ?? []).length === 0 && (
-              <li className="text-xs text-muted-foreground">Aucun livrable déposé.</li>
+              <li className="text-xs text-muted-foreground">
+                {isClient ? "Aucun livrable reçu pour le moment." : "Aucun livrable déposé."}
+              </li>
             )}
           </ul>
         </div>

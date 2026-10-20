@@ -20,6 +20,10 @@ class DeliverablePermission(BasePermission):
             return False
         if request.method == "DELETE":
             return request.user.role in (Role.ADMIN, Role.CHEF_PROJET, Role.COLLABORATEUR)
+        if request.method == "POST":
+            # Un livrable est produit par l'agence : le client le reçoit, le
+            # consulte et le valide, mais n'en dépose jamais.
+            return request.user.role in (Role.ADMIN, Role.CHEF_PROJET, Role.COLLABORATEUR)
         return True
 
     def has_object_permission(self, request, view, obj) -> bool:

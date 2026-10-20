@@ -119,10 +119,13 @@ class DeliverableCreateTests(DeliverableSetupMixin, RoleTestCase):
         res = self.client.post(deliverable_list_url(), self._payload())
         self.assertEqual(res.status_code, 201)
 
-    def test_client_can_deposit_on_own_company_mission(self):
+    def test_client_cannot_deposit(self):
+        """Un livrable est produit par l'agence : le client le consulte et le
+        valide, mais n'en dépose jamais, même sur sa propre mission."""
         self.auth_as(self.client_user)
         res = self.client.post(deliverable_list_url(), self._payload())
-        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.status_code, 403)
+        self.assertFalse(Deliverable.objects.filter(name="Nouveau livrable").exists())
 
     def test_cannot_deposit_on_mission_outside_scope(self):
         """MissionPKField restreint le choix de mission_id à ce que
@@ -229,7 +232,7 @@ class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 403)
 
     def test_deposit_is_never_published_on_creation(self):
-        self.auth_as(self.client_user)
+        self.auth_as(self.collaborateur)
         res = self.client.post(
             deliverable_list_url(),
             {
