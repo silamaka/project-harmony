@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -26,7 +27,13 @@ class Notification(models.Model):
     type = models.CharField(max_length=20, choices=NotificationType.choices)
     title = models.CharField(max_length=200)
     body = models.CharField(max_length=500)
-    read = models.BooleanField(default=False)
+    # "Lu" est propre à chaque personne : une notification n'a pas de
+    # destinataire unique (sa portée dérive de `mission`), donc un booléen
+    # partagé faisait qu'un "Tout marquer comme lu" de l'équipe effaçait
+    # aussi les alertes du client, et inversement.
+    read_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="read_notifications"
+    )
     link = models.CharField(max_length=255, blank=True)
     mission = models.ForeignKey(
         "missions.Mission", null=True, blank=True, related_name="notifications", on_delete=models.CASCADE

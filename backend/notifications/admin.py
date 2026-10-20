@@ -5,5 +5,5 @@ from .models import Notification
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ["title", "type", "mission", "read", "created_at"]
-    list_filter = ["type", "read"]
+    list_display = ["title", "type", "mission", "created_at"]
+    list_filter = ["type"]

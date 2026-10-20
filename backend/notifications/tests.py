@@ -104,8 +104,8 @@ class NotificationMarkReadTests(NotificationSetupMixin, RoleTestCase):
             notification_detail_url(self.own_validation_notification.id), {"read": True}
         )
         self.assertEqual(res.status_code, 200)
-        self.own_validation_notification.refresh_from_db()
-        self.assertTrue(self.own_validation_notification.read)
+        self.assertTrue(res.data["read"])
+        self.assertTrue(self._read_by(self.own_validation_notification, self.client_user))
 
     def test_client_cannot_mark_out_of_scope_notification_read(self):
         """Ni une notification étrangère, ni une notification d'un type
@@ -120,12 +120,31 @@ class NotificationMarkReadTests(NotificationSetupMixin, RoleTestCase):
         self.auth_as(self.client_user)
         res = self.client.post(notification_mark_all_read_url())
         self.assertEqual(res.status_code, 200)
-        self.own_validation_notification.refresh_from_db()
-        self.own_notification.refresh_from_db()
-        self.foreign_notification.refresh_from_db()
-        self.assertTrue(self.own_validation_notification.read)
-        self.assertFalse(self.own_notification.read, "mark-all-read leaked to an excluded type")
-        self.assertFalse(self.foreign_notification.read, "mark-all-read leaked outside scope")
+        u = self.client_user
+        self.assertTrue(self._read_by(self.own_validation_notification, u))
+        self.assertFalse(self._read_by(self.own_notification, u), "leaked to an excluded type")
+        self.assertFalse(self._read_by(self.foreign_notification, u), "leaked outside scope")
+
+    def test_read_state_is_per_person(self):
+        """L'équipe qui marque tout comme lu ne doit pas effacer les alertes
+        du client (et inversement) : l'état "lu" est propre à chacun."""
+        self.auth_as(self.admin)
+        self.client.post(notification_mark_all_read_url())
+        self.auth_as(self.client_user)
+        res = self.client.get(reverse("notification-list"))
+        own = next(n for n in res.data if n["id"] == str(self.own_validation_notification.id))
+        self.assertFalse(own["read"], "le client doit encore voir son alerte comme non lue")
+
+    def test_can_mark_unread_again(self):
+        self.auth_as(self.client_user)
+        url = notification_detail_url(self.own_validation_notification.id)
+        self.client.patch(url, {"read": True})
+        res = self.client.patch(url, {"read": False})
+        self.assertFalse(res.data["read"])
+
+    @staticmethod
+    def _read_by(notification, user):
+        return notification.read_by.filter(pk=user.pk).exists()
 
     def test_substantive_fields_are_read_only(self):
         self.auth_as(self.admin)

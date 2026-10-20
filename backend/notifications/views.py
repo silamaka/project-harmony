@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -32,6 +32,17 @@ class NotificationViewSet(
 
     def get_queryset(self):
         user = self.request.user
+        # "Lu" calculé pour l'utilisateur connecté, en une seule requête.
+        return self._scoped(user).annotate(
+            is_read=Exists(
+                Notification.read_by.through.objects.filter(
+                    notification_id=OuterRef("pk"), user_id=user.id
+                )
+            )
+        )
+
+    @staticmethod
+    def _scoped(user):
         if user.role in (Role.ADMIN, Role.CHEF_PROJET):
             return Notification.objects.all()
         if user.role == Role.CLIENT:
@@ -47,5 +58,15 @@ class NotificationViewSet(
 
     @action(detail=False, methods=["post"], url_path="mark-all-read")
     def mark_all_read(self, request):
-        self.get_queryset().update(read=True)
-        return Response(NotificationSerializer(self.get_queryset(), many=True).data)
+        # Seulement pour soi : ne touche jamais l'état "lu" des autres.
+        through = Notification.read_by.through
+        through.objects.bulk_create(
+            [
+                through(notification_id=n_id, user_id=request.user.id)
+                for n_id in self._scoped(request.user).values_list("id", flat=True)
+            ],
+            ignore_conflicts=True,
+        )
+        return Response(
+            NotificationSerializer(self.get_queryset(), many=True, context={"request": request}).data
+        )
