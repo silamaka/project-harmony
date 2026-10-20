@@ -1,7 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { differenceInCalendarDays } from "date-fns";
-import { ChevronRight, Eye, FolderKanban, ListChecks, Package } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  Eye,
+  FolderKanban,
+  ListChecks,
+  MessageSquare,
+  Package,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import {
@@ -19,10 +27,12 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
 import {
   clientService,
+  commentService,
   deliverableService,
   isMissionDone,
   missionService,
   projectService,
+  userService,
 } from "@/services";
 import { cn } from "@/lib/utils";
 import type { Deliverable, Mission, Project } from "@/types";
@@ -80,6 +90,12 @@ function ClientPortalPage() {
     queryFn: deliverableService.list,
   });
 
+  // Le backend ne renvoie au client que les commentaires "visibles par le
+  // client" : jamais les échanges internes de l'équipe.
+  const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
+  const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
+  const [expandedMission, setExpandedMission] = useState<string | null>(null);
+
   const [projectFilter, setProjectFilter] = useState<string | null>(null);
   const [deliverableFilter, setDeliverableFilter] = useState<DeliverableFilter>("tous");
 
@@ -118,6 +134,27 @@ function ClientPortalPage() {
     done: visibleMissions.filter((m) => isMissionDone(m.status)).reverse(), // la plus récente en premier
   };
   const openMissions = myMissions.filter((m) => !isMissionDone(m.status)).length;
+
+  /** Aperçu dépliable d'une mission dans la liste : le client voit l'essentiel
+   * sans ouvrir la fiche. Une seule mission dépliée à la fois. */
+  const preview: MissionPreview = {
+    expandedId: expandedMission,
+    toggle: (id) => setExpandedMission((current) => (current === id ? null : id)),
+    deliverablesOf: (id) => myDeliverables.filter((d) => d.mission_id === id),
+    lastTeamMessageOf: (id) => {
+      const last = (comments ?? [])
+        .filter((c) => c.mission_id === id && c.author_id !== user?.id)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+      if (!last) return undefined;
+      const author = users?.find((u) => u.id === last.author_id);
+      return {
+        author: author ? `${author.first_name} ${author.last_name}` : "L'équipe",
+        body: last.body,
+        date: last.created_at,
+      };
+    },
+    userId: user?.id,
+  };
 
   const deliverableMatches: Record<DeliverableFilter, (d: Deliverable) => boolean> = {
     tous: () => true,
@@ -250,11 +287,13 @@ function ClientPortalPage() {
               hint="L'équipe attend votre retour."
               tone="warning"
               missions={missionGroups.toValidate}
+              preview={preview}
             />
             <MissionGroup
               title="En cours"
               hint="L'équipe y travaille."
               missions={missionGroups.inProgress}
+              preview={preview}
             />
             {missionGroups.done.length > 0 && (
               <details className="group mt-5">
@@ -262,7 +301,7 @@ function ClientPortalPage() {
                   <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
                   Terminées ({missionGroups.done.length})
                 </summary>
-                <MissionList missions={missionGroups.done} muted />
+                <MissionList missions={missionGroups.done} preview={preview} muted />
               </details>
             )}
           </>
@@ -400,11 +439,13 @@ function MissionGroup({
   hint,
   tone = "default",
   missions,
+  preview,
 }: {
   title: string;
   hint: string;
   tone?: "default" | "warning";
   missions: Mission[];
+  preview: MissionPreview;
 }): ReactNode {
   if (missions.length === 0) return null;
   return (
@@ -418,33 +459,151 @@ function MissionGroup({
         {title} ({missions.length})
         <span className="ml-2 font-normal tracking-normal normal-case">{hint}</span>
       </p>
-      <MissionList missions={missions} />
+      <MissionList missions={missions} preview={preview} />
     </div>
   );
 }
 
+type MissionPreview = {
+  expandedId: string | null;
+  toggle: (missionId: string) => void;
+  deliverablesOf: (missionId: string) => Deliverable[];
+  lastTeamMessageOf: (
+    missionId: string,
+  ) => { author: string; body: string; date: string } | undefined;
+  userId: string | undefined;
+};
+
 /** Échéance affichée comme une date prévue, jamais comme un retard : un
- * dépassement d'échéance côté agence reste une information interne. */
-function MissionList({ missions, muted = false }: { missions: Mission[]; muted?: boolean }) {
+ * dépassement d'échéance côté agence reste une information interne. Un clic
+ * sur une ligne déplie son aperçu (description, livrables, dernier message
+ * de l'équipe) ; la fiche complète reste à un clic. */
+function MissionList({
+  missions,
+  preview,
+  muted = false,
+}: {
+  missions: Mission[];
+  preview: MissionPreview;
+  muted?: boolean;
+}) {
   return (
     <div className="mt-2 space-y-2">
-      {missions.map((m) => (
-        <Link
-          key={m.id}
-          to="/missions/$missionId"
-          params={{ missionId: m.id }}
-          className={cn(
-            "flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary/50 hover:bg-accent/20",
-            muted && "opacity-70",
-          )}
-        >
-          <span className="min-w-0 flex-1 truncate text-sm">{m.title}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {isMissionDone(m.status) ? "Échéance" : "Prévu pour le"} {formatDate(m.deadline)}
-          </span>
-          <ClientMissionStatusBadge status={m.status} />
-        </Link>
-      ))}
+      {missions.map((m) => {
+        const open = preview.expandedId === m.id;
+        return (
+          <div
+            key={m.id}
+            className={cn(
+              "rounded-lg border transition-colors",
+              open ? "border-primary/50 bg-primary/[0.03]" : "border-border",
+              muted && !open && "opacity-70",
+            )}
+          >
+            <button
+              type="button"
+              onClick={() => preview.toggle(m.id)}
+              aria-expanded={open}
+              className="flex w-full flex-wrap items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent/20"
+            >
+              <ChevronRight
+                className={cn(
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                  open && "rotate-90 text-primary",
+                )}
+              />
+              <span className="min-w-0 flex-1 truncate text-sm">{m.title}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {isMissionDone(m.status) ? "Échéance" : "Prévu pour le"} {formatDate(m.deadline)}
+              </span>
+              <ClientMissionStatusBadge status={m.status} />
+            </button>
+            {open && <MissionPreviewPanel mission={m} preview={preview} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MissionPreviewPanel({ mission, preview }: { mission: Mission; preview: MissionPreview }) {
+  const missionDeliverables = preview.deliverablesOf(mission.id);
+  const lastMessage = preview.lastTeamMessageOf(mission.id);
+  return (
+    <div className="space-y-4 border-t border-border px-4 py-4 pl-10">
+      <div>
+        <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Description
+        </p>
+        <p className="mt-1 line-clamp-4 whitespace-pre-wrap break-words text-sm">
+          {mission.description?.trim() || "Pas de description."}
+        </p>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Du {formatDate(mission.start_date)} au {formatDate(mission.deadline)}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          Livrables ({missionDeliverables.length})
+        </p>
+        {missionDeliverables.length === 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">Aucun livrable reçu pour le moment.</p>
+        ) : (
+          <ul className="mt-2 space-y-2">
+            {missionDeliverables.map((d) => (
+              <li
+                key={d.id}
+                className={cn(
+                  "flex flex-wrap items-center gap-3 rounded-md border border-l-4 border-border bg-background px-3 py-2",
+                  deliverableBorderTone[deliverableState(d)],
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{d.name}</span>
+                <DeliverableStateBadge deliverable={d} audience="client" />
+                {hasDeliverableLink(d) && (
+                  <a
+                    href={d.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Eye className="h-4 w-4" /> Ouvrir
+                  </a>
+                )}
+                {awaitsDecision(d, preview.userId) && <DeliverableDecision deliverable={d} />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {lastMessage && (
+        <div>
+          <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+            Dernier message de l'équipe
+          </p>
+          <div className="mt-1.5 flex gap-2 rounded-md bg-muted/40 px-3 py-2">
+            <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">
+                {lastMessage.author} · {new Date(lastMessage.date).toLocaleDateString("fr-FR")}
+              </p>
+              <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm">
+                {lastMessage.body}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Link
+        to="/missions/$missionId"
+        params={{ missionId: mission.id }}
+        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+      >
+        Voir la mission complète <ArrowRight className="h-4 w-4" />
+      </Link>
     </div>
   );
 }
