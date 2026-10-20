@@ -426,7 +426,7 @@ function MonthView({
               onClick={() => onDayClick(date)}
               aria-label={`Voir les événements du ${format(date, "d MMMM yyyy", { locale: fr })}`}
               className={cn(
-                "flex min-h-24 w-full flex-col justify-start cursor-pointer rounded-lg border border-border/60 p-1.5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex min-h-24 w-full min-w-0 flex-col justify-start overflow-hidden cursor-pointer rounded-lg border border-border/60 p-1.5 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 !inMonth && "bg-muted/30 opacity-50",
                 isToday(date) && "border-primary bg-primary/5",
               )}
@@ -439,7 +439,7 @@ function MonthView({
               >
                 {date.getDate()}
               </span>
-              <div className="mt-1 space-y-1">
+              <div className="mt-1 w-full min-w-0 space-y-1">
                 {list.slice(0, 3).map((e) => (
                   <EventChip key={e.id} event={e} onClick={onEventClick} />
                 ))}
@@ -492,7 +492,7 @@ function WeekView({
             onClick={() => onDayClick(date)}
             aria-label={`Voir les événements du ${format(date, "d MMMM yyyy", { locale: fr })}`}
             className={cn(
-              "flex min-h-40 w-full flex-col justify-start cursor-pointer rounded-lg border border-border/60 p-2 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex min-h-40 w-full min-w-0 flex-col justify-start overflow-hidden cursor-pointer rounded-lg border border-border/60 p-2 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isToday(date) && "border-primary bg-primary/5",
             )}
           >
@@ -502,7 +502,7 @@ function WeekView({
             <p className={cn("text-sm font-bold", isToday(date) && "text-primary")}>
               {date.getDate()}
             </p>
-            <div className="mt-2 space-y-1">
+            <div className="mt-2 w-full min-w-0 space-y-1">
               {list.map((e) => (
                 <EventChip key={e.id} event={e} onClick={onEventClick} full />
               ))}
