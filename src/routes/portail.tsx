@@ -23,7 +23,6 @@ import {
 } from "@/components/shared/badges";
 import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import { StatCard } from "@/components/shared/stat-card";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/context/auth-context";
 import {
   clientService,
@@ -237,7 +236,7 @@ function ClientPortalPage() {
                   key={d.id}
                   className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5"
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 w-full sm:w-auto sm:flex-1">
                     <p className="truncate text-sm font-medium">{d.name}</p>
                     <MissionLink mission={missionById.get(d.mission_id)} />
                     <p
@@ -341,7 +340,7 @@ function ClientPortalPage() {
                     deliverableBorderTone[deliverableState(d)],
                   )}
                 >
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 w-full sm:w-auto sm:flex-1">
                     <p className="truncate text-sm font-medium">{d.name}</p>
                     <MissionLink mission={missionById.get(d.mission_id)} />
                   </div>
@@ -376,7 +375,7 @@ function ClientPortalPage() {
   );
 }
 
-/** Avancement du projet unique du client, en une ligne. */
+/** Projet unique du client, en une ligne (nom et statut). */
 function ProjectStrip({ project }: { project: Project }) {
   return (
     <div className="surface-card mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
@@ -385,10 +384,6 @@ function ProjectStrip({ project }: { project: Project }) {
       </span>
       <span className="min-w-0 truncate text-sm font-semibold">{project.name}</span>
       <ProjectStatusBadge status={project.status} />
-      <div className="flex min-w-40 flex-1 items-center gap-3">
-        <Progress value={project.progress} className="h-2 flex-1" />
-        <span className="text-xs font-semibold">{project.progress}%</span>
-      </div>
     </div>
   );
 }
@@ -425,9 +420,7 @@ function ProjectFilter({
           onClick={() => onChange(value === p.id ? null : p.id)}
         >
           {p.name}
-          <span className="opacity-70">
-            {p.status === "archive" ? "archivé" : `${p.progress}%`}
-          </span>
+          {p.status === "archive" && <span className="opacity-70">archivé</span>}
         </button>
       ))}
     </div>
@@ -560,7 +553,9 @@ function MissionPreviewPanel({ mission, preview }: { mission: Mission; preview: 
                   deliverableBorderTone[deliverableState(d)],
                 )}
               >
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{d.name}</span>
+                <span className="min-w-0 w-full truncate text-sm font-medium sm:w-auto sm:flex-1">
+                  {d.name}
+                </span>
                 <DeliverableStateBadge deliverable={d} audience="client" />
                 {hasDeliverableLink(d) && (
                   <a

@@ -654,7 +654,6 @@ function DashboardPage() {
                   <span className="text-xs text-muted-foreground">
                     Chef : {userName(p.owner_id)}
                   </span>
-                  <span className="text-xs font-semibold text-primary">{p.progress}%</span>
                 </Link>
               ))}
             </div>

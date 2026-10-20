@@ -14,7 +14,6 @@ import {
 import { MissionsTable } from "@/components/shared/missions-table";
 import { PillSelect } from "@/components/shared/pill-select";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   clientService,
@@ -38,7 +37,7 @@ export const Route = createFileRoute("/projets/$projectId")({
   head: () => ({
     meta: [
       { title: "Détail projet — OLYMPE" },
-      { name: "description", content: "Détail du projet, missions associées et progression." },
+      { name: "description", content: "Détail du projet et missions associées." },
       { property: "og:title", content: "Détail projet — OLYMPE" },
       { property: "og:description", content: "Suivi complet du projet client." },
     ],
@@ -204,13 +203,6 @@ function ProjectDetailPage() {
           <p className="mt-4 whitespace-pre-wrap break-words text-sm text-muted-foreground">
             {project?.description}
           </p>
-          <div className="mt-6">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Progression</span>
-              <span className="font-semibold">{project?.progress ?? 0}%</span>
-            </div>
-            <Progress value={project?.progress ?? 0} className="mt-2 h-2.5" />
-          </div>
         </div>
 
         <div className="surface-card p-5">

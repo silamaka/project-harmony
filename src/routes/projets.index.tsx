@@ -10,7 +10,6 @@ import { ConfirmDeleteButton, EditProjectDialog } from "@/components/shared/edit
 import { PillSelect } from "@/components/shared/pill-select";
 import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { clientService, projectService, userService } from "@/services";
 import { PROJECT_STATUS_LABELS, type Project, type ProjectStatus } from "@/types";
@@ -19,7 +18,7 @@ export const Route = createFileRoute("/projets/")({
   head: () => ({
     meta: [
       { title: "Projets — OLYMPE" },
-      { name: "description", content: "Suivi des projets clients, statuts et progression." },
+      { name: "description", content: "Suivi des projets clients et de leurs statuts." },
       { property: "og:title", content: "Projets — OLYMPE" },
       { property: "og:description", content: "Tous les projets de l'agence en un coup d'œil." },
     ],
@@ -143,12 +142,11 @@ function ProjectsPage() {
         <div className="max-h-[70vh] overflow-auto">
           <table className="w-full min-w-[700px] table-fixed border-collapse text-sm">
             <colgroup>
-              <col className="w-[22%]" />
-              <col className="w-[15%]" />
-              <col className="w-[13%]" />
-              <col className="w-[10%]" />
+              <col className="w-[26%]" />
+              <col className="w-[18%]" />
               <col className="w-[16%]" />
-              <col className="w-[13%]" />
+              <col className="w-[12%]" />
+              <col className="w-[17%]" />
               <col className="w-[11%]" />
             </colgroup>
             <thead>
@@ -158,7 +156,6 @@ function ProjectsPage() {
                 <th className="px-3 py-3">Responsable</th>
                 <th className="px-3 py-3">Échéance</th>
                 <th className="px-3 py-3">Statut</th>
-                <th className="px-3 py-3">Progression</th>
                 <th className="px-3 py-3"></th>
               </tr>
             </thead>
@@ -176,7 +173,7 @@ function ProjectsPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     Aucun projet.
                   </td>
                 </tr>
@@ -231,12 +228,6 @@ function ProjectRow({
           tone={projectTone}
           onChange={(v) => onStatusChange(v as ProjectStatus)}
         />
-      </td>
-      <td className="px-3 py-3">
-        <div className="flex items-center gap-2">
-          <Progress value={project.progress} className="h-2 w-full" />
-          <span className="shrink-0 text-xs font-semibold">{project.progress}%</span>
-        </div>
       </td>
       <td className="px-3 py-3 pl-2">
         <div className="flex items-center justify-end gap-2.5">
