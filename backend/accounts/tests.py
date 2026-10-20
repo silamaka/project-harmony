@@ -296,3 +296,73 @@ class ResetPasswordTests(RoleTestCase):
         payload["password"] = "abc"
         res = self.client.post(reverse("password_reset"), payload)
         self.assertEqual(res.status_code, 400)
+
+
+class SelfProfileSecurityTests(RoleTestCase):
+    """PATCH /auth/me/ ne doit jamais permettre de changer son rôle, son
+    entreprise ou son statut : sinon n'importe qui pouvait se passer admin
+    ou lire les données d'une autre entreprise."""
+
+    def _patch_me(self, data):
+        return self.client.patch(reverse("me"), data, format="json")
+
+    def test_client_cannot_promote_self_to_admin(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(self._patch_me({"role": "admin"}).status_code, 403)
+        self.client_user.refresh_from_db()
+        self.assertEqual(self.client_user.role, "client")
+
+    def test_client_cannot_switch_company(self):
+        self.auth_as(self.client_user)
+        res = self._patch_me({"client_id": str(self.other_client_company.id)})
+        self.assertEqual(res.status_code, 403)
+        self.client_user.refresh_from_db()
+        self.assertEqual(self.client_user.client_id, self.client_company.id)
+
+    def test_collaborateur_cannot_change_role_status_or_email(self):
+        self.auth_as(self.collaborateur)
+        for data in [{"role": "admin"}, {"is_active": False}, {"email": "x@test.local"}]:
+            self.assertEqual(self._patch_me(data).status_code, 403, data)
+
+    def test_password_cannot_be_set_through_me(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(self._patch_me({"password": "nouveau123"}).status_code, 403)
+
+    def test_can_update_own_phone(self):
+        self.auth_as(self.client_user)
+        res = self._patch_me({"phone": "+212 600 00 00 00"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["phone"], "+212 600 00 00 00")
+
+
+class ChangePasswordTests(RoleTestCase):
+    def _change(self, current, new):
+        return self.client.post(
+            reverse("password_change"),
+            {"current_password": current, "new_password": new},
+            format="json",
+        )
+
+    def setUp(self):
+        super().setUp()
+        self.client_user.set_password("initial123")
+        self.client_user.save()
+        self.auth_as(self.client_user)
+
+    def test_client_can_change_own_password(self):
+        res = self._change("initial123", "monNouveau2026")
+        self.assertEqual(res.status_code, 200)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("monNouveau2026"))
+
+    def test_wrong_current_password_is_refused(self):
+        self.assertEqual(self._change("mauvais", "monNouveau2026").status_code, 400)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("initial123"))
+
+    def test_too_short_password_is_refused(self):
+        self.assertEqual(self._change("initial123", "court").status_code, 400)
+
+    def test_unauthenticated_rejected(self):
+        self.logout()
+        self.assertEqual(self._change("initial123", "monNouveau2026").status_code, 401)

@@ -92,15 +92,57 @@ class ResetPasswordView(APIView):
         return Response({"detail": "Mot de passe mis à jour."})
 
 
+# Ce qu'un utilisateur peut modifier sur son propre compte. Tout le reste
+# (rôle, entreprise rattachée, statut actif, e-mail de connexion...) relève
+# de l'admin : sans cette liste, n'importe qui pouvait se passer admin ou se
+# rattacher à une autre entreprise via PATCH /auth/me/.
+SELF_EDITABLE_FIELDS = {"phone", "avatar_url"}
+
+
 class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
     def patch(self, request):
+        forbidden = set(request.data.keys()) - SELF_EDITABLE_FIELDS
+        if forbidden:
+            return Response(
+                {"detail": f"Champs non modifiables sur votre propre compte : {', '.join(sorted(forbidden))}."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = UserSerializer(request.user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class ChangePasswordView(APIView):
+    """Changer son propre mot de passe, en confirmant l'actuel. Indispensable
+    puisque c'est l'admin qui choisit le mot de passe initial et le transmet
+    (souvent par message) : l'utilisateur doit pouvoir le remplacer."""
+
+    throttle_scope = "auth-sensitive"
+
+    def post(self, request):
+        current = str(request.data.get("current_password", ""))
+        new = str(request.data.get("new_password", ""))
+        if not request.user.check_password(current):
+            return Response(
+                {"detail": "Mot de passe actuel incorrect."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        if len(new) < 8:
+            return Response(
+                {"detail": "Le nouveau mot de passe doit contenir au moins 8 caractères."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new == current:
+            return Response(
+                {"detail": "Le nouveau mot de passe doit être différent de l'actuel."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        request.user.set_password(new)
+        request.user.save(update_fields=["password"])
+        return Response({"detail": "Mot de passe mis à jour."})
 
 
 class UserViewSet(viewsets.ModelViewSet):
