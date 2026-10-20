@@ -32,6 +32,13 @@ export const authService = {
   resetPassword: async (uid: string, token: string, password: string) => {
     await api.post(endpoints.auth.resetPassword, { uid, token, password });
   },
+  /** POST /api/v1/auth/password/change/ — changer son propre mot de passe. */
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    await api.post(endpoints.auth.changePassword, {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  },
 };
 
 /* -------------------------------- Clients -------------------------------- */

@@ -84,6 +84,7 @@ export const endpoints = {
     me: "/auth/me/",
     forgotPassword: "/auth/password/forgot/",
     resetPassword: "/auth/password/reset/",
+    changePassword: "/auth/password/change/",
   },
   users: "/users/",
   clients: "/clients/",
