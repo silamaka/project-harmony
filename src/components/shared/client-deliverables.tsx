@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import {
   DELIVERABLE_STATES,
   DeliverableStateBadge,
+  deliverableBorderTone,
   deliverableRowTone,
   deliverableState,
   hasDeliverableLink,
@@ -135,6 +136,70 @@ export function ClientDeliverables({
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     );
 
+  /** Actions d'un livrable, identiques en carte (mobile) et en tableau. */
+  const renderActions = (d: Deliverable) => (
+    <>
+      {canEdit(d) && (
+        <button
+          type="button"
+          onClick={() => setEditing(d)}
+          aria-label={`Modifier ${d.name}`}
+          title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
+          className="text-muted-foreground hover:text-primary"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+      )}
+      {hasDeliverableLink(d) && (
+        <a
+          href={d.url}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Voir ${d.name}`}
+          title="Ouvrir"
+          className="text-muted-foreground hover:text-primary"
+        >
+          <Eye className="h-4 w-4" />
+        </a>
+      )}
+      {canPublish && hasDeliverableLink(d) && (
+        <button
+          type="button"
+          onClick={() => publish.mutate({ id: d.id, published: !d.published_at })}
+          disabled={publish.isPending}
+          aria-label={d.published_at ? `Annuler la publication de ${d.name}` : `Publier ${d.name}`}
+          title={d.published_at ? "Publié — cliquer pour annuler" : "Marquer comme publié"}
+          className={cn(
+            "text-muted-foreground hover:text-primary",
+            d.published_at && "text-primary",
+          )}
+        >
+          <Megaphone className="h-4 w-4" />
+        </button>
+      )}
+      {canValidate && hasDeliverableLink(d) && (
+        <button
+          type="button"
+          onClick={() =>
+            validate.mutate({
+              id: d.id,
+              status: d.status === "valide" ? "en_attente" : "valide",
+            })
+          }
+          disabled={validate.isPending}
+          aria-label={`Valider ${d.name}`}
+          title={d.status === "valide" ? "Validé" : "Valider"}
+          className={cn(
+            "text-muted-foreground hover:text-success",
+            d.status === "valide" && "text-success",
+          )}
+        >
+          <CheckCircle2 className="h-4 w-4" />
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
@@ -165,7 +230,60 @@ export function ClientDeliverables({
         </div>
       </div>
 
-      <div className="surface-card mt-4 overflow-hidden">
+      {/* Téléphone et tablette : une carte par livrable (le tableau cachait
+          l'état et les actions derrière un défilement horizontal). */}
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:hidden">
+        {list.map((d) => {
+          const Icon = TYPE_ICON[d.type];
+          const mission = missionById.get(d.mission_id);
+          const state = deliverableState(d);
+          return (
+            <div
+              key={d.id}
+              className={cn(
+                "rounded-xl border border-l-4 border-border p-3",
+                deliverableRowTone[state],
+                deliverableBorderTone[state],
+              )}
+            >
+              <div className="flex items-start gap-2">
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium break-words">{d.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {hasDeliverableLink(d) ? `v${d.version}` : "Lien pas encore disponible"}
+                  </p>
+                </div>
+                <DeliverableStateBadge deliverable={d} />
+              </div>
+              {mission && (
+                <Link
+                  to="/missions/$missionId"
+                  params={{ missionId: mission.id }}
+                  className="mt-2 block truncate text-sm text-primary hover:underline"
+                >
+                  {mission.title}
+                </Link>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+                  Déposé par {nameOf(d.uploaded_by)} le {formatDate(d.created_at)}
+                </p>
+                <div className="flex items-center gap-4">{renderActions(d)}</div>
+              </div>
+            </div>
+          );
+        })}
+        {list.length === 0 && (
+          <p className="surface-card px-3 py-10 text-center text-sm text-muted-foreground md:col-span-2">
+            {deliverables.length === 0
+              ? "Aucun livrable pour ce client."
+              : "Aucun livrable pour ce filtre."}
+          </p>
+        )}
+      </div>
+
+      <div className="surface-card mt-4 hidden overflow-hidden xl:block">
         <div className="max-h-[70vh] overflow-auto">
           <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead>
@@ -222,74 +340,7 @@ export function ClientDeliverables({
                       <DeliverableStateBadge deliverable={d} />
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center justify-end gap-3">
-                        {canEdit(d) && (
-                          <button
-                            type="button"
-                            onClick={() => setEditing(d)}
-                            aria-label={`Modifier ${d.name}`}
-                            title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        )}
-                        {hasDeliverableLink(d) && (
-                          <a
-                            href={d.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Voir ${d.name}`}
-                            title="Ouvrir"
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </a>
-                        )}
-                        {canPublish && hasDeliverableLink(d) && (
-                          <button
-                            type="button"
-                            onClick={() => publish.mutate({ id: d.id, published: !d.published_at })}
-                            disabled={publish.isPending}
-                            aria-label={
-                              d.published_at
-                                ? `Annuler la publication de ${d.name}`
-                                : `Publier ${d.name}`
-                            }
-                            title={
-                              d.published_at
-                                ? "Publié — cliquer pour annuler"
-                                : "Marquer comme publié"
-                            }
-                            className={cn(
-                              "text-muted-foreground hover:text-primary",
-                              d.published_at && "text-primary",
-                            )}
-                          >
-                            <Megaphone className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canValidate && hasDeliverableLink(d) && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              validate.mutate({
-                                id: d.id,
-                                status: d.status === "valide" ? "en_attente" : "valide",
-                              })
-                            }
-                            disabled={validate.isPending}
-                            aria-label={`Valider ${d.name}`}
-                            title={d.status === "valide" ? "Validé" : "Valider"}
-                            className={cn(
-                              "text-muted-foreground hover:text-success",
-                              d.status === "valide" && "text-success",
-                            )}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
+                      <div className="flex items-center justify-end gap-3">{renderActions(d)}</div>
                     </td>
                   </tr>
                 );
