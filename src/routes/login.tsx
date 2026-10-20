@@ -110,6 +110,17 @@ function LoginPage() {
               {pending ? "Connexion..." : "Se connecter"}
             </Button>
           </form>
+
+          {/* Téléphone et tablette en portrait : l'illustration passe sous le
+              formulaire (elle occupe la moitié droite sur grand écran). */}
+          <div className="brand-gradient mt-10 overflow-hidden rounded-2xl shadow-sm lg:hidden">
+            <img
+              src="/BEBA_EMPIRE_clean.png"
+              alt="BEBA EMPIRE"
+              loading="lazy"
+              className="w-full object-contain"
+            />
+          </div>
         </motion.div>
       </div>
 
