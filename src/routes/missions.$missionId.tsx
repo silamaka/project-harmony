@@ -9,6 +9,7 @@ import {
   Film,
   ImageIcon,
   LinkIcon,
+  Lock,
   Megaphone,
   Pencil,
   RefreshCcw,
@@ -83,6 +84,7 @@ function MissionDetailPage() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
+  const [draftToClient, setDraftToClient] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [newName, setNewName] = useState("");
@@ -131,10 +133,14 @@ function MissionDetailPage() {
       commentService.create({
         mission_id: missionId,
         body,
+        // Interne par défaut pour l'équipe ; le serveur force "visible"
+        // pour un commentaire du client.
+        client_visible: isClient || draftToClient,
       }),
     onSuccess: () => {
       refresh([["comments", missionId]]);
       setDraft("");
+      setDraftToClient(false);
       toast.success("Commentaire publié.");
     },
   });
@@ -268,6 +274,12 @@ function MissionDetailPage() {
   /** Le client ne peut valider / demander des corrections qu'une fois la
    * mission effectivement envoyée par l'agence — pas avant. */
   const clientTurnToAct = isClient && mission?.status === "envoye_client";
+  /** Le client valide les livrables et la mission suit (côté serveur) : les
+   * boutons Valider / Corrections au niveau de la mission ne servent plus
+   * que pour une mission envoyée sans livrable. */
+  const hasSentDeliverables = (deliverables ?? []).some(
+    (d) => hasDeliverableLink(d) && d.uploaded_by !== user?.id,
+  );
 
   return (
     <AppShell
@@ -289,7 +301,17 @@ function MissionDetailPage() {
       {/* Workflow */}
       {isClient ? (
         <>
-          {clientTurnToAct ? (
+          {clientTurnToAct && hasSentDeliverables ? (
+            <div className="surface-card mt-4 border-2 border-primary/30 bg-primary/5 p-6">
+              <p className="text-xs font-bold tracking-wide text-primary uppercase">
+                À vous de jouer
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ouvrez chaque livrable ci-dessous, puis validez-le ou demandez des corrections. La
+                mission sera validée automatiquement une fois tous ses livrables validés.
+              </p>
+            </div>
+          ) : clientTurnToAct ? (
             <div className="surface-card mt-4 border-2 border-primary/30 bg-primary/5 p-6">
               <p className="text-xs font-bold tracking-wide text-primary uppercase">
                 À vous de jouer
@@ -736,9 +758,30 @@ function MissionDetailPage() {
                     .map((n) => n[0])
                     .join("")}
                 </div>
-                <div className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2">
+                <div
+                  className={cn(
+                    "min-w-0 flex-1 rounded-lg border px-3 py-2",
+                    // Côté agence, un commentaire interne se distingue d'un
+                    // message lu par le client.
+                    !isClient && !c.client_visible
+                      ? "border-dashed border-border bg-muted/30"
+                      : "border-border",
+                  )}
+                >
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-semibold">{authorName(c.author_id)}</p>
+                    <p className="flex items-center gap-2 text-xs font-semibold">
+                      {authorName(c.author_id)}
+                      {!isClient &&
+                        (c.client_visible ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            <Eye className="h-3 w-3" /> Visible par le client
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <Lock className="h-3 w-3" /> Interne
+                          </span>
+                        ))}
+                    </p>
                     <div className="flex items-center gap-2">
                       <p className="text-[11px] text-muted-foreground">
                         {new Date(c.created_at).toLocaleString("fr-FR")}
@@ -813,8 +856,14 @@ function MissionDetailPage() {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               maxLength={1000}
-              placeholder={`Écrire un commentaire en tant que ${user?.first_name}... (@mention possible)`}
-              className="min-h-20"
+              placeholder={
+                isClient
+                  ? "Écrire un message à l'équipe…"
+                  : draftToClient
+                    ? `Message au client, en tant que ${user?.first_name}…`
+                    : `Note interne à l'équipe, en tant que ${user?.first_name}… (@mention possible)`
+              }
+              className={cn("min-h-20", !isClient && draftToClient && "border-primary/50")}
             />
             <Button
               size="icon"
@@ -825,6 +874,25 @@ function MissionDetailPage() {
               <Send className="h-4 w-4" />
             </Button>
           </div>
+          {!isClient && (
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs select-none">
+              <input
+                type="checkbox"
+                checked={draftToClient}
+                onChange={(e) => setDraftToClient(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[var(--color-primary)]"
+              />
+              {draftToClient ? (
+                <span className="font-medium text-primary">
+                  Visible par le client : il lira ce message.
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  Interne : seule l'équipe le voit. Cochez pour l'envoyer au client.
+                </span>
+              )}
+            </label>
+          )}
         </div>
       </div>
     </AppShell>

@@ -2,6 +2,10 @@ from django.db import transaction
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework import viewsets
 
+from accounts.models import Role
+from notifications.services import notify_client_decision
+
+from .models import MissionStatus
 from .permissions import MissionPermission
 from .scoping import missions_visible_to
 from .serializers import MissionSerializer
@@ -40,6 +44,19 @@ class MissionViewSet(viewsets.ModelViewSet):
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         return queryset
+
+    def perform_update(self, serializer):
+        previous_status = serializer.instance.status
+        mission = serializer.save()
+        # Décision du client sur la mission entière (Valider / Corrections) :
+        # l'équipe doit le savoir, sinon la réponse passe inaperçue.
+        if self.request.user.role == Role.CLIENT and mission.status != previous_status:
+            notify_client_decision(
+                self.request.user,
+                mission,
+                validated=mission.status == MissionStatus.VALIDE,
+                subject=f"mission « {mission.title} »",
+            )
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():

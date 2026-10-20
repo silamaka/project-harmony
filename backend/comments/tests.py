@@ -39,10 +39,27 @@ class CommentReadScopingTests(CommentSetupMixin, RoleTestCase):
         self.assertEqual(len(res.data), 1)
 
     def test_client_sees_own_company_mission_comments(self):
+        self.comment.client_visible = True
+        self.comment.save()
         self.auth_as(self.client_user)
         res = self.client.get(comment_list_url())
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 1)
+
+    def test_client_never_sees_internal_comments(self):
+        """Interne par défaut : un échange de l'équipe n'est jamais lu par
+        le client, ni en liste ni en accès direct."""
+        self.auth_as(self.client_user)
+        res = self.client.get(comment_list_url(), {"mission": str(self.mission.id)})
+        self.assertEqual(res.data, [])
+        res = self.client.get(reverse("comment-detail", args=[self.comment.id]))
+        self.assertEqual(res.status_code, 404)
+
+    def test_team_sees_internal_comments(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.get(comment_list_url())
+        self.assertEqual(len(res.data), 1)
+        self.assertFalse(res.data[0]["client_visible"])
 
     def test_other_client_sees_none(self):
         self.auth_as(self.other_client_user)
@@ -56,6 +73,33 @@ class CommentReadScopingTests(CommentSetupMixin, RoleTestCase):
 
 
 class CommentCreateTests(CommentSetupMixin, RoleTestCase):
+    def test_client_comment_is_always_client_visible(self):
+        self.auth_as(self.client_user)
+        res = self.client.post(
+            comment_list_url(),
+            {"mission_id": str(self.mission.id), "body": "Merci !", "client_visible": False},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertTrue(res.data["client_visible"])
+
+    def test_team_comment_is_internal_by_default(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.post(
+            comment_list_url(), {"mission_id": str(self.mission.id), "body": "Note interne"}
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertFalse(res.data["client_visible"])
+
+    def test_team_can_write_to_client(self):
+        self.auth_as(self.chef_projet)
+        res = self.client.post(
+            comment_list_url(),
+            {"mission_id": str(self.mission.id), "body": "Bonjour", "client_visible": True},
+            format="json",
+        )
+        self.assertTrue(res.data["client_visible"])
+
     def test_client_can_post_comment_on_own_mission(self):
         self.auth_as(self.client_user)
         res = self.client.post(

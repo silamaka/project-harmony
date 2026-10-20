@@ -15,6 +15,10 @@ class Comment(models.Model):
     )
     # TextField (pas URLField) : même raison que Deliverable.url / User.avatar_url.
     attachment_url = models.TextField(blank=True)
+    # Interne par défaut : un échange entre membres de l'équipe ne doit jamais
+    # être lu par le client. Seuls les commentaires marqués visibles (et tous
+    # ceux écrits par le client lui-même) apparaissent dans son portail.
+    client_visible = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

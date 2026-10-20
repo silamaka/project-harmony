@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Package,
   RefreshCcw,
+  UserCheck,
   UserPlus,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
@@ -38,6 +39,7 @@ const ICONS: Record<Notification["type"], typeof Bell> = {
   validation: CheckCircle2,
   correction: RefreshCcw,
   retard: AlertTriangle,
+  decision_client: UserCheck,
 };
 
 function NotificationsPage() {

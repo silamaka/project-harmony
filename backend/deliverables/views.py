@@ -5,6 +5,7 @@ from accounts.models import Role
 from missions.models import MissionStatus
 from missions.scoping import missions_visible_to
 
+from .decisions import apply_client_decision
 from .models import Deliverable
 
 # Le client ne voit un livrable de l'agence qu'une fois la mission envoyée
@@ -48,3 +49,9 @@ class DeliverableViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
+
+    def perform_update(self, serializer):
+        previous_status = serializer.instance.status
+        deliverable = serializer.save()
+        if self.request.user.role == Role.CLIENT and deliverable.status != previous_status:
+            apply_client_decision(deliverable, self.request.user)

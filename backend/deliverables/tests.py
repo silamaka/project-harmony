@@ -425,3 +425,103 @@ class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
             f"{deliverable_detail_url(other_upload.id)}?mission={self.mission.id}"
         )
         self.assertEqual(res.status_code, 403)
+
+
+class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
+    """Le client valide les livrables, la mission suit, et l'équipe est
+    prévenue (sans que le client voie cette notification)."""
+
+    def setUp(self):
+        super().setUp()
+        self.second = Deliverable.objects.create(
+            mission=self.mission,
+            name="Bannière",
+            type="lien",
+            url="https://example.com/banniere",
+            uploaded_by=self.collaborateur,
+        )
+
+    def _decide(self, deliverable, status):
+        self.auth_as(self.client_user)
+        res = self.client.patch(deliverable_detail_url(deliverable.id), {"status": status})
+        self.assertEqual(res.status_code, 200)
+        self.mission.refresh_from_db()
+
+    def test_mission_validated_only_once_every_sent_deliverable_is(self):
+        self._decide(self.deliverable, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.ENVOYE_CLIENT)
+        self._decide(self.second, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+    def test_published_deliverable_counts_as_done(self):
+        self.second.published_at = "2026-10-01T10:00:00Z"
+        self.second.save()
+        self._decide(self.deliverable, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+    def test_links_to_come_and_client_uploads_are_ignored(self):
+        Deliverable.objects.create(
+            mission=self.mission, name="À venir", type="lien", url="", uploaded_by=self.collaborateur
+        )
+        Deliverable.objects.create(
+            mission=self.mission,
+            name="Brief client",
+            type="lien",
+            url="https://example.com/brief",
+            uploaded_by=self.client_user,
+        )
+        self._decide(self.deliverable, "valide")
+        self._decide(self.second, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+    def test_corrections_on_one_deliverable_moves_mission_to_corrections(self):
+        self._decide(self.deliverable, "corrections")
+        self.assertEqual(self.mission.status, MissionStatus.CORRECTIONS)
+
+    def test_validating_after_corrections_brings_mission_back_to_validated(self):
+        self._decide(self.deliverable, "corrections")
+        self._decide(self.second, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.CORRECTIONS)
+        self._decide(self.deliverable, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+    def test_never_moves_a_published_or_finished_mission(self):
+        self.mission.status = MissionStatus.PUBLIE
+        self.mission.save()
+        self._decide(self.deliverable, "corrections")
+        self.assertEqual(self.mission.status, MissionStatus.PUBLIE)
+
+    def test_team_is_notified_and_client_does_not_see_it(self):
+        from notifications.models import Notification, NotificationType
+
+        self._decide(self.deliverable, "corrections")
+        notif = Notification.objects.get(type=NotificationType.DECISION_CLIENT)
+        self.assertIn("Maquette", notif.body)
+        self.assertEqual(notif.mission_id, self.mission.id)
+
+        self.auth_as(self.collaborateur)
+        team = self.client.get(reverse("notification-list")).data
+        self.assertIn(str(notif.id), {str(n["id"]) for n in team})
+        self.auth_as(self.client_user)
+        client = self.client.get(reverse("notification-list")).data
+        self.assertNotIn(str(notif.id), {str(n["id"]) for n in client})
+
+    def test_agency_status_change_does_not_notify_as_client_decision(self):
+        from notifications.models import Notification, NotificationType
+
+        self.auth_as(self.admin)
+        self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
+        self.assertFalse(Notification.objects.filter(type=NotificationType.DECISION_CLIENT).exists())
+
+
+class ClientMissionDecisionNotificationTests(DeliverableSetupMixin, RoleTestCase):
+    def test_client_mission_decision_notifies_team(self):
+        from notifications.models import Notification, NotificationType
+
+        self.auth_as(self.client_user)
+        res = self.client.patch(
+            reverse("mission-detail", args=[self.mission.id]), {"status": "valide"}
+        )
+        self.assertEqual(res.status_code, 200)
+        notif = Notification.objects.get(type=NotificationType.DECISION_CLIENT)
+        self.assertEqual(notif.title, "Validé par le client")

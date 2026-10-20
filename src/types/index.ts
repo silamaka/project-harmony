@@ -189,6 +189,9 @@ export interface Comment {
   body: string;
   parent_id?: string | null;
   attachment_url?: string;
+  /** Interne par défaut ; visible du client seulement si coché (toujours
+   * vrai pour un commentaire écrit par le client). */
+  client_visible?: boolean;
   mentions: string[];
   created_at: string;
 }
@@ -215,7 +218,8 @@ export interface Notification {
     | "livrable"
     | "validation"
     | "correction"
-    | "retard";
+    | "retard"
+    | "decision_client";
   title: string;
   body: string;
   read: boolean;

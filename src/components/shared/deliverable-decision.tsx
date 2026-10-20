@@ -33,9 +33,12 @@ export function DeliverableDecision({
   const [correctionsOpen, setCorrectionsOpen] = useState(false);
   const [details, setDetails] = useState("");
 
+  // La mission suit la décision côté serveur (Validé / Corrections) : on
+  // rafraîchit aussi les missions pour que le portail et la fiche suivent.
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["deliverables"] });
     void qc.invalidateQueries({ queryKey: ["comments"] });
+    void qc.invalidateQueries({ queryKey: ["missions"] });
   };
 
   const validate = useMutation({

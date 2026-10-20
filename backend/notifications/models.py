@@ -9,6 +9,9 @@ class NotificationType(models.TextChoices):
     VALIDATION = "validation", "Validation"
     CORRECTION = "correction", "Correction"
     RETARD = "retard", "Retard"
+    # Le client a validé ou demandé des corrections : destinée à l'équipe,
+    # jamais montrée au client (qui ne voit que le type VALIDATION).
+    DECISION_CLIENT = "decision_client", "Décision du client"
 
 
 class Notification(models.Model):

@@ -47,6 +47,7 @@ class CommentSerializer(serializers.ModelSerializer):
             "body",
             "parent_id",
             "attachment_url",
+            "client_visible",
             "mentions",
             "created_at",
         ]
