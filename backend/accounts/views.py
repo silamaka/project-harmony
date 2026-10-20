@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import User
+from .models import Role, User
 from .permissions import UserWritePermission
 from .serializers import UserSerializer
 
@@ -49,7 +49,7 @@ class ForgotPasswordView(APIView):
     def post(self, request):
         email = str(request.data.get("email", "")).strip()
         user = User.objects.filter(email__iexact=email).first() if email else None
-        if user is not None:
+        if user is not None and user.role not in ADMIN_MANAGED_PASSWORD_ROLES:
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = PasswordResetTokenGenerator().make_token(user)
             reset_url = f"{settings.FRONTEND_URL}/reinitialiser-mot-de-passe?uid={uid}&token={token}"
@@ -87,6 +87,12 @@ class ResetPasswordView(APIView):
             return Response({"detail": "Lien invalide."}, status=status.HTTP_400_BAD_REQUEST)
         if not PasswordResetTokenGenerator().check_token(user, token):
             return Response({"detail": "Lien invalide ou expiré."}, status=status.HTTP_400_BAD_REQUEST)
+        # Même avec un lien valide (ex. obtenu avant cette règle) : le mot de
+        # passe de ces comptes ne se change que par l'admin.
+        if user.role in ADMIN_MANAGED_PASSWORD_ROLES:
+            return Response(
+                {"detail": ADMIN_MANAGED_PASSWORD_DETAIL}, status=status.HTTP_403_FORBIDDEN
+            )
         user.set_password(password)
         user.save(update_fields=["password"])
         return Response({"detail": "Mot de passe mis à jour."})
@@ -97,6 +103,15 @@ class ResetPasswordView(APIView):
 # de l'admin : sans cette liste, n'importe qui pouvait se passer admin ou se
 # rattacher à une autre entreprise via PATCH /auth/me/.
 SELF_EDITABLE_FIELDS = {"phone", "avatar_url"}
+
+# Décision produit : le mot de passe d'un client ou d'un collaborateur est
+# géré par l'admin seul (il le choisit, le transmet et peut le redonner
+# depuis Paramètres). Ces comptes ne peuvent ni le changer eux-mêmes, ni le
+# réinitialiser par "Mot de passe oublié".
+ADMIN_MANAGED_PASSWORD_ROLES = (Role.CLIENT, Role.COLLABORATEUR)
+ADMIN_MANAGED_PASSWORD_DETAIL = (
+    "Votre mot de passe est géré par l'administrateur : contactez-le pour le modifier."
+)
 
 
 class MeView(APIView):
@@ -117,13 +132,17 @@ class MeView(APIView):
 
 
 class ChangePasswordView(APIView):
-    """Changer son propre mot de passe, en confirmant l'actuel. Indispensable
-    puisque c'est l'admin qui choisit le mot de passe initial et le transmet
-    (souvent par message) : l'utilisateur doit pouvoir le remplacer."""
+    """Changer son propre mot de passe, en confirmant l'actuel. Réservé à
+    l'admin et au chef de projet : pour un client ou un collaborateur, le mot
+    de passe est géré par l'admin (ADMIN_MANAGED_PASSWORD_ROLES)."""
 
     throttle_scope = "auth-sensitive"
 
     def post(self, request):
+        if request.user.role in ADMIN_MANAGED_PASSWORD_ROLES:
+            return Response(
+                {"detail": ADMIN_MANAGED_PASSWORD_DETAIL}, status=status.HTTP_403_FORBIDDEN
+            )
         current = str(request.data.get("current_password", ""))
         new = str(request.data.get("new_password", ""))
         if not request.user.check_password(current):

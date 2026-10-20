@@ -213,10 +213,10 @@ class LoginThrottleTests(RoleTestCase):
 
 class ForgotPasswordTests(RoleTestCase):
     def test_existing_email_sends_reset_link(self):
-        res = self.client.post(reverse("password_forgot"), {"email": self.collaborateur.email})
+        res = self.client.post(reverse("password_forgot"), {"email": self.chef_projet.email})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertIn(self.collaborateur.email, mail.outbox[0].to)
+        self.assertIn(self.chef_projet.email, mail.outbox[0].to)
         self.assertIn("reinitialiser-mot-de-passe", mail.outbox[0].body)
 
     def test_unknown_email_returns_same_response_without_sending(self):
@@ -239,24 +239,24 @@ class ResetPasswordTests(RoleTestCase):
         }
 
     def test_valid_token_resets_password(self):
-        payload = self._valid_token_payload(self.collaborateur)
+        payload = self._valid_token_payload(self.chef_projet)
         payload["password"] = "nouveau-mdp-1234"
         res = self.client.post(reverse("password_reset"), payload)
         self.assertEqual(res.status_code, 200)
-        self.collaborateur.refresh_from_db()
-        self.assertTrue(self.collaborateur.check_password("nouveau-mdp-1234"))
+        self.chef_projet.refresh_from_db()
+        self.assertTrue(self.chef_projet.check_password("nouveau-mdp-1234"))
 
     def test_reset_allows_login_with_new_password(self):
-        payload = self._valid_token_payload(self.collaborateur)
+        payload = self._valid_token_payload(self.chef_projet)
         payload["password"] = "nouveau-mdp-1234"
         self.client.post(reverse("password_reset"), payload)
         res = self.client.post(
-            reverse("login"), {"email": self.collaborateur.email, "password": "nouveau-mdp-1234"}
+            reverse("login"), {"email": self.chef_projet.email, "password": "nouveau-mdp-1234"}
         )
         self.assertEqual(res.status_code, 200)
 
     def test_token_cannot_be_reused_after_password_changed(self):
-        payload = self._valid_token_payload(self.collaborateur)
+        payload = self._valid_token_payload(self.chef_projet)
         payload["password"] = "premier-mdp-1234"
         self.client.post(reverse("password_reset"), payload)
         # Même jeton, même uid, nouvelle tentative avec un autre mot de passe.
@@ -267,7 +267,7 @@ class ResetPasswordTests(RoleTestCase):
         res = self.client.post(
             reverse("password_reset"),
             {
-                "uid": urlsafe_base64_encode(force_bytes(self.collaborateur.pk)),
+                "uid": urlsafe_base64_encode(force_bytes(self.chef_projet.pk)),
                 "token": "invalide-au-hasard",
                 "password": "nouveau-mdp-1234",
             },
@@ -276,7 +276,7 @@ class ResetPasswordTests(RoleTestCase):
 
     def test_token_for_wrong_user_rejected(self):
         """Le jeton d'un utilisateur ne doit pas réinitialiser un autre compte."""
-        payload = self._valid_token_payload(self.collaborateur)
+        payload = self._valid_token_payload(self.chef_projet)
         payload["uid"] = urlsafe_base64_encode(force_bytes(self.admin.pk))
         payload["password"] = "nouveau-mdp-1234"
         res = self.client.post(reverse("password_reset"), payload)
@@ -292,7 +292,7 @@ class ResetPasswordTests(RoleTestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_password_too_short_rejected(self):
-        payload = self._valid_token_payload(self.collaborateur)
+        payload = self._valid_token_payload(self.chef_projet)
         payload["password"] = "abc"
         res = self.client.post(reverse("password_reset"), payload)
         self.assertEqual(res.status_code, 400)
@@ -345,20 +345,29 @@ class ChangePasswordTests(RoleTestCase):
 
     def setUp(self):
         super().setUp()
-        self.client_user.set_password("initial123")
-        self.client_user.save()
-        self.auth_as(self.client_user)
+        for u in (self.chef_projet, self.client_user, self.collaborateur):
+            u.set_password("initial123")
+            u.save()
+        self.auth_as(self.chef_projet)
 
-    def test_client_can_change_own_password(self):
+    def test_chef_projet_can_change_own_password(self):
         res = self._change("initial123", "monNouveau2026")
         self.assertEqual(res.status_code, 200)
-        self.client_user.refresh_from_db()
-        self.assertTrue(self.client_user.check_password("monNouveau2026"))
+        self.chef_projet.refresh_from_db()
+        self.assertTrue(self.chef_projet.check_password("monNouveau2026"))
+
+    def test_client_and_collaborateur_cannot_change_own_password(self):
+        """Décision produit : leur mot de passe est géré par l'admin seul."""
+        for user in (self.client_user, self.collaborateur):
+            self.auth_as(user)
+            self.assertEqual(self._change("initial123", "monNouveau2026").status_code, 403)
+            user.refresh_from_db()
+            self.assertTrue(user.check_password("initial123"), user.role)
 
     def test_wrong_current_password_is_refused(self):
         self.assertEqual(self._change("mauvais", "monNouveau2026").status_code, 400)
-        self.client_user.refresh_from_db()
-        self.assertTrue(self.client_user.check_password("initial123"))
+        self.chef_projet.refresh_from_db()
+        self.assertTrue(self.chef_projet.check_password("initial123"))
 
     def test_too_short_password_is_refused(self):
         self.assertEqual(self._change("initial123", "court").status_code, 400)
@@ -366,3 +375,35 @@ class ChangePasswordTests(RoleTestCase):
     def test_unauthenticated_rejected(self):
         self.logout()
         self.assertEqual(self._change("initial123", "monNouveau2026").status_code, 401)
+
+
+class AdminManagedPasswordResetTests(RoleTestCase):
+    """Client et collaborateur ne réinitialisent pas eux-mêmes leur mot de
+    passe : pas d'e-mail envoyé, et un lien valide est quand même refusé.
+    La réponse reste identique pour ne rien révéler des comptes."""
+
+    def test_forgot_password_sends_no_email_for_client_or_collaborateur(self):
+        for user in (self.client_user, self.collaborateur):
+            res = self.client.post(reverse("password_forgot"), {"email": user.email})
+            self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_reset_with_valid_link_is_refused_for_collaborateur(self):
+        payload = {
+            "uid": urlsafe_base64_encode(force_bytes(self.collaborateur.pk)),
+            "token": PasswordResetTokenGenerator().make_token(self.collaborateur),
+            "password": "nouveau-mdp-1234",
+        }
+        res = self.client.post(reverse("password_reset"), payload)
+        self.assertEqual(res.status_code, 403)
+        self.collaborateur.refresh_from_db()
+        self.assertFalse(self.collaborateur.check_password("nouveau-mdp-1234"))
+
+    def test_admin_can_still_set_their_password(self):
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            reverse("user-detail", args=[self.collaborateur.id]), {"password": "donneParAdmin1"}
+        )
+        self.assertEqual(res.status_code, 200)
+        self.collaborateur.refresh_from_db()
+        self.assertTrue(self.collaborateur.check_password("donneParAdmin1"))

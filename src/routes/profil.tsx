@@ -49,6 +49,9 @@ function ReadField({ label, value }: { label: string; value?: string | undefined
 function ProfilePage() {
   const { user } = useAuth();
   const isClient = user?.role === "client";
+  /** Client et collaborateur : mot de passe géré par l'admin seul (refusé
+   * aussi côté serveur, ChangePasswordView). */
+  const canChangePassword = user?.role === "admin" || user?.role === "chef_projet";
 
   return (
     <AppShell title="Mon profil" subtitle={user ? ROLE_LABELS[user.role] : undefined}>
@@ -85,7 +88,20 @@ function ProfilePage() {
             </p>
           </div>
 
-          <ChangePasswordCard />
+          {canChangePassword ? (
+            <ChangePasswordCard />
+          ) : (
+            <div className="surface-card flex items-start gap-3 p-5">
+              <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div>
+                <h2 className="text-sm font-semibold">Mot de passe</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Votre mot de passe est géré par l'administrateur. Pour le modifier, contactez-le
+                  {isClient ? " ou votre chef de projet" : ""}.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {isClient ? <CompanyCard /> : <MyMissionsCard />}
