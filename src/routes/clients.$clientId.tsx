@@ -144,7 +144,16 @@ function ClientDetailPage() {
   return (
     <AppShell
       title={client?.name ?? "Client"}
-      subtitle={client ? `${client.industry} · ${clientMissions.length} mission(s)` : undefined}
+      subtitle={
+        client
+          ? [
+              client.industry && client.industry !== "Non renseigné" ? client.industry : null,
+              `${clientMissions.length} mission(s)`,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : undefined
+      }
       allow={["admin", "chef_projet", "collaborateur"]}
       actions={
         client && canManage ? (

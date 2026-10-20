@@ -133,7 +133,7 @@ export function MissionsTable({
     <>
       {/* Téléphone et tablette : une carte par mission (un tableau de 9 colonnes y
           cachait statut, échéance et actions derrière un défilement). */}
-      <div className="grid gap-2 md:grid-cols-2 xl:hidden">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:hidden">
         {sortedMissions.map((m) => (
           <MissionCard key={m.id} {...rowProps(m)} />
         ))}
@@ -217,7 +217,7 @@ function MissionCard({
   const late = isLate(mission);
   const showResponsable = assigneeOptions !== undefined && assigneeTone !== undefined;
   return (
-    <div className={cn("rounded-xl border border-border p-3", missionTone[mission.status])}>
+    <div className={cn("min-w-0 rounded-xl border border-border p-3", missionTone[mission.status])}>
       <div className="flex items-start gap-2">
         <Link
           to="/missions/$missionId"

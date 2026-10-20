@@ -232,7 +232,7 @@ export function ClientDeliverables({
 
       {/* Téléphone et tablette : une carte par livrable (le tableau cachait
           l'état et les actions derrière un défilement horizontal). */}
-      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:hidden">
+      <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:hidden">
         {list.map((d) => {
           const Icon = TYPE_ICON[d.type];
           const mission = missionById.get(d.mission_id);
@@ -241,7 +241,7 @@ export function ClientDeliverables({
             <div
               key={d.id}
               className={cn(
-                "rounded-xl border border-l-4 border-border p-3",
+                "min-w-0 rounded-xl border border-l-4 border-border p-3",
                 deliverableRowTone[state],
                 deliverableBorderTone[state],
               )}
