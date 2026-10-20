@@ -354,47 +354,6 @@ function MissionDetailPage() {
               </p>
             </div>
           )}
-
-          <details className="surface-card mt-3 p-4">
-            <summary className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
-              Suivi interne de l'agence
-            </summary>
-            <div className="mt-3 overflow-x-auto opacity-60">
-              <div className="flex min-w-[860px] items-center gap-1">
-                {MISSION_WORKFLOW.slice(0, 5).map((s, i) => (
-                  <Fragment key={s}>
-                    <StepButton
-                      label={MISSION_STATUS_LABELS[s]}
-                      active={mission?.status === s}
-                      filled={i <= currentIndex}
-                      done={i < currentIndex}
-                      disabled
-                      onClick={() => {}}
-                    />
-                    <StepConnector filled={i < currentIndex} />
-                  </Fragment>
-                ))}
-                <StepConnector filled={currentIndex >= MISSION_WORKFLOW.indexOf("publie")} />
-                <StepButton
-                  label="Publié"
-                  active={mission?.status === "publie"}
-                  filled={mission?.status === "publie" || mission?.status === "termine"}
-                  done={mission?.status === "termine"}
-                  disabled
-                  onClick={() => {}}
-                />
-                <StepConnector filled={mission?.status === "termine"} />
-                <StepButton
-                  label="Terminé"
-                  active={mission?.status === "termine"}
-                  filled={mission?.status === "termine"}
-                  done={false}
-                  disabled
-                  onClick={() => {}}
-                />
-              </div>
-            </div>
-          </details>
         </>
       ) : (
         <div className="surface-card mt-4 overflow-x-auto p-4">
@@ -496,7 +455,8 @@ function MissionDetailPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="surface-card p-5 lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
-            {mission && <PriorityBadge priority={mission.priority} />}
+            {/* Priorité interne de l'agence : jamais montrée au client. */}
+            {mission && !isClient && <PriorityBadge priority={mission.priority} />}
             {mission &&
               (isClient ? (
                 <ClientMissionStatusBadge status={mission.status} />
