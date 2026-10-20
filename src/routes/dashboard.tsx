@@ -343,7 +343,7 @@ function DashboardPage() {
         )}
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
         <StatCard
           testId="kpi-clients"
           label="Clients"
@@ -401,7 +401,7 @@ function DashboardPage() {
           (toujours en temps réel, hors filtre de période)
         </span>
       </div>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard
           label="Échéance dans 24 h"
           value={alerts?.in24h.length ?? 0}

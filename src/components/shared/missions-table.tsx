@@ -113,62 +113,238 @@ export function MissionsTable({
     return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
   });
 
+  const rowProps = (m: Mission) => ({
+    mission: m,
+    client: showClient ? (clientName?.(m.client_id) ?? "—") : undefined,
+    assigneeOptions: showResponsable ? assigneeOptions : undefined,
+    assigneeTone: showResponsable ? assigneeTone : undefined,
+    deliverables: deliverablesFor(m.id),
+    comment: commentFor(m.id),
+    onStatusChange: (status: MissionStatus) => onStatusChange(m.id, status),
+    onPriorityChange: (priority: Priority) => onPriorityChange(m.id, priority),
+    onAssigneeChange: onAssigneeChange
+      ? (assigneeId: string) => onAssigneeChange(m.id, assigneeId)
+      : undefined,
+    onEdit: onEditMission ? () => onEditMission(m) : undefined,
+    onDelete: onDeleteMission ? () => onDeleteMission(m) : undefined,
+  });
+
   return (
-    <div className="surface-card overflow-hidden">
-      <div className="max-h-[70vh] overflow-auto">
-        <table className="w-full min-w-[860px] table-fixed border-collapse text-sm">
-          <colgroup>
-            {widths.map((w, i) => (
-              <col key={i} style={{ width: `${w}%` }} />
-            ))}
-          </colgroup>
-          <thead>
-            <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase [&>th]:truncate tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)]">
-              <th className="px-3 py-3">Priorité</th>
-              <th className="px-3 py-3">Mission</th>
-              <th className="px-3 py-3">Description</th>
-              {showClient && <th className="px-3 py-3">Client</th>}
-              {showResponsable && <th className="px-3 py-3">Responsable</th>}
-              <th className="px-3 py-3">Deadline</th>
-              <th className="px-3 py-3">État d'avancement</th>
-              <th className="px-3 py-3">Livrable</th>
-              <th className="px-3 py-3">Commentaires</th>
-              {showActions && <th className="px-3 py-3" aria-hidden />}
-            </tr>
-          </thead>
-          <tbody>
-            {sortedMissions.map((m) => (
-              <MissionRow
-                key={m.id}
-                mission={m}
-                client={showClient ? (clientName?.(m.client_id) ?? "—") : undefined}
-                assigneeOptions={showResponsable ? assigneeOptions : undefined}
-                assigneeTone={showResponsable ? assigneeTone : undefined}
-                deliverables={deliverablesFor(m.id)}
-                comment={commentFor(m.id)}
-                onStatusChange={(status) => onStatusChange(m.id, status)}
-                onPriorityChange={(priority) => onPriorityChange(m.id, priority)}
-                onAssigneeChange={
-                  onAssigneeChange ? (assigneeId) => onAssigneeChange(m.id, assigneeId) : undefined
-                }
-                onEdit={onEditMission ? () => onEditMission(m) : undefined}
-                onDelete={onDeleteMission ? () => onDeleteMission(m) : undefined}
-              />
-            ))}
-            {missions.length === 0 && (
-              <tr>
-                <td
-                  colSpan={columnCount}
-                  className="px-4 py-10 text-center text-sm text-muted-foreground"
-                >
-                  {emptyMessage}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+    <>
+      {/* Téléphone et tablette : une carte par mission (un tableau de 9 colonnes y
+          cachait statut, échéance et actions derrière un défilement). */}
+      <div className="grid gap-2 md:grid-cols-2 xl:hidden">
+        {sortedMissions.map((m) => (
+          <MissionCard key={m.id} {...rowProps(m)} />
+        ))}
+        {missions.length === 0 && (
+          <p className="surface-card px-4 py-10 text-center md:col-span-2 text-sm text-muted-foreground">
+            {emptyMessage}
+          </p>
+        )}
       </div>
+      <div className="surface-card hidden overflow-hidden xl:block">
+        <div className="max-h-[70vh] overflow-auto">
+          <table className="w-full min-w-[860px] table-fixed border-collapse text-sm">
+            <colgroup>
+              {widths.map((w, i) => (
+                <col key={i} style={{ width: `${w}%` }} />
+              ))}
+            </colgroup>
+            <thead>
+              <tr className="sticky top-0 z-10 bg-muted text-left text-xs font-semibold uppercase [&>th]:truncate tracking-wide text-muted-foreground shadow-[inset_0_-1px_0_var(--color-border)]">
+                <th className="px-3 py-3">Priorité</th>
+                <th className="px-3 py-3">Mission</th>
+                <th className="px-3 py-3">Description</th>
+                {showClient && <th className="px-3 py-3">Client</th>}
+                {showResponsable && <th className="px-3 py-3">Responsable</th>}
+                <th className="px-3 py-3">Deadline</th>
+                <th className="px-3 py-3">État d'avancement</th>
+                <th className="px-3 py-3">Livrable</th>
+                <th className="px-3 py-3">Commentaires</th>
+                {showActions && <th className="px-3 py-3" aria-hidden />}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedMissions.map((m) => (
+                <MissionRow key={m.id} {...rowProps(m)} />
+              ))}
+              {missions.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={columnCount}
+                    className="px-4 py-10 text-center text-sm text-muted-foreground"
+                  >
+                    {emptyMessage}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+type MissionRowProps = {
+  mission: Mission;
+  client?: string | undefined;
+  assigneeOptions?: Record<string, string> | undefined;
+  assigneeTone?: Record<string, string> | undefined;
+  deliverables: DeliverableRef[];
+  comment: string;
+  onStatusChange: (status: MissionStatus) => void;
+  onPriorityChange: (priority: Priority) => void;
+  onAssigneeChange?: ((assigneeId: string) => void) | undefined;
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
+};
+
+/** Version carte d'une ligne (téléphone) : mêmes données, mêmes actions. */
+function MissionCard({
+  mission,
+  client,
+  assigneeOptions,
+  assigneeTone,
+  deliverables,
+  onStatusChange,
+  onPriorityChange,
+  onAssigneeChange,
+  onEdit,
+  onDelete,
+}: MissionRowProps) {
+  const late = isLate(mission);
+  const showResponsable = assigneeOptions !== undefined && assigneeTone !== undefined;
+  return (
+    <div className={cn("rounded-xl border border-border p-3", missionTone[mission.status])}>
+      <div className="flex items-start gap-2">
+        <Link
+          to="/missions/$missionId"
+          params={{ missionId: mission.id }}
+          className="min-w-0 flex-1 font-medium break-words text-primary hover:underline"
+        >
+          {mission.title}
+        </Link>
+        <ActionsMenu onEdit={onEdit} onDelete={onDelete} />
+      </div>
+      <p
+        className={cn(
+          "mt-0.5 text-xs text-muted-foreground",
+          late && "font-semibold text-destructive",
+        )}
+      >
+        Échéance : {new Date(mission.deadline).toLocaleDateString("fr-FR")}
+        {client !== undefined && (
+          <span className="font-normal text-muted-foreground"> · {client}</span>
+        )}
+      </p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <div className="min-w-0 max-w-[60%]">
+          <PillSelect
+            value={mission.status}
+            options={MISSION_STATUS_LABELS}
+            tone={missionTone}
+            onChange={(v) => onStatusChange(v as MissionStatus)}
+          />
+        </div>
+        <div className="min-w-0 max-w-[40%]">
+          <PillSelect
+            value={mission.priority}
+            options={PRIORITY_LABELS}
+            tone={priorityTone}
+            onChange={(v) => onPriorityChange(v as Priority)}
+          />
+        </div>
+        {showResponsable && (
+          <div className="min-w-0 max-w-full">
+            <PillSelect
+              value={mission.assignee_id}
+              options={assigneeOptions}
+              tone={assigneeTone}
+              onChange={(v) => onAssigneeChange?.(v)}
+            />
+          </div>
+        )}
+      </div>
+      {deliverables[0] !== undefined && (
+        <div className="mt-2 text-xs">
+          <span className="text-muted-foreground">Livrable : </span>
+          <DeliverableLink deliverables={deliverables} />
+        </div>
+      )}
     </div>
+  );
+}
+
+function DeliverableLink({ deliverables }: { deliverables: DeliverableRef[] }) {
+  const first = deliverables[0];
+  if (first === undefined) return <span className="text-muted-foreground">—</span>;
+  const more = deliverables.length > 1 && ` +${deliverables.length - 1}`;
+  if (!first.url) {
+    return (
+      <span
+        title="Lien pas encore disponible"
+        className="line-clamp-2 break-words text-muted-foreground italic"
+      >
+        {first.name} (lien à venir)
+        {more}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={first.url}
+      target="_blank"
+      rel="noreferrer"
+      title="Ouvrir le lien du livrable"
+      className="line-clamp-2 break-words text-primary hover:underline"
+    >
+      {first.name}
+      {more}
+    </a>
+  );
+}
+
+function ActionsMenu({
+  onEdit,
+  onDelete,
+}: {
+  onEdit?: (() => void) | undefined;
+  onDelete?: (() => void) | undefined;
+}) {
+  if (!onEdit && !onDelete) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Actions sur la mission"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {onEdit && (
+          // L'ouverture du dialog est différée d'un tick : sinon, ouvrir un Dialog
+          // depuis le onSelect d'un DropdownMenuItem (dans la même passe que la
+          // fermeture du menu) peut laisser `pointer-events: none` bloqué sur
+          // <body> côté Radix, rendant la page injouable jusqu'au rechargement.
+          <DropdownMenuItem onSelect={() => setTimeout(onEdit, 0)}>
+            <Pencil className="h-3.5 w-3.5" /> Modifier
+          </DropdownMenuItem>
+        )}
+        {onDelete && (
+          <DropdownMenuItem
+            onSelect={() => setTimeout(onDelete, 0)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Supprimer
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -184,19 +360,7 @@ function MissionRow({
   onAssigneeChange,
   onEdit,
   onDelete,
-}: {
-  mission: Mission;
-  client?: string | undefined;
-  assigneeOptions?: Record<string, string> | undefined;
-  assigneeTone?: Record<string, string> | undefined;
-  deliverables: DeliverableRef[];
-  comment: string;
-  onStatusChange: (status: MissionStatus) => void;
-  onPriorityChange: (priority: Priority) => void;
-  onAssigneeChange?: ((assigneeId: string) => void) | undefined;
-  onEdit?: (() => void) | undefined;
-  onDelete?: (() => void) | undefined;
-}) {
+}: MissionRowProps) {
   const late = isLate(mission);
   const showResponsable = assigneeOptions !== undefined && assigneeTone !== undefined;
   const showActions = onEdit !== undefined || onDelete !== undefined;
@@ -274,64 +438,14 @@ function MissionRow({
         />
       </td>
       <td className="px-3 py-3 text-xs">
-        {deliverables[0] === undefined ? (
-          <span className="text-muted-foreground">—</span>
-        ) : !deliverables[0].url ? (
-          <span
-            title="Lien pas encore disponible"
-            className="line-clamp-2 break-words text-muted-foreground italic"
-          >
-            {deliverables[0].name} (lien à venir)
-            {deliverables.length > 1 && ` +${deliverables.length - 1}`}
-          </span>
-        ) : (
-          <a
-            href={deliverables[0].url}
-            target="_blank"
-            rel="noreferrer"
-            title="Ouvrir le lien du livrable"
-            className="line-clamp-2 break-words text-primary hover:underline"
-          >
-            {deliverables[0].name}
-            {deliverables.length > 1 && ` +${deliverables.length - 1}`}
-          </a>
-        )}
+        <DeliverableLink deliverables={deliverables} />
       </td>
       <td className="px-3 py-3 text-xs text-muted-foreground">
         <ExpandableText text={comment || "—"} />
       </td>
       {showActions && (
         <td className="px-2 py-3 text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Actions sur la mission"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {onEdit && (
-                // L'ouverture du dialog est différée d'un tick : sinon, ouvrir un Dialog
-                // depuis le onSelect d'un DropdownMenuItem (dans la même passe que la
-                // fermeture du menu) peut laisser `pointer-events: none` bloqué sur
-                // <body> côté Radix, rendant la page injouable jusqu'au rechargement.
-                <DropdownMenuItem onSelect={() => setTimeout(onEdit, 0)}>
-                  <Pencil className="h-3.5 w-3.5" /> Modifier
-                </DropdownMenuItem>
-              )}
-              {onDelete && (
-                <DropdownMenuItem
-                  onSelect={() => setTimeout(onDelete, 0)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ActionsMenu onEdit={onEdit} onDelete={onDelete} />
         </td>
       )}
     </tr>

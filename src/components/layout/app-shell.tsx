@@ -145,11 +145,11 @@ export function AppShell({
   const items = NAV.filter((i) => i.roles.includes(user.role));
 
   return (
-    <div className="min-h-screen bg-background md:flex">
+    <div className="min-h-screen bg-background lg:flex">
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 print:hidden md:sticky md:top-0 md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 print:hidden lg:sticky lg:top-0 lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -160,7 +160,7 @@ export function AppShell({
             <p className="text-[11px] text-muted-foreground">by BEBA EMPIRE</p>
           </div>
           <button
-            className="ml-auto md:hidden"
+            className="ml-auto lg:hidden"
             onClick={() => setOpen(false)}
             aria-label="Fermer le menu"
           >
@@ -232,7 +232,7 @@ export function AppShell({
 
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-foreground/30 md:hidden"
+          className="fixed inset-0 z-30 bg-foreground/30 lg:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -241,7 +241,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border bg-background/80 px-4 py-4 backdrop-blur print:static lg:px-8">
           <button
-            className="md:hidden print:hidden"
+            className="lg:hidden print:hidden"
             onClick={() => setOpen(true)}
             aria-label="Ouvrir le menu"
           >
@@ -251,8 +251,14 @@ export function AppShell({
             <h1 className="truncate text-lg font-bold tracking-tight lg:text-xl">{title}</h1>
             {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
           </div>
-          <div className="flex items-center gap-2 print:hidden">
-            {actions}
+          {/* Téléphone : les actions de la page passent sous le titre (sinon
+              un bouton "Nouvelle mission" réduisait le titre à "Mes …"). */}
+          {actions && (
+            <div className="order-3 flex w-full flex-wrap items-center gap-2 sm:order-1 sm:w-auto print:hidden">
+              {actions}
+            </div>
+          )}
+          <div className="order-2 flex items-center gap-2 print:hidden">
             <Button variant="ghost" size="icon" onClick={toggle} aria-label="Changer de thème">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>

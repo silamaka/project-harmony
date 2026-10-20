@@ -199,7 +199,7 @@ function ClientPortalPage() {
       {compact && mainProject && <ProjectStrip project={mainProject} />}
 
       {/* Les deux cartes servent d'onglets : la carte active est surlignée. */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <StatCard
           label="Missions"
           value={myMissions.length}
@@ -513,7 +513,8 @@ function MissionList({
                 )}
               />
               <span className="min-w-0 flex-1 truncate text-sm">{m.title}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">
+              {/* Téléphone : la date passe sous le titre pour ne pas le couper. */}
+              <span className="order-last w-full shrink-0 pl-7 text-xs text-muted-foreground sm:order-none sm:w-auto sm:pl-0">
                 {isMissionDone(m.status) ? "Échéance" : "Prévu pour le"} {formatDate(m.deadline)}
               </span>
               <ClientMissionStatusBadge status={m.status} />

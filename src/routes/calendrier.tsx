@@ -18,7 +18,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
@@ -128,6 +128,12 @@ function CalendarPage() {
   const { data: rawEvents } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
   const events = useMemo(() => withOverdueRollover(rawEvents ?? []), [rawEvents]);
   const [view, setView] = useState<ViewMode>("mois");
+  // Sur téléphone, 7 colonnes réduisent les événements à "e…" : la vue
+  // Agenda (liste) s'ouvre par défaut. Après montage seulement, pour ne pas
+  // diverger du rendu serveur ; la vue Mois reste disponible.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 639px)").matches) setView("agenda");
+  }, []);
   const [cursor, setCursor] = useState(() => new Date());
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"tous" | EventType>("tous");

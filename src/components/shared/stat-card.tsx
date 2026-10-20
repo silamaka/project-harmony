@@ -28,6 +28,7 @@ export function StatCard({
   const interactive = typeof onClick === "function";
   return (
     <motion.div
+      className="h-full"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay }}
@@ -39,18 +40,18 @@ export function StatCard({
             {...(interactive ? { type: "button", onClick } : {})}
             {...(testId ? { "data-testid": testId } : {})}
             className={cn(
-              "surface-card w-full p-5 text-left transition",
+              "surface-card h-full w-full p-4 text-left transition sm:p-5",
               interactive &&
                 "cursor-pointer hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               active && "border-primary/50 ring-2 ring-primary/40",
             )}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex items-start justify-between gap-2 sm:gap-3">
+              <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {label}
                 </p>
-                <p className="mt-2 text-3xl font-extrabold tracking-tight">{value}</p>
+                <p className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">{value}</p>
                 {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
                 {interactive && (
                   <p className="mt-1 text-xs font-medium text-primary">Voir le détail</p>
@@ -58,7 +59,7 @@ export function StatCard({
               </div>
               <div
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-lg",
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10",
                   tone === "danger"
                     ? "bg-destructive/10 text-destructive"
                     : tone === "warning"
