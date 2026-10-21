@@ -1,9 +1,33 @@
+from pathlib import PurePosixPath
+from urllib.parse import urlparse
+
+from django.core.validators import URLValidator
 from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.models import Role
 
-from .models import Deliverable, DeliverableStatus
+from .models import Deliverable, DeliverableStatus, DeliverableType
+
+validate_http_url = URLValidator(
+    schemes=["http", "https"], message="Le lien doit être une adresse web complète (https://…)."
+)
+
+TYPE_BY_EXTENSION = {
+    ".pdf": DeliverableType.PDF,
+    **dict.fromkeys(
+        [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"], DeliverableType.IMAGE
+    ),
+    **dict.fromkeys([".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v"], DeliverableType.VIDEO),
+    **dict.fromkeys([".zip", ".rar", ".7z"], DeliverableType.ZIP),
+}
+
+
+def type_from_url(url: str) -> str:
+    """Type d'un livrable déduit de son lien (extension du fichier) ; un lien
+    Drive / Figma / page web reste un "Lien"."""
+    suffix = PurePosixPath(urlparse(url).path).suffix.lower()
+    return TYPE_BY_EXTENSION.get(suffix, DeliverableType.LIEN)
 
 
 class MissionPKField(serializers.PrimaryKeyRelatedField):
@@ -58,13 +82,23 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "published_at",
             "created_at",
         ]
+        # `version` et `type` sont posés par le serveur : v1 au dépôt, +1 à
+        # chaque nouveau lien ; type déduit du lien (voir type_from_url).
         read_only_fields = [
             "created_at",
             "uploaded_by",
             "published_at",
             "client_feedback",
             "client_feedback_at",
+            "version",
+            "type",
         ]
+
+    def validate_url(self, value):
+        value = value.strip()
+        if value:
+            validate_http_url(value)
+        return value
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -85,6 +119,8 @@ class DeliverableSerializer(serializers.ModelSerializer):
         # toujours par un PATCH, soumis à DeliverablePermission.
         validated_data.pop("published", None)
         validated_data["url"] = validated_data.get("url", "").strip()
+        validated_data["type"] = type_from_url(validated_data["url"])
+        validated_data["version"] = 1
         # Un dépôt commence toujours en revue chez l'agence : l'envoi au
         # client passe par sa validation (un PATCH), qui le notifie.
         validated_data["status"] = DeliverableStatus.EN_ATTENTE
@@ -97,6 +133,12 @@ class DeliverableSerializer(serializers.ModelSerializer):
         if "url" in validated_data:
             validated_data["url"] = url
             if url != instance.url:
+                if url:
+                    validated_data["type"] = type_from_url(url)
+                if url and instance.url:
+                    # Remplace un contenu existant : nouvelle version. Le
+                    # premier lien d'un livrable annoncé reste la v1.
+                    validated_data["version"] = instance.version + 1
                 # Nouveau contenu (ou lien retiré) : il doit être revu par
                 # l'agence puis par le client, quelles que soient les
                 # décisions prises sur l'ancien lien.

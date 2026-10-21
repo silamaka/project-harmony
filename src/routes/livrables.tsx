@@ -101,6 +101,7 @@ function DeliverablesPage() {
     mutationFn: (id: string) => deliverableService.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deliverables"] });
+      queryClient.invalidateQueries({ queryKey: ["missions"] });
       toast.success("Livrable supprimé.");
     },
     onError: () => toast.error("Suppression impossible."),

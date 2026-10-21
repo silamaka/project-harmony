@@ -770,3 +770,62 @@ class ClientFeedbackTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(
             next(n for n in listed if n["id"] == str(notif.id))["deliverable_id"], str(self.other.id)
         )
+
+
+class DepositVersionLinkTypeTests(DeliverableSetupMixin, RoleTestCase):
+    """Version, type et validité du lien sont décidés par le serveur, jamais
+    par ce qu'envoie le formulaire."""
+
+    def _deposit(self, **extra):
+        self.auth_as(self.collaborateur)
+        payload = {"mission_id": str(self.mission.id), "name": "Affiche", **extra}
+        return self.client.post(deliverable_list_url(), payload)
+
+    def _patch(self, deliverable_id, data):
+        self.auth_as(self.collaborateur)
+        return self.client.patch(deliverable_detail_url(deliverable_id), data)
+
+    def test_deposit_starts_at_v1_whatever_is_sent(self):
+        res = self._deposit(url="https://example.com/affiche", version=7)
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["version"], 1)
+
+    def test_new_link_bumps_version(self):
+        res = self._patch(self.deliverable.id, {"url": "https://example.com/maquette-v2"})
+        self.assertEqual(res.data["version"], 2)
+        res = self._patch(self.deliverable.id, {"url": "https://example.com/maquette-v3"})
+        self.assertEqual(res.data["version"], 3)
+
+    def test_same_link_or_rename_keeps_version(self):
+        res = self._patch(self.deliverable.id, {"name": "Maquette finale", "url": self.deliverable.url})
+        self.assertEqual(res.data["version"], 1)
+
+    def test_first_link_of_announced_deliverable_stays_v1(self):
+        created = self._deposit().data
+        self.assertEqual(created["url"], "")
+        res = self._patch(created["id"], {"url": "https://example.com/affiche"})
+        self.assertEqual(res.data["version"], 1)
+
+    def test_rejects_links_that_are_not_web_addresses(self):
+        for bad in ["drive maquette", "example.com/x", "javascript:alert(1)", "ftp://example.com/x"]:
+            res = self._deposit(url=bad)
+            self.assertEqual(res.status_code, 400, bad)
+            self.assertIn("url", res.data)
+            res = self._patch(self.deliverable.id, {"url": bad})
+            self.assertEqual(res.status_code, 400, bad)
+        self.deliverable.refresh_from_db()
+        self.assertEqual(self.deliverable.url, "https://example.com/maquette")
+
+    def test_type_is_derived_from_the_link(self):
+        cases = {
+            "https://example.com/brief.PDF": "pdf",
+            "https://cdn.example.com/visuel.png?v=2": "image",
+            "https://example.com/teaser.mp4": "video",
+            "https://example.com/sources.zip": "zip",
+            "https://www.figma.com/file/abc/Maquette": "lien",
+        }
+        for url, expected in cases.items():
+            res = self._deposit(url=url, type="lien")
+            self.assertEqual(res.data["type"], expected, url)
+        res = self._patch(self.deliverable.id, {"url": "https://example.com/maquette.pdf"})
+        self.assertEqual(res.data["type"], "pdf")

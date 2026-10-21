@@ -146,7 +146,7 @@ export const deliverableService = {
   /** GET /api/v1/deliverables/ */
   list: async () => (await api.get<Deliverable[]>(endpoints.deliverables)).data,
   /** POST /api/v1/deliverables/ (un dépôt commence toujours en revue agence :
-   *  les deux statuts sont posés par le serveur) */
+   *  statuts, version (v1) et type (déduit du lien) sont posés par le serveur) */
   create: async (
     payload: Omit<
       Deliverable,
@@ -157,6 +157,8 @@ export const deliverableService = {
       | "client_status"
       | "client_feedback"
       | "client_feedback_at"
+      | "version"
+      | "type"
     >,
   ) => (await api.post<Deliverable>(endpoints.deliverables, payload)).data,
   /** PATCH /api/v1/deliverables/:id/ (validation agence : "valide" = envoyé au client) */

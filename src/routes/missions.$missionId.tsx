@@ -49,7 +49,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
-import { cn } from "@/lib/utils";
+import { WEB_URL_HINT, cn, isWebUrl } from "@/lib/utils";
 import { commentService, deliverableService, missionService, userService } from "@/services";
 import {
   MISSION_WORKFLOW,
@@ -183,18 +183,18 @@ function MissionDetailPage() {
     onError: () => toast.error("Suppression impossible."),
   });
 
+  // Version (v1) et type (déduit du lien) sont posés par le serveur. Un
+  // dépôt peut faire bouger la mission (ex. Validé → Validation interne).
   const deliverableMutation = useMutation({
-    mutationFn: (payload: { name: string; url: string; type: DeliverableType; size_kb?: number }) =>
-      deliverableService.create({
-        mission_id: missionId,
-        name: payload.name,
-        type: payload.type,
-        url: payload.url,
-        ...(payload.size_kb !== undefined ? { size_kb: payload.size_kb } : {}),
-        version: ((deliverables ?? []).length || 0) + 1,
-      }),
+    mutationFn: (payload: { name: string; url: string }) =>
+      deliverableService.create({ mission_id: missionId, ...payload }),
     onSuccess: (_d, { url }) => {
-      refresh([["deliverables", missionId], ["deliverables"]]);
+      refresh([
+        ["deliverables", missionId],
+        ["deliverables"],
+        ["missions"],
+        ["missions", missionId],
+      ]);
       setNewName("");
       setNewLink("");
       toast.success(url ? "Livrable ajouté." : "Livrable ajouté — lien à venir.");
@@ -234,7 +234,12 @@ function MissionDetailPage() {
   const removeDeliverable = useMutation({
     mutationFn: (id: string) => deliverableService.remove(id),
     onSuccess: () => {
-      refresh([["deliverables", missionId], ["deliverables"]]);
+      refresh([
+        ["deliverables", missionId],
+        ["deliverables"],
+        ["missions"],
+        ["missions", missionId],
+      ]);
       toast.success("Livrable supprimé.");
     },
   });
@@ -287,9 +292,10 @@ function MissionDetailPage() {
    * collaborateur auteur du dépôt (voir DeliverablePermission). */
   const canManageDeliverable = (uploadedBy: string) =>
     isManager || (user?.role === "collaborateur" && uploadedBy === user.id);
+  const newLinkInvalid = newLink.trim() !== "" && !isWebUrl(newLink);
   const submitDeliverable = () => {
-    if (!newName.trim() || deliverableMutation.isPending) return;
-    deliverableMutation.mutate({ name: newName.trim(), url: newLink.trim(), type: "lien" });
+    if (!newName.trim() || newLinkInvalid || deliverableMutation.isPending) return;
+    deliverableMutation.mutate({ name: newName.trim(), url: newLink.trim() });
   };
 
   const requestStatusChange = (status: MissionStatus) => {
@@ -544,7 +550,10 @@ function MissionDetailPage() {
                 <Input
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Nom du livrable (ex. Maquette homepage v2)"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitDeliverable();
+                  }}
+                  placeholder="Nom du livrable (ex. Maquette homepage)"
                   maxLength={140}
                   className="h-9"
                 />
@@ -555,19 +564,21 @@ function MissionDetailPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") submitDeliverable();
                     }}
-                    placeholder="Lien du livrable (facultatif)"
-                    className="h-9"
+                    placeholder="https://… (facultatif)"
+                    aria-invalid={newLinkInvalid}
+                    className={cn("h-9", newLinkInvalid && "border-destructive")}
                   />
                   <Button
                     size="sm"
                     variant={newName.trim() ? "default" : "outline"}
-                    disabled={!newName.trim() || deliverableMutation.isPending}
+                    disabled={!newName.trim() || newLinkInvalid || deliverableMutation.isPending}
                     onClick={submitDeliverable}
                     className="shrink-0"
                   >
                     Déposer
                   </Button>
                 </div>
+                {newLinkInvalid && <p className="text-xs text-destructive">{WEB_URL_HINT}</p>}
               </div>
             </>
           )}

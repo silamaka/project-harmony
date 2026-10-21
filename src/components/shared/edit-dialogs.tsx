@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { WEB_URL_HINT, cn, isWebUrl } from "@/lib/utils";
 import {
   clientService,
   deliverableService,
@@ -723,7 +724,17 @@ function EditDeliverableForm({
 }) {
   const [name, setName] = useState(deliverable.name);
   const [url, setUrl] = useState(deliverable.url);
-  const done = useSaved([["deliverables"], ["deliverables", deliverable.mission_id]], onDone);
+  // Un nouveau lien remet le livrable en revue : la mission peut bouger.
+  const done = useSaved(
+    [
+      ["deliverables"],
+      ["deliverables", deliverable.mission_id],
+      ["missions"],
+      ["missions", deliverable.mission_id],
+    ],
+    onDone,
+  );
+  const urlInvalid = url.trim() !== "" && !isWebUrl(url);
   const mutation = useMutation({
     mutationFn: () =>
       deliverableService.update(deliverable.id, { name: name.trim(), url: url.trim() }),
@@ -747,18 +758,27 @@ function EditDeliverableForm({
           <Input value={name} maxLength={140} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Lien (Drive, Figma, S3...)">
-          <Input value={url} placeholder="https://..." onChange={(e) => setUrl(e.target.value)} />
+          <Input
+            value={url}
+            placeholder="https://..."
+            aria-invalid={urlInvalid}
+            className={cn(urlInvalid && "border-destructive")}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          {urlInvalid && <p className="mt-1 text-xs text-destructive">{WEB_URL_HINT}</p>}
         </Field>
-        {linkChanged &&
-          (deliverable.status !== "en_attente" || deliverable.client_status !== "en_attente") && (
-            <p className="text-xs text-warning">
-              Le lien change : le livrable repassera en revue par l'agence, puis sera renvoyé au
-              client.
-            </p>
-          )}
+        {linkChanged && !urlInvalid && (
+          <p className="text-xs text-warning">
+            Le lien change : ce sera la v{deliverable.version + 1}, qui repassera en revue par
+            l'agence avant d'être renvoyée au client.
+          </p>
+        )}
       </div>
       <DialogFooter>
-        <Button disabled={!name.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
+        <Button
+          disabled={!name.trim() || urlInvalid || mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
           {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
         </Button>
       </DialogFooter>
