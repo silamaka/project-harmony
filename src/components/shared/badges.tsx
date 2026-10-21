@@ -131,16 +131,19 @@ export const CLIENT_DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> =
 export function DeliverableStateBadge({
   deliverable,
   audience = "agence",
+  showPublishedDate = true,
 }: {
   deliverable: DeliverableStateFields;
   audience?: "agence" | "client";
+  /** false quand la date de publication est déjà affichée ailleurs (ligne d'info). */
+  showPublishedDate?: boolean;
 }) {
   const state = deliverableState(deliverable);
   const labels = audience === "client" ? CLIENT_DELIVERABLE_STATE_LABELS : DELIVERABLE_STATE_LABELS;
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
       <span className={cn(base, deliverableTone[state])}>{labels[state]}</span>
-      {deliverable.published_at && (
+      {showPublishedDate && deliverable.published_at && (
         <span className="text-[11px] text-muted-foreground">
           le {new Date(deliverable.published_at).toLocaleDateString("fr-FR")}
           {audience === "agence" &&
