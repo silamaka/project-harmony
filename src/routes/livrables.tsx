@@ -20,11 +20,14 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import {
   DELIVERABLE_STATE_LABELS,
+  awaitsCorrectedVersion,
+  isSentToClient,
   DeliverableStateBadge,
   deliverableState,
   hasDeliverableLink,
   type DeliverableState,
 } from "@/components/shared/badges";
+import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import { EditDeliverableDialog } from "@/components/shared/edit-dialogs";
 import { StatCard } from "@/components/shared/stat-card";
@@ -207,7 +210,10 @@ function DeliverablesPage() {
                 </div>
                 <DeliverableStateBadge deliverable={d} />
               </div>
-              <DeliverableFeedback deliverable={d} />
+              <DeliverableFeedback
+                deliverable={d}
+                onFix={canDelete(d) ? () => setEditing(d) : undefined}
+              />
               <div className="flex items-center gap-3">
                 {mission && (
                   <Link
@@ -226,6 +232,9 @@ function DeliverablesPage() {
                   </Button>
                 ) : (
                   <span className="ml-auto" />
+                )}
+                {canValidate && isSentToClient(d) && (
+                  <DeliverableDecision deliverable={d} onBehalf variant="icons" />
                 )}
                 {canDelete(d) && (
                   <button
@@ -254,27 +263,32 @@ function DeliverablesPage() {
                 Déposé par {author ? `${author.first_name} ${author.last_name}` : "—"} le{" "}
                 {new Date(d.created_at).toLocaleDateString("fr-FR")}
               </p>
-              {canValidate && hasDeliverableLink(d) && (
-                <div className="flex gap-2 border-t border-border pt-3">
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    disabled={d.status === "valide" || statusMutation.isPending}
-                    onClick={() => statusMutation.mutate({ id: d.id, status: "valide" })}
-                  >
-                    {d.status === "valide" ? "Envoyé au client" : "Valider et envoyer"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1"
-                    disabled={d.status === "corrections" || statusMutation.isPending}
-                    onClick={() => statusMutation.mutate({ id: d.id, status: "corrections" })}
-                  >
-                    Corrections
-                  </Button>
-                </div>
-              )}
+              {/* Envoyé au client : seule sa réponse fait avancer (icônes
+                  "pour le client" sur la ligne d'actions). */}
+              {canValidate &&
+                hasDeliverableLink(d) &&
+                !awaitsCorrectedVersion(d) &&
+                !isSentToClient(d) && (
+                  <div className="flex gap-2 border-t border-border pt-3">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      disabled={d.status === "valide" || statusMutation.isPending}
+                      onClick={() => statusMutation.mutate({ id: d.id, status: "valide" })}
+                    >
+                      {d.status === "valide" ? "Envoyé au client" : "Valider et envoyer"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      disabled={d.status === "corrections" || statusMutation.isPending}
+                      onClick={() => statusMutation.mutate({ id: d.id, status: "corrections" })}
+                    >
+                      Corrections
+                    </Button>
+                  </div>
+                )}
             </div>
           );
         })}

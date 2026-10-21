@@ -9,7 +9,7 @@ from missions.scoping import missions_visible_to
 from notifications.services import notify_client_decision, notify_deliverable_sent
 
 from .decisions import sync_mission_status
-from .models import Deliverable, DeliverableStatus
+from .models import CorrectionCategory, Deliverable, DeliverableStatus
 from .permissions import DeliverablePermission
 from .serializers import DeliverableSerializer
 
@@ -20,6 +20,23 @@ def client_visible_q(user):
     déposés. Les dépôts encore en revue chez l'agence restent internes, quel
     que soit le statut de la mission."""
     return Q(uploaded_by=user) | (Q(status=DeliverableStatus.VALIDE) & ~Q(url=""))
+
+
+def correction_comment_body(
+    deliverable, comment, categories, reference_url, *, on_behalf=False
+) -> str:
+    """Trace de la demande dans la discussion de la mission (historique)."""
+    labels = dict(CorrectionCategory.choices)
+    lines = [f"Corrections demandées sur le livrable {deliverable.label}"]
+    if on_behalf:
+        lines[0] += " (enregistrées par l'agence pour le client)"
+    if categories:
+        lines.append("À corriger : " + ", ".join(labels[c] for c in categories))
+    if comment:
+        lines.append(comment)
+    if reference_url:
+        lines.append(f"Exemple : {reference_url}")
+    return "\n".join(lines)
 
 
 def is_sent_to_client(deliverable) -> bool:
@@ -53,10 +70,17 @@ class DeliverableViewSet(viewsets.ModelViewSet):
         was_sent = is_sent_to_client(serializer.instance)
         previous_client_status = serializer.instance.client_status
         comment = serializer.validated_data.get("comment", "").strip()
+        categories = serializer.validated_data.get("categories", [])
+        reference_url = serializer.validated_data.get("reference_url", "")
         deliverable = serializer.save()
         user = self.request.user
 
-        if user.role == Role.CLIENT:
+        # Décision du client : prise par lui dans le portail, ou enregistrée
+        # pour lui par l'agence (DeliverablePermission), tracée dans
+        # client_decided_by.
+        on_behalf = user.role != Role.CLIENT
+        if user.role == Role.CLIENT or "client_status" in serializer.validated_data:
+            deliverable.client_decided_by = user if on_behalf else None
             # Décision et explication partent ensemble : l'équipe ne voit
             # jamais un livrable en "Corrections" sans savoir quoi corriger.
             # L'explication s'affiche sur le livrable même, et reste dans la
@@ -64,22 +88,35 @@ class DeliverableViewSet(viewsets.ModelViewSet):
             if deliverable.client_status == DeliverableStatus.CORRECTIONS:
                 deliverable.client_feedback = comment
                 deliverable.client_feedback_at = timezone.now()
+                deliverable.client_feedback_categories = categories
+                deliverable.client_feedback_link = reference_url
                 deliverable.client_validated_at = None
                 Comment.objects.create(
                     mission=deliverable.mission,
                     author=user,
-                    body=f"Corrections demandées sur le livrable {deliverable.label} :\n{comment}",
+                    body=correction_comment_body(
+                        deliverable, comment, categories, reference_url, on_behalf=on_behalf
+                    ),
                     client_visible=True,
                 )
             else:
                 deliverable.client_feedback = ""
                 deliverable.client_feedback_at = None
+                deliverable.client_feedback_categories = []
+                deliverable.client_feedback_link = ""
                 # Revalider sans changement garde la date de la première
                 # validation.
                 if deliverable.client_validated_at is None:
                     deliverable.client_validated_at = timezone.now()
             deliverable.save(
-                update_fields=["client_feedback", "client_feedback_at", "client_validated_at"]
+                update_fields=[
+                    "client_feedback",
+                    "client_feedback_at",
+                    "client_feedback_categories",
+                    "client_feedback_link",
+                    "client_validated_at",
+                    "client_decided_by",
+                ]
             )
             if deliverable.client_status != previous_client_status:
                 notify_client_decision(
@@ -88,6 +125,7 @@ class DeliverableViewSet(viewsets.ModelViewSet):
                     validated=deliverable.client_status == DeliverableStatus.VALIDE,
                     subject=f"livrable {deliverable.label} (mission « {deliverable.mission.title} »)",
                     deliverable=deliverable,
+                    on_behalf=on_behalf,
                 )
         elif not was_sent and is_sent_to_client(deliverable):
             notify_deliverable_sent(deliverable)

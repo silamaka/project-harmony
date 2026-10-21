@@ -25,12 +25,15 @@ import {
   ClientMissionStatusBadge,
   DeliverableStateBadge,
   MissionStatusBadge,
+  awaitsCorrectedVersion,
+  isSentToClient,
   PriorityBadge,
   deliverableBorderTone,
   deliverableState,
   hasDeliverableLink,
 } from "@/components/shared/badges";
 import { ClientMissionDeliverables } from "@/components/shared/client-mission-deliverables";
+import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import {
   ConfirmDeleteButton,
@@ -593,115 +596,147 @@ function MissionDetailPage() {
                     key={d.id}
                     id={`livrable-${d.id}`}
                     className={cn(
-                      "flex scroll-mt-24 items-center gap-3 rounded-lg border border-l-4 border-border px-3 py-2.5 transition-shadow duration-500",
+                      "scroll-mt-24 rounded-lg border border-l-4 border-border px-3 py-2.5 transition-shadow duration-500",
                       deliverableBorderTone[deliverableState(d)],
                       highlightedId === d.id &&
                         "ring-2 ring-primary ring-offset-2 ring-offset-background",
                     )}
                   >
-                    <Icon className="h-4 w-4 shrink-0 text-primary" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{d.name}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {!hasDeliverableLink(d)
-                          ? "Lien pas encore disponible"
-                          : `v${d.version} · ${
-                              d.size_kb == null
-                                ? "lien"
-                                : d.size_kb >= 1024
-                                  ? `${(d.size_kb / 1024).toFixed(1)} Mo`
-                                  : `${d.size_kb} Ko`
-                            }`}
-                      </p>
-                      <div className="mt-1.5">
+                    {/* En-tête compact (nom, version, actions) ; la demande de
+                        corrections passe dessous, en pleine largeur. */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <Icon className="h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-[8rem] flex-1">
+                        <p className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]">
+                          {d.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {!hasDeliverableLink(d)
+                            ? "Lien pas encore disponible"
+                            : `v${d.version} · ${
+                                d.size_kb == null
+                                  ? "lien"
+                                  : d.size_kb >= 1024
+                                    ? `${(d.size_kb / 1024).toFixed(1)} Mo`
+                                    : `${d.size_kb} Ko`
+                              }`}
+                        </p>
+                      </div>
+                      {/* Actions groupées : elles passent sous le nom quand la
+                          colonne est trop étroite, au lieu de l'écraser. */}
+                      <div className="ml-auto flex items-center gap-3">
+                        {canValidateDeliverable &&
+                          hasDeliverableLink(d) &&
+                          !awaitsCorrectedVersion(d) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deliverableStatus.mutate({
+                                  id: d.id,
+                                  status: d.status === "valide" ? "en_attente" : "valide",
+                                })
+                              }
+                              disabled={deliverableStatus.isPending}
+                              aria-label={
+                                d.status === "valide"
+                                  ? `Retirer l'envoi de ${d.name}`
+                                  : `Valider et envoyer ${d.name}`
+                              }
+                              title={
+                                d.status === "valide"
+                                  ? "Validé et envoyé au client — cliquer pour retirer"
+                                  : "Valider et envoyer au client"
+                              }
+                              className={cn(
+                                "text-muted-foreground hover:text-success",
+                                d.status === "valide" && "text-success",
+                              )}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        {/* Réponse du client reçue hors du portail (ou changement
+                          d'avis) : l'admin / le chef de projet l'enregistre
+                          pour lui, sur tout livrable envoyé non publié. */}
+                        {isManager && isSentToClient(d) && (
+                          <DeliverableDecision deliverable={d} onBehalf variant="icons" />
+                        )}
+                        {canPublishDeliverable && hasDeliverableLink(d) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deliverablePublish.mutate({ id: d.id, published: !d.published_at })
+                            }
+                            disabled={deliverablePublish.isPending}
+                            aria-label={
+                              d.published_at
+                                ? `Annuler la publication de ${d.name}`
+                                : `Publier ${d.name}`
+                            }
+                            title={
+                              d.published_at
+                                ? "Publié — cliquer pour annuler"
+                                : "Marquer comme publié"
+                            }
+                            className={cn(
+                              "text-muted-foreground hover:text-primary",
+                              d.published_at && "text-primary",
+                            )}
+                          >
+                            <Megaphone className="h-4 w-4" />
+                          </button>
+                        )}
+                        {hasDeliverableLink(d) && (
+                          <a
+                            href={d.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label={`Voir ${d.name}`}
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </a>
+                        )}
+                        {canManageDeliverable(d.uploaded_by) && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingDeliverable(d)}
+                            aria-label={`Modifier ${d.name}`}
+                            title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
+                            className="text-muted-foreground hover:text-primary"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canManageDeliverable(d.uploaded_by) && (
+                          <button
+                            type="button"
+                            onClick={() => removeDeliverable.mutate(d.id)}
+                            disabled={removeDeliverable.isPending}
+                            aria-label={`Supprimer ${d.name}`}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* État et sa trace sous l'en-tête, en pleine largeur (la colonne
+                        est étroite) ; le bloc "À corriger" dit déjà l'état. */}
+                    {!awaitsCorrectedVersion(d) && (
+                      <div className="mt-2 pl-7">
                         <DeliverableStateBadge deliverable={d} />
                       </div>
-                      <DeliverableFeedback deliverable={d} className="mt-2" />
-                    </div>
-                    {canValidateDeliverable && hasDeliverableLink(d) && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          deliverableStatus.mutate({
-                            id: d.id,
-                            status: d.status === "valide" ? "en_attente" : "valide",
-                          })
-                        }
-                        disabled={deliverableStatus.isPending}
-                        aria-label={
-                          d.status === "valide"
-                            ? `Retirer l'envoi de ${d.name}`
-                            : `Valider et envoyer ${d.name}`
-                        }
-                        title={
-                          d.status === "valide"
-                            ? "Validé et envoyé au client — cliquer pour retirer"
-                            : "Valider et envoyer au client"
-                        }
-                        className={cn(
-                          "text-muted-foreground hover:text-success",
-                          d.status === "valide" && "text-success",
-                        )}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </button>
                     )}
-                    {canPublishDeliverable && hasDeliverableLink(d) && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          deliverablePublish.mutate({ id: d.id, published: !d.published_at })
-                        }
-                        disabled={deliverablePublish.isPending}
-                        aria-label={
-                          d.published_at
-                            ? `Annuler la publication de ${d.name}`
-                            : `Publier ${d.name}`
-                        }
-                        title={
-                          d.published_at ? "Publié — cliquer pour annuler" : "Marquer comme publié"
-                        }
-                        className={cn(
-                          "text-muted-foreground hover:text-primary",
-                          d.published_at && "text-primary",
-                        )}
-                      >
-                        <Megaphone className="h-4 w-4" />
-                      </button>
-                    )}
-                    {hasDeliverableLink(d) && (
-                      <a
-                        href={d.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Voir ${d.name}`}
-                        className="text-muted-foreground hover:text-primary"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </a>
-                    )}
-                    {canManageDeliverable(d.uploaded_by) && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingDeliverable(d)}
-                        aria-label={`Modifier ${d.name}`}
-                        title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
-                        className="text-muted-foreground hover:text-primary"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                    )}
-                    {canManageDeliverable(d.uploaded_by) && (
-                      <button
-                        type="button"
-                        onClick={() => removeDeliverable.mutate(d.id)}
-                        disabled={removeDeliverable.isPending}
-                        aria-label={`Supprimer ${d.name}`}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    <DeliverableFeedback
+                      deliverable={d}
+                      className="mt-3"
+                      onFix={
+                        canManageDeliverable(d.uploaded_by)
+                          ? () => setEditingDeliverable(d)
+                          : undefined
+                      }
+                    />
                   </li>
                 );
               })}

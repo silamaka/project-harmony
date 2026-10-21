@@ -68,7 +68,12 @@ export const hasDeliverableLink = (d: Pick<Deliverable, "url">) => !!d.url?.trim
 
 type DeliverableStateFields = Pick<
   Deliverable,
-  "status" | "client_status" | "published_at" | "url" | "client_validated_at"
+  | "status"
+  | "client_status"
+  | "published_at"
+  | "url"
+  | "client_validated_at"
+  | "client_decided_by_name"
 >;
 
 export function deliverableState(d: DeliverableStateFields): DeliverableState {
@@ -79,6 +84,22 @@ export function deliverableState(d: DeliverableStateFields): DeliverableState {
   if (d.client_status === "valide") return "pret";
   return "envoye";
 }
+
+/** Livrable envoyé au client (validé par l'agence) et pas encore publié :
+ * sa décision compte encore, et l'agence peut l'enregistrer pour lui
+ * (réponse reçue hors du portail), qu'il attende, soit en corrections ou
+ * déjà validé (le client a changé d'avis). */
+export const isSentToClient = (d: DeliverableStateFields) =>
+  hasDeliverableLink(d) && !d.published_at && d.status === "valide";
+
+/** Le client a demandé des corrections sur un livrable envoyé : la seule
+ * suite possible côté agence est une version corrigée (nouveau lien), qui
+ * remet le livrable en revue. Valider / renvoyer n'a alors plus de sens. */
+export const awaitsCorrectedVersion = (d: DeliverableStateFields) =>
+  hasDeliverableLink(d) &&
+  !d.published_at &&
+  d.status === "valide" &&
+  d.client_status === "corrections";
 
 export const DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> = {
   a_venir: "Lien à venir",
@@ -162,7 +183,9 @@ export function DeliverableStateBadge({
         deliverable.client_status === "valide" &&
         deliverable.client_validated_at && (
           <span className="text-[11px] font-medium text-success">
-            Validé par le client le{" "}
+            {deliverable.client_decided_by_name
+              ? `Validé pour le client par ${deliverable.client_decided_by_name} le `
+              : "Validé par le client le "}
             {new Date(deliverable.client_validated_at).toLocaleDateString("fr-FR")}
           </span>
         )}

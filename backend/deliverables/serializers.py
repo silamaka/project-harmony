@@ -5,9 +5,12 @@ from django.core.validators import URLValidator
 from django.utils import timezone
 from rest_framework import serializers
 
-from accounts.models import Role
-
-from .models import Deliverable, DeliverableStatus, DeliverableType
+from .models import (
+    CorrectionCategory,
+    Deliverable,
+    DeliverableStatus,
+    DeliverableType,
+)
 
 validate_http_url = URLValidator(
     schemes=["http", "https"], message="Le lien doit être une adresse web complète (https://…)."
@@ -52,6 +55,8 @@ class DeliverableSerializer(serializers.ModelSerializer):
     # client (voir DeliverableViewSet.perform_create) : lecture seule ici,
     # get_queryset n'est donc jamais sollicité.
     uploaded_by = serializers.PrimaryKeyRelatedField(read_only=True)
+    # Qui a enregistré la décision pour le client (vide s'il a décidé lui-même).
+    client_decided_by_name = serializers.SerializerMethodField()
     # Publier / dépublier s'écrit via `published` ; la date est toujours
     # posée par le serveur, jamais envoyée par le client.
     published = serializers.BooleanField(write_only=True, required=False)
@@ -59,6 +64,17 @@ class DeliverableSerializer(serializers.ModelSerializer):
     # discussion de la mission dans la même transaction que sa décision
     # (voir DeliverableViewSet.perform_update).
     comment = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=2000
+    )
+    # Avec `comment`, pour une demande de corrections du client : ce qui est
+    # à corriger, et un lien d'exemple / de capture facultatif.
+    categories = serializers.ListField(
+        child=serializers.ChoiceField(choices=CorrectionCategory.choices),
+        write_only=True,
+        required=False,
+        max_length=len(CorrectionCategory.choices),
+    )
+    reference_url = serializers.CharField(
         write_only=True, required=False, allow_blank=True, max_length=2000
     )
 
@@ -77,9 +93,14 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "client_status",
             "client_feedback",
             "client_feedback_at",
+            "client_feedback_categories",
+            "client_feedback_link",
             "client_validated_at",
+            "client_decided_by_name",
             "published",
             "comment",
+            "categories",
+            "reference_url",
             "published_at",
             "created_at",
         ]
@@ -91,6 +112,8 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "published_at",
             "client_feedback",
             "client_feedback_at",
+            "client_feedback_categories",
+            "client_feedback_link",
             "client_validated_at",
             "version",
             "type",
@@ -102,21 +125,24 @@ class DeliverableSerializer(serializers.ModelSerializer):
             validate_http_url(value)
         return value
 
+    def validate_reference_url(self, value):
+        value = value.strip()
+        if value:
+            validate_http_url(value)
+        return value
+
     def validate(self, attrs):
-        request = self.context.get("request")
-        if (
-            request
-            and request.user.role == Role.CLIENT
-            and attrs.get("client_status") == DeliverableStatus.CORRECTIONS
-            and not attrs.get("comment", "").strip()
-        ):
-            raise serializers.ValidationError(
-                {"comment": "Expliquez ce qu'il faut corriger."}
-            )
+        # Catégories et détail sont facultatifs : le client précise ce qu'il
+        # veut. On range seulement les catégories (sans doublon, dans l'ordre
+        # de la liste).
+        if "categories" in attrs:
+            chosen = set(attrs["categories"])
+            attrs["categories"] = [c for c in CorrectionCategory.values if c in chosen]
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop("comment", None)
+        for key in ("comment", "categories", "reference_url"):
+            validated_data.pop(key, None)
         # Un dépôt n'est jamais publié d'emblée : la publication passe
         # toujours par un PATCH, soumis à DeliverablePermission.
         validated_data.pop("published", None)
@@ -130,7 +156,8 @@ class DeliverableSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        validated_data.pop("comment", None)
+        for key in ("comment", "categories", "reference_url"):
+            validated_data.pop(key, None)
         url = validated_data.get("url", instance.url).strip()
         if "url" in validated_data:
             validated_data["url"] = url
@@ -148,7 +175,10 @@ class DeliverableSerializer(serializers.ModelSerializer):
                 validated_data["client_status"] = DeliverableStatus.EN_ATTENTE
                 validated_data["client_feedback"] = ""
                 validated_data["client_feedback_at"] = None
+                validated_data["client_feedback_categories"] = []
+                validated_data["client_feedback_link"] = ""
                 validated_data["client_validated_at"] = None
+                validated_data["client_decided_by"] = None
             if not url:
                 # Lien retiré : le livrable redevient "à venir", ce qui
                 # annule une publication devenue sans objet.
@@ -169,6 +199,12 @@ class DeliverableSerializer(serializers.ModelSerializer):
             elif instance.published_at is None:
                 validated_data["published_at"] = timezone.now()
         return super().update(instance, validated_data)
+
+    def get_client_decided_by_name(self, obj) -> str:
+        user = obj.client_decided_by
+        if not user:
+            return ""
+        return f"{user.first_name} {user.last_name}".strip() or user.email
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

@@ -3,6 +3,7 @@ import type {
   CalendarEvent,
   Client,
   Comment,
+  CorrectionCategory,
   Deliverable,
   Mission,
   Notification,
@@ -157,7 +158,10 @@ export const deliverableService = {
       | "client_status"
       | "client_feedback"
       | "client_feedback_at"
+      | "client_feedback_categories"
+      | "client_feedback_link"
       | "client_validated_at"
+      | "client_decided_by_name"
       | "version"
       | "type"
     >,
@@ -171,11 +175,14 @@ export const deliverableService = {
       .data,
   /** PATCH /api/v1/deliverables/:id/ (client : corrections + explication,
    *  postée dans la discussion de la mission par le serveur, en un seul appel) */
-  requestCorrections: async (id: string, comment: string) =>
+  requestCorrections: async (
+    id: string,
+    request: { comment: string; categories: CorrectionCategory[]; reference_url: string },
+  ) =>
     (
       await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, {
         client_status: "corrections",
-        comment,
+        ...request,
       })
     ).data,
   /** PATCH /api/v1/deliverables/:id/ (nom / lien ; lien vide = "Lien à venir") */

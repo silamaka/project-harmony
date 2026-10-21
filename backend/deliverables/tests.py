@@ -151,7 +151,9 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
     de projet), `client_status` pour le client."""
 
     def _patch(self, data, deliverable=None):
-        return self.client.patch(deliverable_detail_url((deliverable or self.deliverable).id), data)
+        return self.client.patch(
+            deliverable_detail_url((deliverable or self.deliverable).id), data, format="json"
+        )
 
     def test_admin_can_validate(self):
         self.auth_as(self.admin)
@@ -173,10 +175,9 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
         self.auth_as(self.client_user)
         self.assertEqual(self._patch({"status": "corrections"}).status_code, 403)
 
-    def test_agency_cannot_decide_for_the_client(self):
-        for user in (self.admin, self.chef_projet, self.collaborateur):
-            self.auth_as(user)
-            self.assertEqual(self._patch({"client_status": "valide"}).status_code, 403, user.role)
+    def test_collaborateur_cannot_decide_for_the_client(self):
+        self.auth_as(self.collaborateur)
+        self.assertEqual(self._patch({"client_status": "valide"}).status_code, 403)
 
     def test_other_client_cannot_validate(self):
         """Hors scope de get_queryset (missions_visible_to) : la fiche n'est
@@ -197,24 +198,31 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
         self.deliverable.refresh_from_db()
         self.assertEqual(self.deliverable.client_status, DeliverableStatus.VALIDE)
 
-    def test_client_corrections_require_an_explanation(self):
+    def test_client_can_request_corrections_without_details(self):
         self.auth_as(self.client_user)
-        res = self._patch({"client_status": "corrections", "comment": "  "})
-        self.assertEqual(res.status_code, 400)
+        res = self._patch({"client_status": "corrections"})
+        self.assertEqual(res.status_code, 200)
         self.deliverable.refresh_from_db()
-        self.assertEqual(self.deliverable.client_status, DeliverableStatus.EN_ATTENTE)
+        self.assertEqual(self.deliverable.client_status, DeliverableStatus.CORRECTIONS)
 
     def test_client_corrections_post_the_explanation_in_the_mission_discussion(self):
         from comments.models import Comment
 
         self.auth_as(self.client_user)
-        res = self._patch({"client_status": "corrections", "comment": "Remplacer la photo."})
+        res = self._patch(
+            {
+                "client_status": "corrections",
+                "comment": "Remplacer la photo de la 2e slide.",
+                "categories": ["image"],
+            }
+        )
         self.assertEqual(res.status_code, 200)
         comment = Comment.objects.get(mission=self.mission)
         self.assertEqual(comment.author, self.client_user)
         self.assertTrue(comment.client_visible)
         self.assertIn("Maquette", comment.body)
-        self.assertIn("Remplacer la photo.", comment.body)
+        self.assertIn("Remplacer la photo de la 2e slide.", comment.body)
+        self.assertIn("Image / photo", comment.body)
 
     def test_agency_corrections_need_no_explanation(self):
         from comments.models import Comment
@@ -510,8 +518,9 @@ class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
         self.auth_as(self.client_user)
         payload = {"client_status": decision}
         if decision == "corrections":
-            payload["comment"] = "Changer la couleur du titre."
-        res = self.client.patch(deliverable_detail_url(deliverable.id), payload)
+            payload["comment"] = "Changer la couleur du titre en bleu."
+            payload["categories"] = ["visuel"]
+        res = self.client.patch(deliverable_detail_url(deliverable.id), payload, format="json")
         self.assertEqual(res.status_code, 200)
         self.mission.refresh_from_db()
 
@@ -716,7 +725,8 @@ class ClientFeedbackTests(DeliverableSetupMixin, RoleTestCase):
         self.auth_as(self.client_user)
         return self.client.patch(
             deliverable_detail_url(deliverable.id),
-            {"client_status": "corrections", "comment": text},
+            {"client_status": "corrections", "comment": text, "categories": ["visuel"]},
+            format="json",
         )
 
     def test_feedback_is_stored_on_the_right_deliverable_only(self):
@@ -839,8 +849,11 @@ class ClientValidatedAtTests(DeliverableSetupMixin, RoleTestCase):
         self.auth_as(self.client_user)
         payload = {"client_status": decision}
         if decision == "corrections":
-            payload["comment"] = "Revoir le titre."
-        return self.client.patch(deliverable_detail_url(self.deliverable.id), payload).data
+            payload["comment"] = "Revoir le titre, trop long sur mobile."
+            payload["categories"] = ["texte"]
+        return self.client.patch(
+            deliverable_detail_url(self.deliverable.id), payload, format="json"
+        ).data
 
     def test_set_when_client_validates_and_visible_to_team(self):
         self.assertIsNotNone(self._decide("valide")["client_validated_at"])
@@ -868,3 +881,127 @@ class ClientValidatedAtTests(DeliverableSetupMixin, RoleTestCase):
         )
         self.deliverable.refresh_from_db()
         self.assertIsNone(self.deliverable.client_validated_at)
+
+
+class GuidedCorrectionRequestTests(DeliverableSetupMixin, RoleTestCase):
+    """Demande de corrections : catégories, détail et lien d'exemple sont
+    tous facultatifs ; seul un lien fourni doit être valide."""
+
+    def _request(self, **data):
+        self.auth_as(self.client_user)
+        payload = {
+            "client_status": "corrections",
+            "comment": "Titre : remplacer « Été » par « Summer ».",
+            "categories": ["texte"],
+            **data,
+        }
+        return self.client.patch(deliverable_detail_url(self.deliverable.id), payload, format="json")
+
+    def test_categories_are_optional(self):
+        res = self._request(categories=[], comment="")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_status"], "corrections")
+        self.assertEqual(res.data["client_feedback_categories"], [])
+
+    def test_explanation_is_optional(self):
+        from comments.models import Comment
+
+        res = self._request(comment="")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_feedback"], "")
+        self.assertEqual(res.data["client_feedback_categories"], ["texte"])
+        self.assertIn("Texte / orthographe", Comment.objects.get().body)
+        self.assertEqual(self._request(comment="ok").status_code, 200)
+
+    def test_rejects_unknown_category_and_bad_link(self):
+        self.assertEqual(self._request(categories=["n_importe_quoi"]).status_code, 400)
+        self.assertEqual(self._request(reference_url="capture d'écran").status_code, 400)
+
+    def test_stores_categories_and_link_in_list_order(self):
+        res = self._request(
+            categories=["image", "texte", "image"], reference_url="https://example.com/capture.png"
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_feedback_categories"], ["texte", "image"])
+        self.assertEqual(res.data["client_feedback_link"], "https://example.com/capture.png")
+
+    def test_cleared_when_client_validates_or_new_link(self):
+        self._request(reference_url="https://example.com/capture.png")
+        self.auth_as(self.client_user)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"client_status": "valide"}, format="json"
+        )
+        self.assertEqual(res.data["client_feedback_categories"], [])
+        self.assertEqual(res.data["client_feedback_link"], "")
+
+        self._request(reference_url="https://example.com/capture.png")
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"url": "https://example.com/v2"}
+        )
+        self.assertEqual(res.data["client_feedback_categories"], [])
+        self.assertEqual(res.data["client_feedback_link"], "")
+
+    def test_collaborateur_cannot_send_corrections_for_the_client(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id),
+            {"client_status": "corrections", "categories": ["texte"]},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 403)
+
+
+class DecisionRecordedForClientTests(DeliverableSetupMixin, RoleTestCase):
+    """L'admin ou le chef de projet enregistre la réponse d'un client reçue
+    hors du portail : même effet que si le client avait cliqué, avec la
+    trace de qui l'a enregistrée."""
+
+    def _record(self, user, data):
+        self.auth_as(user)
+        return self.client.patch(deliverable_detail_url(self.deliverable.id), data, format="json")
+
+    def test_admin_and_chef_de_projet_can_validate_for_the_client(self):
+        for user in (self.admin, self.chef_projet):
+            self.deliverable.client_status = DeliverableStatus.EN_ATTENTE
+            self.deliverable.client_validated_at = None
+            self.deliverable.save()
+            res = self._record(user, {"client_status": "valide"})
+            self.assertEqual(res.status_code, 200, user.role)
+            self.assertEqual(res.data["client_status"], "valide")
+            self.assertIsNotNone(res.data["client_validated_at"])
+            self.assertTrue(res.data["client_decided_by_name"])
+
+    def test_corrections_for_the_client_behave_like_the_clients(self):
+        from comments.models import Comment
+        from notifications.models import Notification, NotificationType
+
+        res = self._record(
+            self.chef_projet,
+            {"client_status": "corrections", "comment": "Logo plus grand.", "categories": ["visuel"]},
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_feedback"], "Logo plus grand.")
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.status, MissionStatus.CORRECTIONS)
+        self.assertIn("enregistrées par l'agence pour le client", Comment.objects.get().body)
+        notif = Notification.objects.get(type=NotificationType.DECISION_CLIENT)
+        self.assertIn("pour le client", notif.body)
+
+    def test_cannot_decide_before_the_agency_has_sent_it(self):
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(status=DeliverableStatus.EN_ATTENTE)
+        self.assertEqual(self._record(self.admin, {"client_status": "valide"}).status_code, 403)
+
+    def test_cannot_mix_with_other_fields(self):
+        res = self._record(self.admin, {"client_status": "valide", "name": "Renommé"})
+        self.assertEqual(res.status_code, 403)
+
+    def test_client_own_decision_clears_the_trace(self):
+        self._record(self.admin, {"client_status": "corrections"})
+        res = self._record(self.client_user, {"client_status": "valide"})
+        self.assertEqual(res.data["client_decided_by_name"], "")
+
+    def test_new_link_clears_the_trace(self):
+        self._record(self.admin, {"client_status": "valide"})
+        res = self._record(self.admin, {"url": "https://example.com/v2"})
+        self.assertEqual(res.data["client_decided_by_name"], "")

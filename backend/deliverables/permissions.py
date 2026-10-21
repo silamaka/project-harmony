@@ -8,6 +8,7 @@ from .models import DeliverableStatus
 # ne remet jamais un livrable "En attente" (c'est l'agence qui le fait, en
 # changeant le lien).
 CLIENT_DECISIONS = (DeliverableStatus.VALIDE, DeliverableStatus.CORRECTIONS)
+CLIENT_DECISION_FIELDS = {"client_status", "comment", "categories", "reference_url"}
 
 
 class DeliverablePermission(BasePermission):
@@ -15,8 +16,10 @@ class DeliverablePermission(BasePermission):
     - `status`, la validation de l'agence, qui vaut envoi au client : admin
       ou chef de projet ;
     - `client_status`, la décision du client (Validé ou Corrections, avec
-      l'explication des corrections dans `comment`) : le client seul, sur un
-      livrable de son entreprise que l'agence a validé.
+      catégories / détail / exemple facultatifs) : le client, sur un livrable
+      de son entreprise que l'agence a validé ; ou l'admin / le chef de
+      projet qui l'enregistre pour lui (réponse reçue hors du portail),
+      tracé dans `client_decided_by`. Jamais un collaborateur.
     Lecture/dépôt : tout utilisateur authentifié pouvant voir la mission
     (portée déjà imposée par le queryset et par MissionPKField), sauf le
     client qui ne dépose jamais. Publier / dépublier : admin, chef de projet,
@@ -45,12 +48,18 @@ class DeliverablePermission(BasePermission):
             return (
                 obj.mission.client_id == request.user.client_id
                 and obj.status == DeliverableStatus.VALIDE
-                and fields_sent <= {"client_status", "comment"}
+                and fields_sent <= CLIENT_DECISION_FIELDS
                 and request.data.get("client_status") in CLIENT_DECISIONS
             )
-        # La décision du client n'appartient qu'à lui.
         if "client_status" in fields_sent:
-            return False
+            # Décision du client enregistrée par l'agence : mêmes règles que
+            # pour le client, sans autre champ dans la même requête.
+            return (
+                request.user.role in (Role.ADMIN, Role.CHEF_PROJET)
+                and obj.status == DeliverableStatus.VALIDE
+                and fields_sent <= CLIENT_DECISION_FIELDS
+                and request.data.get("client_status") in CLIENT_DECISIONS
+            )
         if request.user.role in (Role.ADMIN, Role.CHEF_PROJET):
             return True
         if request.method == "DELETE":

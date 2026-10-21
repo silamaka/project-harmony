@@ -132,6 +132,19 @@ export const PRIORITY_ORDER: Priority[] = ["urgente", "haute", "normale", "faibl
 
 export type TaskType = "mission" | "editos" | "livrable" | "reunion";
 
+/** Ce que le client demande de corriger (miroir de CorrectionCategory côté serveur). */
+export type CorrectionCategory =
+  "texte" | "visuel" | "mise_en_page" | "image" | "contenu" | "autre";
+
+export const CORRECTION_CATEGORY_LABELS: Record<CorrectionCategory, string> = {
+  texte: "Texte / orthographe",
+  visuel: "Couleurs / visuel",
+  mise_en_page: "Mise en page",
+  image: "Image / photo",
+  contenu: "Contenu à ajouter ou retirer",
+  autre: "Autre",
+};
+
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   mission: "Mission",
   editos: "Editos",
@@ -186,8 +199,13 @@ export interface Deliverable {
    * serveur ; effacée quand il valide ou qu'un nouveau lien arrive. */
   client_feedback: string;
   client_feedback_at?: string | null;
+  /** Catégories et lien d'exemple joints à cette demande de corrections. */
+  client_feedback_categories: CorrectionCategory[];
+  client_feedback_link: string;
   /** Date de la validation du client (posée par le serveur), null sinon. */
   client_validated_at?: string | null;
+  /** Qui a enregistré la décision pour le client (vide s'il a décidé lui-même). */
+  client_decided_by_name: string;
   /** Date de publication (posée par le serveur), null tant que non publié. */
   published_at?: string | null;
   created_at: string;

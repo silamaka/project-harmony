@@ -16,6 +16,19 @@ class DeliverableStatus(models.TextChoices):
     CORRECTIONS = "corrections", "Corrections"
 
 
+class CorrectionCategory(models.TextChoices):
+    """Ce que le client demande de corriger : l'équipe sait d'un coup d'œil
+    de quoi il s'agit, avant même de lire le détail."""
+
+    TEXTE = "texte", "Texte / orthographe"
+    VISUEL = "visuel", "Couleurs / visuel"
+    MISE_EN_PAGE = "mise_en_page", "Mise en page"
+    IMAGE = "image", "Image / photo"
+    CONTENU = "contenu", "Contenu à ajouter ou retirer"
+    AUTRE = "autre", "Autre"
+
+
+
 class Deliverable(models.Model):
     """Correspond au type `Deliverable` du frontend (src/types/index.ts)."""
 
@@ -50,10 +63,24 @@ class Deliverable(models.Model):
     # nouveau lien arrive. Le message reste aussi dans la discussion.
     client_feedback = models.TextField(blank=True, default="")
     client_feedback_at = models.DateTimeField(null=True, blank=True)
+    # Catégories (CorrectionCategory) et lien d'exemple / de capture joints à
+    # cette demande ; effacés avec elle.
+    client_feedback_categories = models.JSONField(default=list, blank=True)
+    client_feedback_link = models.TextField(blank=True, default="")
     # Quand le client a validé (affiché à l'agence : "Validé par le client
     # le …"). Effacé s'il demande ensuite des corrections ou qu'un nouveau
     # lien arrive.
     client_validated_at = models.DateTimeField(null=True, blank=True)
+    # Décision du client enregistrée par l'agence (admin / chef de projet)
+    # pour un client qui a répondu hors du portail (téléphone, e-mail...) :
+    # qui l'a enregistrée. Vide quand le client a décidé lui-même.
+    client_decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        related_name="+",
+        on_delete=models.SET_NULL,
+    )
     # Indépendant de `status` : un livrable validé n'est pas forcément déjà
     # publié, et une mission à plusieurs livrables les publie un par un.
     published_at = models.DateTimeField(null=True, blank=True)

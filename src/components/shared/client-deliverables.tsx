@@ -17,12 +17,15 @@ import { toast } from "sonner";
 import {
   DELIVERABLE_STATES,
   DeliverableStateBadge,
+  awaitsCorrectedVersion,
+  isSentToClient,
   deliverableBorderTone,
   deliverableRowTone,
   deliverableState,
   hasDeliverableLink,
   type DeliverableState,
 } from "@/components/shared/badges";
+import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import { EditDeliverableDialog } from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
@@ -175,6 +178,9 @@ export function ClientDeliverables({
           <Eye className="h-4 w-4" />
         </a>
       )}
+      {canValidate && isSentToClient(d) && (
+        <DeliverableDecision deliverable={d} onBehalf variant="icons" />
+      )}
       {canPublish && hasDeliverableLink(d) && (
         <button
           type="button"
@@ -190,7 +196,7 @@ export function ClientDeliverables({
           <Megaphone className="h-4 w-4" />
         </button>
       )}
-      {canValidate && hasDeliverableLink(d) && (
+      {canValidate && hasDeliverableLink(d) && !awaitsCorrectedVersion(d) && (
         <button
           type="button"
           onClick={() =>
@@ -275,7 +281,11 @@ export function ClientDeliverables({
                 </div>
                 <DeliverableStateBadge deliverable={d} />
               </div>
-              <DeliverableFeedback deliverable={d} className="mt-2" />
+              <DeliverableFeedback
+                deliverable={d}
+                className="mt-2"
+                onFix={canEdit(d) ? () => setEditing(d) : undefined}
+              />
               {mission && (
                 <Link
                   to="/missions/$missionId"
@@ -338,7 +348,11 @@ export function ClientDeliverables({
                           </p>
                         </div>
                       </div>
-                      <DeliverableFeedback deliverable={d} className="mt-2 max-w-md" />
+                      <DeliverableFeedback
+                        deliverable={d}
+                        className="mt-2 max-w-md"
+                        onFix={canEdit(d) ? () => setEditing(d) : undefined}
+                      />
                     </td>
                     <td className="px-3 py-2.5">
                       {mission ? (

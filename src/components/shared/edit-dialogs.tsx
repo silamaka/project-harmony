@@ -4,6 +4,7 @@ import { cloneElement, isValidElement, useId, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
 import { AvatarPicker } from "@/components/shared/avatar";
+import { awaitsCorrectedVersion } from "@/components/shared/badges";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -722,8 +723,12 @@ function EditDeliverableForm({
   deliverable: Deliverable;
   onDone: () => void;
 }) {
+  // Le client a demandé des corrections : la fenêtre sert à déposer la
+  // version corrigée (champ lien vide et prêt à la saisie, rappel de sa
+  // demande), pas à une modification quelconque.
+  const fixing = awaitsCorrectedVersion(deliverable);
   const [name, setName] = useState(deliverable.name);
-  const [url, setUrl] = useState(deliverable.url);
+  const [url, setUrl] = useState(fixing ? "" : deliverable.url);
   // Un nouveau lien remet le livrable en revue : la mission peut bouger.
   const done = useSaved(
     [
@@ -739,27 +744,53 @@ function EditDeliverableForm({
     mutationFn: () =>
       deliverableService.update(deliverable.id, { name: name.trim(), url: url.trim() }),
     onSuccess: () =>
-      done(url.trim() ? "Livrable mis à jour." : "Livrable mis à jour — lien à venir."),
+      done(
+        fixing
+          ? `Version corrigée (v${deliverable.version + 1}) déposée : à valider avant renvoi au client.`
+          : url.trim()
+            ? "Livrable mis à jour."
+            : "Livrable mis à jour — lien à venir.",
+      ),
     onError: () => toast.error("Mise à jour impossible."),
   });
   const linkChanged = url.trim() !== deliverable.url && deliverable.url !== "" && url.trim() !== "";
+  const missingFix = fixing && (!url.trim() || url.trim() === deliverable.url);
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Modifier le livrable</DialogTitle>
+        <DialogTitle>{fixing ? "Déposer la version corrigée" : "Modifier le livrable"}</DialogTitle>
         <DialogDescription>
-          Laisse le lien vide s'il n'est pas encore disponible : le livrable restera « Lien à venir
-          ».
+          {fixing ? (
+            <>
+              Colle le lien de la v{deliverable.version + 1}. Elle repassera en revue par l'agence
+              avant d'être renvoyée au client.
+            </>
+          ) : (
+            "Laisse le lien vide s'il n'est pas encore disponible : le livrable restera « Lien à venir »."
+          )}
         </DialogDescription>
+        {fixing && deliverable.client_feedback && (
+          <p className="rounded-md bg-destructive/5 px-2.5 py-2 text-xs whitespace-pre-wrap break-words">
+            <span className="font-semibold text-destructive">Demande du client : </span>
+            {deliverable.client_feedback}
+          </p>
+        )}
       </DialogHeader>
       <div className="grid gap-3">
         <Field label="Nom">
           <Input value={name} maxLength={140} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="Lien (Drive, Figma, S3...)">
+        <Field
+          label={
+            fixing
+              ? `Lien de la version corrigée (v${deliverable.version + 1})`
+              : "Lien (Drive, Figma, S3...)"
+          }
+        >
           <Input
             value={url}
+            autoFocus={fixing}
             placeholder="https://..."
             aria-invalid={urlInvalid}
             className={cn(urlInvalid && "border-destructive")}
@@ -767,7 +798,7 @@ function EditDeliverableForm({
           />
           {urlInvalid && <p className="mt-1 text-xs text-destructive">{WEB_URL_HINT}</p>}
         </Field>
-        {linkChanged && !urlInvalid && (
+        {linkChanged && !urlInvalid && !fixing && (
           <p className="text-xs text-warning">
             Le lien change : ce sera la v{deliverable.version + 1}, qui repassera en revue par
             l'agence avant d'être renvoyée au client.
@@ -776,10 +807,14 @@ function EditDeliverableForm({
       </div>
       <DialogFooter>
         <Button
-          disabled={!name.trim() || urlInvalid || mutation.isPending}
+          disabled={!name.trim() || urlInvalid || missingFix || mutation.isPending}
           onClick={() => mutation.mutate()}
         >
-          {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
+          {mutation.isPending
+            ? "Enregistrement..."
+            : fixing
+              ? "Déposer la v" + (deliverable.version + 1)
+              : "Enregistrer"}
         </Button>
       </DialogFooter>
     </>
