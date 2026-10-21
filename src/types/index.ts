@@ -186,6 +186,8 @@ export interface Deliverable {
    * serveur ; effacée quand il valide ou qu'un nouveau lien arrive. */
   client_feedback: string;
   client_feedback_at?: string | null;
+  /** Date de la validation du client (posée par le serveur), null sinon. */
+  client_validated_at?: string | null;
   /** Date de publication (posée par le serveur), null tant que non publié. */
   published_at?: string | null;
   created_at: string;

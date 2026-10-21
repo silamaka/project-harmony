@@ -64,6 +64,7 @@ class DeliverableViewSet(viewsets.ModelViewSet):
             if deliverable.client_status == DeliverableStatus.CORRECTIONS:
                 deliverable.client_feedback = comment
                 deliverable.client_feedback_at = timezone.now()
+                deliverable.client_validated_at = None
                 Comment.objects.create(
                     mission=deliverable.mission,
                     author=user,
@@ -73,7 +74,13 @@ class DeliverableViewSet(viewsets.ModelViewSet):
             else:
                 deliverable.client_feedback = ""
                 deliverable.client_feedback_at = None
-            deliverable.save(update_fields=["client_feedback", "client_feedback_at"])
+                # Revalider sans changement garde la date de la première
+                # validation.
+                if deliverable.client_validated_at is None:
+                    deliverable.client_validated_at = timezone.now()
+            deliverable.save(
+                update_fields=["client_feedback", "client_feedback_at", "client_validated_at"]
+            )
             if deliverable.client_status != previous_client_status:
                 notify_client_decision(
                     user,

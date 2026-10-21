@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import {
   DeliverableStateBadge,
-  deliverableBorderTone,
+  clientDeliverableBorderTone,
   deliverableState,
   hasDeliverableLink,
   type DeliverableState,
@@ -81,7 +81,7 @@ export function ClientMissionDeliverables({
             id={`livrable-${d.id}`}
             className={cn(
               "flex scroll-mt-24 flex-col gap-3 rounded-lg border border-l-4 border-border p-4 transition-shadow duration-500 sm:flex-row sm:items-center",
-              deliverableBorderTone[deliverableState(d)],
+              clientDeliverableBorderTone[deliverableState(d)],
               highlightedId === d.id && "ring-2 ring-primary ring-offset-2 ring-offset-background",
             )}
           >

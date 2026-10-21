@@ -68,7 +68,7 @@ export const hasDeliverableLink = (d: Pick<Deliverable, "url">) => !!d.url?.trim
 
 type DeliverableStateFields = Pick<
   Deliverable,
-  "status" | "client_status" | "published_at" | "url"
+  "status" | "client_status" | "published_at" | "url" | "client_validated_at"
 >;
 
 export function deliverableState(d: DeliverableStateFields): DeliverableState {
@@ -118,6 +118,19 @@ export const deliverableBorderTone: Record<DeliverableState, string> = {
   publie: "border-l-success",
 };
 
+/** Côté client, "À valider" est une action attendue de lui : même jaune que
+ * le statut de mission "À valider" et le bandeau "À vous de jouer". Côté
+ * agence, "Chez le client" reste bleu (rien à faire pour elle). */
+const clientDeliverableTone: Record<DeliverableState, string> = {
+  ...deliverableTone,
+  envoye: "bg-warning/20 text-warning",
+};
+
+export const clientDeliverableBorderTone: Record<DeliverableState, string> = {
+  ...deliverableBorderTone,
+  envoye: "border-l-warning",
+};
+
 /** Mêmes états, formulés pour le client (ce qu'on attend de lui). */
 export const CLIENT_DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> = {
   a_venir: "Lien à venir",
@@ -140,9 +153,19 @@ export function DeliverableStateBadge({
 }) {
   const state = deliverableState(deliverable);
   const labels = audience === "client" ? CLIENT_DELIVERABLE_STATE_LABELS : DELIVERABLE_STATE_LABELS;
+  const tones = audience === "client" ? clientDeliverableTone : deliverableTone;
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
-      <span className={cn(base, deliverableTone[state])}>{labels[state]}</span>
+      <span className={cn(base, tones[state])}>{labels[state]}</span>
+      {/* L'agence voit qui a validé et quand : "Prêt à publier" seul ne le dit pas. */}
+      {audience === "agence" &&
+        deliverable.client_status === "valide" &&
+        deliverable.client_validated_at && (
+          <span className="text-[11px] font-medium text-success">
+            Validé par le client le{" "}
+            {new Date(deliverable.client_validated_at).toLocaleDateString("fr-FR")}
+          </span>
+        )}
       {showPublishedDate && deliverable.published_at && (
         <span className="text-[11px] text-muted-foreground">
           le {new Date(deliverable.published_at).toLocaleDateString("fr-FR")}

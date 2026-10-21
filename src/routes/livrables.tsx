@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Clock,
+  Megaphone,
   Eye,
   FileArchive,
   FileText,
@@ -122,6 +123,7 @@ function DeliverablesPage() {
     enRevue: countState("en_attente"),
     chezLeClient: countState("envoye"),
     corrections: countState("corrections"),
+    aPublier: countState("pret"),
   };
 
   return (
@@ -130,7 +132,7 @@ function DeliverablesPage() {
       subtitle={`${visible.length} fichier(s) déposé(s)`}
       allow={["admin", "chef_projet", "collaborateur"]}
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard label="Livrables" value={stats.total} icon={Package} />
         <StatCard
           label="En revue agence"
@@ -140,6 +142,16 @@ function DeliverablesPage() {
           delay={0.04}
         />
         <StatCard label="Chez le client" value={stats.chezLeClient} icon={Send} delay={0.08} />
+        {/* Validés par le client : c'est le prochain travail de l'agence. */}
+        <StatCard
+          label="À publier"
+          value={stats.aPublier}
+          icon={Megaphone}
+          tone="success"
+          delay={0.1}
+          active={filter === "pret"}
+          onClick={() => setFilter(filter === "pret" ? "tous" : "pret")}
+        />
         <StatCard
           label="Corrections"
           value={stats.corrections}
@@ -156,7 +168,7 @@ function DeliverablesPage() {
           placeholder="Rechercher un livrable…"
           className="max-w-sm"
         />
-        <div className="flex gap-1 rounded-lg border border-border p-1">
+        <div className="flex flex-wrap gap-1 rounded-lg border border-border p-1">
           {FILTERS.map((f) => (
             <button
               key={f}

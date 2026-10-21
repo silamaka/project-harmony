@@ -16,7 +16,7 @@ import {
   ClientMissionStatusBadge,
   DeliverableStateBadge,
   ProjectStatusBadge,
-  deliverableBorderTone,
+  clientDeliverableBorderTone,
   deliverableState,
   hasDeliverableLink,
 } from "@/components/shared/badges";
@@ -338,7 +338,7 @@ function ClientPortalPage() {
                   key={d.id}
                   className={cn(
                     "flex flex-wrap items-center gap-3 rounded-lg border border-l-4 border-border px-3 py-2.5",
-                    deliverableBorderTone[deliverableState(d)],
+                    clientDeliverableBorderTone[deliverableState(d)],
                   )}
                 >
                   <div className="min-w-0 w-full sm:w-auto sm:flex-1">
@@ -551,7 +551,7 @@ function MissionPreviewPanel({ mission, preview }: { mission: Mission; preview: 
                 key={d.id}
                 className={cn(
                   "flex flex-wrap items-center gap-3 rounded-md border border-l-4 border-border bg-background px-3 py-2",
-                  deliverableBorderTone[deliverableState(d)],
+                  clientDeliverableBorderTone[deliverableState(d)],
                 )}
               >
                 <span className="min-w-0 w-full truncate text-sm font-medium sm:w-auto sm:flex-1">

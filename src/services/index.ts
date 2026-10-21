@@ -157,6 +157,7 @@ export const deliverableService = {
       | "client_status"
       | "client_feedback"
       | "client_feedback_at"
+      | "client_validated_at"
       | "version"
       | "type"
     >,

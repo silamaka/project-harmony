@@ -50,6 +50,10 @@ class Deliverable(models.Model):
     # nouveau lien arrive. Le message reste aussi dans la discussion.
     client_feedback = models.TextField(blank=True, default="")
     client_feedback_at = models.DateTimeField(null=True, blank=True)
+    # Quand le client a validé (affiché à l'agence : "Validé par le client
+    # le …"). Effacé s'il demande ensuite des corrections ou qu'un nouveau
+    # lien arrive.
+    client_validated_at = models.DateTimeField(null=True, blank=True)
     # Indépendant de `status` : un livrable validé n'est pas forcément déjà
     # publié, et une mission à plusieurs livrables les publie un par un.
     published_at = models.DateTimeField(null=True, blank=True)

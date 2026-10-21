@@ -829,3 +829,42 @@ class DepositVersionLinkTypeTests(DeliverableSetupMixin, RoleTestCase):
             self.assertEqual(res.data["type"], expected, url)
         res = self._patch(self.deliverable.id, {"url": "https://example.com/maquette.pdf"})
         self.assertEqual(res.data["type"], "pdf")
+
+
+class ClientValidatedAtTests(DeliverableSetupMixin, RoleTestCase):
+    """L'agence voit quand le client a validé ; la date disparaît si la
+    validation ne tient plus (corrections, nouveau lien)."""
+
+    def _decide(self, decision):
+        self.auth_as(self.client_user)
+        payload = {"client_status": decision}
+        if decision == "corrections":
+            payload["comment"] = "Revoir le titre."
+        return self.client.patch(deliverable_detail_url(self.deliverable.id), payload).data
+
+    def test_set_when_client_validates_and_visible_to_team(self):
+        self.assertIsNotNone(self._decide("valide")["client_validated_at"])
+        self.auth_as(self.chef_projet)
+        res = self.client.get(deliverable_detail_url(self.deliverable.id))
+        self.assertIsNotNone(res.data["client_validated_at"])
+
+    def test_cleared_on_corrections(self):
+        self._decide("valide")
+        self.assertIsNone(self._decide("corrections")["client_validated_at"])
+
+    def test_cleared_on_new_link(self):
+        self._decide("valide")
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"url": "https://example.com/v2"}
+        )
+        self.assertIsNone(res.data["client_validated_at"])
+
+    def test_read_only(self):
+        self.auth_as(self.admin)
+        self.client.patch(
+            deliverable_detail_url(self.deliverable.id),
+            {"client_validated_at": "2026-01-01T00:00:00Z"},
+        )
+        self.deliverable.refresh_from_db()
+        self.assertIsNone(self.deliverable.client_validated_at)

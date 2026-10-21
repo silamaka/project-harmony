@@ -77,6 +77,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "client_status",
             "client_feedback",
             "client_feedback_at",
+            "client_validated_at",
             "published",
             "comment",
             "published_at",
@@ -90,6 +91,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "published_at",
             "client_feedback",
             "client_feedback_at",
+            "client_validated_at",
             "version",
             "type",
         ]
@@ -146,6 +148,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
                 validated_data["client_status"] = DeliverableStatus.EN_ATTENTE
                 validated_data["client_feedback"] = ""
                 validated_data["client_feedback_at"] = None
+                validated_data["client_validated_at"] = None
             if not url:
                 # Lien retiré : le livrable redevient "à venir", ce qui
                 # annule une publication devenue sans objet.
