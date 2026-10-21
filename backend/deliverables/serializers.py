@@ -1,6 +1,8 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from accounts.models import Role
+
 from .models import Deliverable, DeliverableStatus
 
 
@@ -29,6 +31,12 @@ class DeliverableSerializer(serializers.ModelSerializer):
     # Publier / dépublier s'écrit via `published` ; la date est toujours
     # posée par le serveur, jamais envoyée par le client.
     published = serializers.BooleanField(write_only=True, required=False)
+    # Explication d'une demande de corrections du client, postée dans la
+    # discussion de la mission dans la même transaction que le changement de
+    # statut (voir DeliverableViewSet.perform_update).
+    comment = serializers.CharField(
+        write_only=True, required=False, allow_blank=True, max_length=2000
+    )
 
     class Meta:
         model = Deliverable
@@ -43,12 +51,27 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "uploaded_by",
             "status",
             "published",
+            "comment",
             "published_at",
             "created_at",
         ]
         read_only_fields = ["created_at", "uploaded_by", "published_at"]
 
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if (
+            request
+            and request.user.role == Role.CLIENT
+            and attrs.get("status") == DeliverableStatus.CORRECTIONS
+            and not attrs.get("comment", "").strip()
+        ):
+            raise serializers.ValidationError(
+                {"comment": "Expliquez ce qu'il faut corriger."}
+            )
+        return attrs
+
     def create(self, validated_data):
+        validated_data.pop("comment", None)
         # Un dépôt n'est jamais publié d'emblée : la publication passe
         # toujours par un PATCH, soumis à DeliverablePermission.
         validated_data.pop("published", None)
@@ -59,6 +82,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        validated_data.pop("comment", None)
         url = validated_data.get("url", instance.url).strip()
         if "url" in validated_data:
             validated_data["url"] = url

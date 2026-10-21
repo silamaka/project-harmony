@@ -170,6 +170,51 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
         )
         self.assertEqual(res.status_code, 403)
 
+    def test_client_cannot_put_deliverable_back_to_pending(self):
+        self.deliverable.status = DeliverableStatus.VALIDE
+        self.deliverable.save()
+        self.auth_as(self.client_user)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"status": "en_attente"}
+        )
+        self.assertEqual(res.status_code, 403)
+        self.deliverable.refresh_from_db()
+        self.assertEqual(self.deliverable.status, DeliverableStatus.VALIDE)
+
+    def test_client_corrections_require_an_explanation(self):
+        self.auth_as(self.client_user)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"status": "corrections", "comment": "  "}
+        )
+        self.assertEqual(res.status_code, 400)
+        self.deliverable.refresh_from_db()
+        self.assertEqual(self.deliverable.status, DeliverableStatus.EN_ATTENTE)
+
+    def test_client_corrections_post_the_explanation_in_the_mission_discussion(self):
+        from comments.models import Comment
+
+        self.auth_as(self.client_user)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id),
+            {"status": "corrections", "comment": "Remplacer la photo."},
+        )
+        self.assertEqual(res.status_code, 200)
+        comment = Comment.objects.get(mission=self.mission)
+        self.assertEqual(comment.author, self.client_user)
+        self.assertTrue(comment.client_visible)
+        self.assertIn("Maquette", comment.body)
+        self.assertIn("Remplacer la photo.", comment.body)
+
+    def test_agency_corrections_need_no_explanation(self):
+        from comments.models import Comment
+
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"status": "corrections"}
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertFalse(Comment.objects.exists())
+
     def test_collaborateur_cannot_self_validate_own_upload(self):
         """Un collaborateur ne peut pas valider son propre livrable, même le
         sien : seuls admin/chef de projet/client en décident."""
@@ -443,7 +488,10 @@ class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
 
     def _decide(self, deliverable, status):
         self.auth_as(self.client_user)
-        res = self.client.patch(deliverable_detail_url(deliverable.id), {"status": status})
+        payload = {"status": status}
+        if status == "corrections":
+            payload["comment"] = "Changer la couleur du titre."
+        res = self.client.patch(deliverable_detail_url(deliverable.id), payload)
         self.assertEqual(res.status_code, 200)
         self.mission.refresh_from_db()
 

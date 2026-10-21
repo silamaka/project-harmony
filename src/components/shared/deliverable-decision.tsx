@@ -12,15 +12,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { commentService, deliverableService } from "@/services";
+import { deliverableService } from "@/services";
 import type { Deliverable } from "@/types";
 
 /**
  * Décision du client sur un livrable que l'agence lui a envoyé : Valider,
  * ou Demander des corrections en expliquant quoi corriger. L'explication
- * est postée dans la discussion de la mission, là où l'équipe la verra.
- * Côté serveur, le client ne peut changer que le statut d'un livrable de
- * son entreprise (DeliverablePermission).
+ * est postée par le serveur dans la discussion de la mission, dans la même
+ * transaction que le statut. Côté serveur, le client ne peut que valider ou
+ * demander des corrections sur un livrable de son entreprise
+ * (DeliverablePermission).
  */
 export function DeliverableDecision({
   deliverable,
@@ -51,13 +52,7 @@ export function DeliverableDecision({
   });
 
   const requestCorrections = useMutation({
-    mutationFn: async () => {
-      await deliverableService.updateStatus(deliverable.id, "corrections");
-      await commentService.create({
-        mission_id: deliverable.mission_id,
-        body: `Corrections demandées sur le livrable « ${deliverable.name} » :\n${details.trim()}`,
-      });
-    },
+    mutationFn: () => deliverableService.requestCorrections(deliverable.id, details.trim()),
     onSuccess: () => {
       refresh();
       setCorrectionsOpen(false);

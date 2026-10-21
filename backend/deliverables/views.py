@@ -1,12 +1,14 @@
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import viewsets
 
 from accounts.models import Role
+from comments.models import Comment
 from missions.models import MissionStatus
 from missions.scoping import missions_visible_to
 
 from .decisions import apply_client_decision
-from .models import Deliverable
+from .models import Deliverable, DeliverableStatus
 
 # Le client ne voit un livrable de l'agence qu'une fois la mission envoyée
 # (ou plus loin) : les brouillons en cours de validation interne et les
@@ -50,8 +52,22 @@ class DeliverableViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(uploaded_by=self.request.user)
 
+    @transaction.atomic
     def perform_update(self, serializer):
         previous_status = serializer.instance.status
+        comment = serializer.validated_data.get("comment", "").strip()
         deliverable = serializer.save()
-        if self.request.user.role == Role.CLIENT and deliverable.status != previous_status:
-            apply_client_decision(deliverable, self.request.user)
+        user = self.request.user
+        if user.role != Role.CLIENT:
+            return
+        # Statut et explication partent ensemble : l'équipe ne voit jamais un
+        # livrable en "Corrections" sans savoir quoi corriger.
+        if deliverable.status == DeliverableStatus.CORRECTIONS:
+            Comment.objects.create(
+                mission=deliverable.mission,
+                author=user,
+                body=f"Corrections demandées sur le livrable « {deliverable.name} » :\n{comment}",
+                client_visible=True,
+            )
+        if deliverable.status != previous_status:
+            apply_client_decision(deliverable, user)

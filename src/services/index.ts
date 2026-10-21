@@ -151,6 +151,15 @@ export const deliverableService = {
   /** PATCH /api/v1/deliverables/:id/ (status) */
   updateStatus: async (id: string, status: Deliverable["status"]) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { status })).data,
+  /** PATCH /api/v1/deliverables/:id/ (client : corrections + explication,
+   *  postée dans la discussion de la mission par le serveur, en un seul appel) */
+  requestCorrections: async (id: string, comment: string) =>
+    (
+      await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, {
+        status: "corrections",
+        comment,
+      })
+    ).data,
   /** PATCH /api/v1/deliverables/:id/ (nom / lien ; lien vide = "Lien à venir") */
   update: async (id: string, patch: Pick<Deliverable, "name" | "url">) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, patch)).data,
