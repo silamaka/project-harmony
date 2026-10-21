@@ -16,12 +16,12 @@ import { deliverableService } from "@/services";
 import type { Deliverable } from "@/types";
 
 /**
- * Décision du client sur un livrable que l'agence lui a envoyé : Valider,
- * ou Demander des corrections en expliquant quoi corriger. L'explication
- * est postée par le serveur dans la discussion de la mission, dans la même
- * transaction que le statut. Côté serveur, le client ne peut que valider ou
- * demander des corrections sur un livrable de son entreprise
- * (DeliverablePermission).
+ * Décision du client (Deliverable.client_status) sur un livrable que
+ * l'agence a validé, donc envoyé : Valider, ou Demander des corrections en
+ * expliquant quoi corriger. L'explication est postée par le serveur dans la
+ * discussion de la mission, dans la même transaction que la décision. Côté
+ * serveur, le client ne peut que valider ou demander des corrections sur un
+ * livrable de son entreprise déjà validé par l'agence (DeliverablePermission).
  */
 export function DeliverableDecision({
   deliverable,
@@ -43,7 +43,7 @@ export function DeliverableDecision({
   };
 
   const validate = useMutation({
-    mutationFn: () => deliverableService.updateStatus(deliverable.id, "valide"),
+    mutationFn: () => deliverableService.clientValidate(deliverable.id),
     onSuccess: () => {
       refresh();
       toast.success(`« ${deliverable.name} » validé. Merci !`);
@@ -70,7 +70,7 @@ export function DeliverableDecision({
         <Button
           size={size}
           className="bg-success text-success-foreground hover:bg-success/90"
-          disabled={pending || deliverable.status === "valide"}
+          disabled={pending || deliverable.client_status === "valide"}
           onClick={() => validate.mutate()}
         >
           <Check className="mr-1 h-4 w-4" /> Valider

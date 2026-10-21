@@ -38,6 +38,16 @@ class Notification(models.Model):
     mission = models.ForeignKey(
         "missions.Mission", null=True, blank=True, related_name="notifications", on_delete=models.CASCADE
     )
+    # Livrable concerné (décision du client, envoi au client) : la
+    # notification ouvre la fiche mission directement sur lui. Ne change pas
+    # la portée, toujours dérivée de `mission`.
+    deliverable = models.ForeignKey(
+        "deliverables.Deliverable",
+        null=True,
+        blank=True,
+        related_name="notifications",
+        on_delete=models.SET_NULL,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

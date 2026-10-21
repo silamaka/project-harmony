@@ -16,7 +16,6 @@ import {
   ClientMissionStatusBadge,
   DeliverableStateBadge,
   ProjectStatusBadge,
-  clientMissionStatus,
   deliverableBorderTone,
   deliverableState,
   hasDeliverableLink,
@@ -66,10 +65,10 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fr-FR");
 const REVIEW_REMINDER_DAYS = 5;
 
 /** Un livrable de l'agence qui attend la décision du client. Le backend ne
- * renvoie au client que les livrables envoyés (mission "Envoyé au client"
- * ou plus loin, avec un lien) et ses propres dépôts. */
+ * renvoie au client que les livrables validés par l'agence (avec un lien) et
+ * ses propres dépôts. */
 const awaitsDecision = (d: Deliverable, userId: string | undefined) =>
-  d.uploaded_by !== userId && deliverableState(d) === "en_attente";
+  d.uploaded_by !== userId && deliverableState(d) === "envoye";
 
 type DeliverableFilter = "tous" | "a_valider" | "corrections" | "valides" | "publies";
 
@@ -123,12 +122,14 @@ function ClientPortalPage() {
   const visibleMissions = myMissions.filter((m) => inProject(m.id));
   const projectDeliverables = myDeliverables.filter((d) => inProject(d.mission_id));
 
-  // Missions regroupées par ce qui concerne le client : d'abord ce qu'il doit
-  // valider, puis ce qui avance chez nous, et les missions closes repliées.
+  // Missions regroupées par ce qui concerne le client : d'abord celles où un
+  // livrable attend sa décision, puis ce qui avance chez nous, et les
+  // missions closes repliées.
+  const awaitingMissionIds = new Set(toReview.map((d) => d.mission_id));
   const missionGroups = {
-    toValidate: visibleMissions.filter((m) => clientMissionStatus(m.status) === "a_valider"),
+    toValidate: visibleMissions.filter((m) => awaitingMissionIds.has(m.id)),
     inProgress: visibleMissions.filter(
-      (m) => clientMissionStatus(m.status) !== "a_valider" && !isMissionDone(m.status),
+      (m) => !awaitingMissionIds.has(m.id) && !isMissionDone(m.status),
     ),
     done: visibleMissions.filter((m) => isMissionDone(m.status)).reverse(), // la plus récente en premier
   };

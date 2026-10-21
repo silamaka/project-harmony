@@ -12,13 +12,12 @@ import {
   Lock,
   Megaphone,
   Pencil,
-  RefreshCcw,
   Send,
   Trash2,
   Upload,
   FileArchive,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
@@ -32,6 +31,7 @@ import {
   hasDeliverableLink,
 } from "@/components/shared/badges";
 import { DeliverableDecision } from "@/components/shared/deliverable-decision";
+import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import {
   ConfirmDeleteButton,
   EditDeliverableDialog,
@@ -60,6 +60,10 @@ import {
 } from "@/types";
 
 export const Route = createFileRoute("/missions/$missionId")({
+  // ?livrable=<id> (lien d'une notification) : la fiche s'ouvre sur ce
+  // livrable, mis en évidence. Paramètre facultatif.
+  validateSearch: (search: Record<string, unknown>): { livrable?: string } =>
+    typeof search["livrable"] === "string" ? { livrable: search["livrable"] } : {},
   head: () => ({
     meta: [
       { title: "Détail mission — OLYMPE" },
@@ -81,6 +85,7 @@ const typeIcon: Record<DeliverableType, typeof FileText> = {
 
 function MissionDetailPage() {
   const { missionId } = Route.useParams();
+  const { livrable: focusedDeliverableId } = Route.useSearch();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
@@ -100,6 +105,20 @@ function MissionDetailPage() {
     queryKey: ["deliverables", missionId],
     queryFn: () => deliverableService.byMission(missionId),
   });
+
+  // Ouverture depuis une notification : on amène le livrable à l'écran et on
+  // le met en évidence quelques secondes (sur dix livrables, c'est lui).
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const deliverablesLoaded = deliverables !== undefined;
+  useEffect(() => {
+    if (!focusedDeliverableId || !deliverablesLoaded) return;
+    const el = document.getElementById(`livrable-${focusedDeliverableId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedId(focusedDeliverableId);
+    const timer = window.setTimeout(() => setHighlightedId(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [focusedDeliverableId, deliverablesLoaded]);
   const { data: comments } = useQuery({
     queryKey: ["comments", missionId],
     queryFn: () => commentService.byMission(missionId),
@@ -173,7 +192,6 @@ function MissionDetailPage() {
         url: payload.url,
         ...(payload.size_kb !== undefined ? { size_kb: payload.size_kb } : {}),
         version: ((deliverables ?? []).length || 0) + 1,
-        status: "en_attente",
       }),
     onSuccess: (_d, { url }) => {
       refresh([["deliverables", missionId], ["deliverables"]]);
@@ -184,12 +202,21 @@ function MissionDetailPage() {
     onError: () => toast.error("Dépôt impossible."),
   });
 
+  // Validation agence : "valide" envoie le livrable au client (notifié côté
+  // serveur), "en_attente" le lui retire. La mission suit côté serveur.
   const deliverableStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "valide" | "corrections" | "en_attente" }) =>
       deliverableService.updateStatus(id, status),
-    onSuccess: () => {
-      refresh([["deliverables", missionId], ["deliverables"]]);
-      toast.success("Statut du livrable mis à jour.");
+    onSuccess: (_d, { status }) => {
+      refresh([
+        ["deliverables", missionId],
+        ["deliverables"],
+        ["missions"],
+        ["missions", missionId],
+      ]);
+      toast.success(
+        status === "valide" ? "Livrable validé et envoyé au client." : "Envoi au client retiré.",
+      );
     },
   });
 
@@ -246,13 +273,14 @@ function MissionDetailPage() {
    * uniquement, voir DeliverablePermission) : ne pas réutiliser cette
    * variable pour eux. */
   const canEditMission = isManager || (user?.role === "collaborateur" && isInvolved);
-  /** Le client ne pilote que sa décision (Validé / Corrections), pas le pipeline interne. */
+  /** Le client décide sur chaque livrable (Validé / Corrections) ; le statut
+   * de la mission en découle côté serveur, il n'y touche jamais. */
   const isClient = user?.role === "client";
-  /** Livrables (voir DeliverablePermission) : valider = admin, chef de projet
-   * ou client ; publier = l'agence (admin, chef de projet, collaborateur de
-   * la mission), jamais le client. */
-  /** Icône ✓ (bascule Validé / En attente) : l'agence. Le client a ses
-   * propres boutons Valider / Corrections (DeliverableDecision). */
+  /** Livrables (voir DeliverablePermission) : la validation agence (icône ✓,
+   * qui envoie au client) = admin ou chef de projet ; publier = l'agence
+   * (admin, chef de projet, collaborateur de la mission), jamais le client.
+   * Le client a ses propres boutons Valider / Corrections
+   * (DeliverableDecision). */
   const canValidateDeliverable = isManager;
   const canPublishDeliverable = isManager || (user?.role === "collaborateur" && isInvolved);
   /** Modifier (nom / lien) et supprimer : admin, chef de projet, ou le
@@ -271,15 +299,12 @@ function MissionDetailPage() {
     else statusMutation.mutate(status);
   };
 
-  /** Le client ne peut valider / demander des corrections qu'une fois la
-   * mission effectivement envoyée par l'agence — pas avant. */
-  const clientTurnToAct = isClient && mission?.status === "envoye_client";
-  /** Le client valide les livrables et la mission suit (côté serveur) : les
-   * boutons Valider / Corrections au niveau de la mission ne servent plus
-   * que pour une mission envoyée sans livrable. */
-  const hasSentDeliverables = (deliverables ?? []).some(
-    (d) => hasDeliverableLink(d) && d.uploaded_by !== user?.id,
-  );
+  /** Livrables que l'agence a envoyés et qui attendent la décision du client. */
+  const awaitingClient = isClient
+    ? (deliverables ?? []).filter(
+        (d) => d.uploaded_by !== user?.id && deliverableState(d) === "envoye",
+      )
+    : [];
 
   return (
     <AppShell
@@ -301,44 +326,16 @@ function MissionDetailPage() {
       {/* Workflow */}
       {isClient ? (
         <>
-          {clientTurnToAct && hasSentDeliverables ? (
+          {awaitingClient.length > 0 ? (
             <div className="surface-card mt-4 border-2 border-primary/30 bg-primary/5 p-6">
               <p className="text-xs font-bold tracking-wide text-primary uppercase">
-                À vous de jouer
+                À vous de jouer — {awaitingClient.length} livrable
+                {awaitingClient.length > 1 ? "s" : ""} à valider
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Ouvrez chaque livrable ci-dessous, puis validez-le ou demandez des corrections. La
                 mission sera validée automatiquement une fois tous ses livrables validés.
               </p>
-            </div>
-          ) : clientTurnToAct ? (
-            <div className="surface-card mt-4 border-2 border-primary/30 bg-primary/5 p-6">
-              <p className="text-xs font-bold tracking-wide text-primary uppercase">
-                À vous de jouer
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                L'agence a terminé son travail sur cette mission. Validez-la, ou demandez des
-                corrections si quelque chose ne convient pas.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Button
-                  size="lg"
-                  className="h-14 flex-1 min-w-[200px] bg-success text-base text-success-foreground shadow-md hover:bg-success/90"
-                  disabled={statusMutation.isPending}
-                  onClick={() => requestStatusChange("valide")}
-                >
-                  <Check className="mr-2 h-5 w-5" /> Valider
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 flex-1 min-w-[200px] border-2 border-warning text-base text-warning shadow-md hover:bg-warning/10"
-                  disabled={statusMutation.isPending}
-                  onClick={() => requestStatusChange("corrections")}
-                >
-                  <RefreshCcw className="mr-2 h-5 w-5" /> Demander des corrections
-                </Button>
-              </div>
             </div>
           ) : (
             <div className="surface-card mt-4 flex items-center gap-3 p-4">
@@ -347,10 +344,10 @@ function MissionDetailPage() {
                 {mission?.status === "valide" ||
                 mission?.status === "publie" ||
                 mission?.status === "termine"
-                  ? "Vous avez validé cette mission."
+                  ? "Vous avez validé les livrables de cette mission."
                   : mission?.status === "corrections"
                     ? "Vous avez demandé des corrections — l'agence y travaille."
-                    : "En cours de traitement par l'agence. Vous serez notifié dès qu'elle sera prête à valider."}
+                    : "En cours de traitement par l'agence. Vous serez notifié dès qu'un livrable sera prêt à valider."}
               </p>
             </div>
           )}
@@ -580,9 +577,12 @@ function MissionDetailPage() {
               return (
                 <li
                   key={d.id}
+                  id={`livrable-${d.id}`}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg border border-l-4 border-border px-3 py-2.5",
+                    "flex scroll-mt-24 items-center gap-3 rounded-lg border border-l-4 border-border px-3 py-2.5 transition-shadow duration-500",
                     deliverableBorderTone[deliverableState(d)],
+                    highlightedId === d.id &&
+                      "ring-2 ring-primary ring-offset-2 ring-offset-background",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0 text-primary" />
@@ -605,13 +605,16 @@ function MissionDetailPage() {
                         audience={isClient ? "client" : "agence"}
                       />
                     </div>
-                    {isClient &&
-                      d.uploaded_by !== user?.id &&
-                      deliverableState(d) === "en_attente" && (
-                        <div className="mt-2">
-                          <DeliverableDecision deliverable={d} />
-                        </div>
-                      )}
+                    <DeliverableFeedback
+                      deliverable={d}
+                      audience={isClient ? "client" : "agence"}
+                      className="mt-2"
+                    />
+                    {awaitingClient.includes(d) && (
+                      <div className="mt-2">
+                        <DeliverableDecision deliverable={d} />
+                      </div>
+                    )}
                   </div>
                   {canValidateDeliverable && hasDeliverableLink(d) && (
                     <button
@@ -622,8 +625,17 @@ function MissionDetailPage() {
                           status: d.status === "valide" ? "en_attente" : "valide",
                         })
                       }
-                      aria-label={`Valider ${d.name}`}
-                      title={d.status === "valide" ? "Validé" : "Valider"}
+                      disabled={deliverableStatus.isPending}
+                      aria-label={
+                        d.status === "valide"
+                          ? `Retirer l'envoi de ${d.name}`
+                          : `Valider et envoyer ${d.name}`
+                      }
+                      title={
+                        d.status === "valide"
+                          ? "Validé et envoyé au client — cliquer pour retirer"
+                          : "Valider et envoyer au client"
+                      }
                       className={cn(
                         "text-muted-foreground hover:text-success",
                         d.status === "valide" && "text-success",

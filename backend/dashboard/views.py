@@ -95,7 +95,8 @@ def alerts(request):
         status__in=DONE_STATUSES
     )
     blocked_qs = Mission.objects.filter(status=MissionStatus.CORRECTIONS)
-    pending_qs = Deliverable.objects.filter(status=DeliverableStatus.EN_ATTENTE)
+    # À valider par l'agence (avant envoi au client) : sans lien, rien à revoir.
+    pending_qs = Deliverable.objects.filter(status=DeliverableStatus.EN_ATTENTE).exclude(url="")
 
     return Response(
         {

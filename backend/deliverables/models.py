@@ -33,9 +33,23 @@ class Deliverable(models.Model):
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="uploaded_deliverables", on_delete=models.PROTECT
     )
+    # Deux validations indépendantes. `status` : celle de l'agence (admin /
+    # chef de projet) ; un livrable validé par l'agence est envoyé au client,
+    # qui ne voit rien avant. `client_status` : la décision du client sur ce
+    # qu'il a reçu. Prêt à publier = validé des deux côtés. Un nouveau lien
+    # remet les deux à "En attente" (voir DeliverableSerializer.update).
     status = models.CharField(
         max_length=20, choices=DeliverableStatus.choices, default=DeliverableStatus.EN_ATTENTE
     )
+    client_status = models.CharField(
+        max_length=20, choices=DeliverableStatus.choices, default=DeliverableStatus.EN_ATTENTE
+    )
+    # Dernière demande de corrections du client, affichée sur le livrable
+    # lui-même : sur une mission à dix livrables, l'équipe voit tout de suite
+    # lequel corriger et quoi. Effacée quand le client valide ou qu'un
+    # nouveau lien arrive. Le message reste aussi dans la discussion.
+    client_feedback = models.TextField(blank=True, default="")
+    client_feedback_at = models.DateTimeField(null=True, blank=True)
     # Indépendant de `status` : un livrable validé n'est pas forcément déjà
     # publié, et une mission à plusieurs livrables les publie un par un.
     published_at = models.DateTimeField(null=True, blank=True)
@@ -46,3 +60,9 @@ class Deliverable(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} v{self.version}"
+
+    @property
+    def label(self) -> str:
+        """Nom + version, pour les messages et notifications : deux
+        livrables d'une même mission peuvent porter le même nom."""
+        return f"« {self.name} » v{self.version}"

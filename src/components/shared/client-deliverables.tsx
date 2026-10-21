@@ -23,6 +23,7 @@ import {
   hasDeliverableLink,
   type DeliverableState,
 } from "@/components/shared/badges";
+import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import { EditDeliverableDialog } from "@/components/shared/edit-dialogs";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
@@ -43,17 +44,25 @@ const FILTERS: Filter[] = ["tous", ...DELIVERABLE_STATES];
 const FILTER_LABELS: Record<Filter, string> = {
   tous: "Tous",
   a_venir: "Lien à venir",
+  en_attente: "En revue agence",
   corrections: "Corrections",
-  en_attente: "En attente",
+  envoye: "Chez le client",
   pret: "Prêt à publier",
   publie: "Publiés",
 };
 
-/** Ordre d'affichage : un livrable validé mais pas encore publié remonte en
- * tête (prochaine action), puis Corrections, En attente, les livrables
- * encore sans lien, et les publiés en bas ; à état égal, le plus récent en
- * premier. */
-const SORT_ORDER: DeliverableState[] = ["pret", "corrections", "en_attente", "a_venir", "publie"];
+/** Ordre d'affichage : un livrable validé des deux côtés mais pas encore
+ * publié remonte en tête (prochaine action), puis Corrections, En revue
+ * agence, Chez le client, les livrables encore sans lien, et les publiés en
+ * bas ; à état égal, le plus récent en premier. */
+const SORT_ORDER: DeliverableState[] = [
+  "pret",
+  "corrections",
+  "en_attente",
+  "envoye",
+  "a_venir",
+  "publie",
+];
 
 const matchesFilter = (d: Deliverable, filter: Filter) =>
   filter === "tous" || deliverableState(d) === filter;
@@ -105,9 +114,13 @@ export function ClientDeliverables({
   const validate = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Deliverable["status"] }) =>
       deliverableService.updateStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_d, { status }) => {
       refresh();
-      toast.success("Statut du livrable mis à jour.");
+      // La mission suit la validation côté serveur.
+      void qc.invalidateQueries({ queryKey: ["missions"] });
+      toast.success(
+        status === "valide" ? "Livrable validé et envoyé au client." : "Envoi au client retiré.",
+      );
     },
     onError: () => toast.error("Mise à jour du statut impossible."),
   });
@@ -187,8 +200,14 @@ export function ClientDeliverables({
             })
           }
           disabled={validate.isPending}
-          aria-label={`Valider ${d.name}`}
-          title={d.status === "valide" ? "Validé" : "Valider"}
+          aria-label={
+            d.status === "valide" ? `Retirer l'envoi de ${d.name}` : `Valider et envoyer ${d.name}`
+          }
+          title={
+            d.status === "valide"
+              ? "Validé et envoyé au client — cliquer pour retirer"
+              : "Valider et envoyer au client"
+          }
           className={cn(
             "text-muted-foreground hover:text-success",
             d.status === "valide" && "text-success",
@@ -256,6 +275,7 @@ export function ClientDeliverables({
                 </div>
                 <DeliverableStateBadge deliverable={d} />
               </div>
+              <DeliverableFeedback deliverable={d} className="mt-2" />
               {mission && (
                 <Link
                   to="/missions/$missionId"
@@ -318,6 +338,7 @@ export function ClientDeliverables({
                           </p>
                         </div>
                       </div>
+                      <DeliverableFeedback deliverable={d} className="mt-2 max-w-md" />
                     </td>
                     <td className="px-3 py-2.5">
                       {mission ? (

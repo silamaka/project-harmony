@@ -56,8 +56,8 @@ class CalendarEventsTests(RoleTestCase):
         self.assertEqual(mission_event_ids, {str(self.mission.id)})
 
     def test_client_sees_only_own_company_deliverable_events(self):
-        self.mission.status = MissionStatus.ENVOYE_CLIENT
-        self.mission.save()
+        # Validé par l'agence = envoyé au client.
+        Deliverable.objects.filter(mission=self.mission).update(status=DeliverableStatus.VALIDE)
         self.auth_as(self.client_user)
         res = self.client.get(reverse("calendar"))
         livrable_events = [e for e in res.data if e["type"] == "livrable"]
@@ -65,7 +65,7 @@ class CalendarEventsTests(RoleTestCase):
         self.assertEqual(livrable_events[0]["mission_id"], str(self.mission.id))
 
     def test_client_does_not_see_draft_deliverable_events(self):
-        """Mission pas encore envoyée : ses livrables restent internes, y
+        """Livrable pas encore validé par l'agence : il reste interne, y
         compris sur le calendrier."""
         self.auth_as(self.client_user)
         res = self.client.get(reverse("calendar"))

@@ -17,8 +17,9 @@ def deliverable_detail_url(deliverable_id):
 class DeliverableSetupMixin:
     def setUp(self):
         super().setUp()
-        # Mission déjà envoyée : ses livrables sont visibles du client (voir
-        # DeliverableClientVisibilityTests pour les cas où ils ne le sont pas).
+        # Livrable validé par l'agence, donc envoyé au client : il le voit et
+        # peut décider (voir DeliverableClientVisibilityTests pour les cas où
+        # il ne le voit pas).
         self.mission.status = MissionStatus.ENVOYE_CLIENT
         self.mission.save()
         self.deliverable = Deliverable.objects.create(
@@ -27,7 +28,7 @@ class DeliverableSetupMixin:
             type="lien",
             url="https://example.com/maquette",
             uploaded_by=self.collaborateur,
-            status=DeliverableStatus.EN_ATTENTE,
+            status=DeliverableStatus.VALIDE,
         )
         # Mission d'un autre collaborateur, partagée avec la même mission
         # test pour vérifier l'isolation "mes propres dépôts" ; et une
@@ -92,11 +93,11 @@ class DeliverableReadScopingTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.data), 2)
 
-    def test_client_sees_only_own_company_mission_deliverables(self):
+    def test_client_sees_only_sent_deliverables_of_own_company(self):
         self.auth_as(self.client_user)
         res = self.client.get(deliverable_list_url())
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.data), 2)
+        self.assertEqual({d["id"] for d in res.data}, {str(self.deliverable.id)})
 
     def test_other_client_sees_none(self):
         self.auth_as(self.other_client_user)
@@ -146,58 +147,68 @@ class DeliverableCreateTests(DeliverableSetupMixin, RoleTestCase):
 
 
 class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
+    """Deux validations indépendantes : `status` pour l'agence (admin / chef
+    de projet), `client_status` pour le client."""
+
+    def _patch(self, data, deliverable=None):
+        return self.client.patch(deliverable_detail_url((deliverable or self.deliverable).id), data)
+
     def test_admin_can_validate(self):
         self.auth_as(self.admin)
-        res = self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
-        self.assertEqual(res.status_code, 200)
+        self.assertEqual(self._patch({"status": "valide"}).status_code, 200)
 
-    def test_client_can_validate_own_company_deliverable(self):
+    def test_collaborateur_cannot_self_validate_own_upload(self):
+        """Un collaborateur ne valide jamais, même son propre dépôt."""
+        self.auth_as(self.collaborateur)
+        self.assertEqual(self._patch({"status": "valide"}).status_code, 403)
+
+    def test_client_can_validate_sent_deliverable(self):
         self.auth_as(self.client_user)
-        res = self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
+        res = self._patch({"client_status": "valide"})
         self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_status"], "valide")
+        self.assertEqual(res.data["status"], "valide")
+
+    def test_client_cannot_touch_agency_validation(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(self._patch({"status": "corrections"}).status_code, 403)
+
+    def test_agency_cannot_decide_for_the_client(self):
+        for user in (self.admin, self.chef_projet, self.collaborateur):
+            self.auth_as(user)
+            self.assertEqual(self._patch({"client_status": "valide"}).status_code, 403, user.role)
 
     def test_other_client_cannot_validate(self):
         """Hors scope de get_queryset (missions_visible_to) : la fiche n'est
         même pas trouvée, jamais un 403 sur un objet invisible."""
         self.auth_as(self.other_client_user)
-        res = self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(self._patch({"client_status": "valide"}).status_code, 404)
 
-    def test_client_cannot_change_other_fields_alongside_status(self):
+    def test_client_cannot_change_other_fields_alongside_decision(self):
         self.auth_as(self.client_user)
-        res = self.client.patch(
-            deliverable_detail_url(self.deliverable.id), {"status": "valide", "name": "Renommé"}
-        )
+        res = self._patch({"client_status": "valide", "name": "Renommé"})
         self.assertEqual(res.status_code, 403)
 
     def test_client_cannot_put_deliverable_back_to_pending(self):
-        self.deliverable.status = DeliverableStatus.VALIDE
+        self.deliverable.client_status = DeliverableStatus.VALIDE
         self.deliverable.save()
         self.auth_as(self.client_user)
-        res = self.client.patch(
-            deliverable_detail_url(self.deliverable.id), {"status": "en_attente"}
-        )
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(self._patch({"client_status": "en_attente"}).status_code, 403)
         self.deliverable.refresh_from_db()
-        self.assertEqual(self.deliverable.status, DeliverableStatus.VALIDE)
+        self.assertEqual(self.deliverable.client_status, DeliverableStatus.VALIDE)
 
     def test_client_corrections_require_an_explanation(self):
         self.auth_as(self.client_user)
-        res = self.client.patch(
-            deliverable_detail_url(self.deliverable.id), {"status": "corrections", "comment": "  "}
-        )
+        res = self._patch({"client_status": "corrections", "comment": "  "})
         self.assertEqual(res.status_code, 400)
         self.deliverable.refresh_from_db()
-        self.assertEqual(self.deliverable.status, DeliverableStatus.EN_ATTENTE)
+        self.assertEqual(self.deliverable.client_status, DeliverableStatus.EN_ATTENTE)
 
     def test_client_corrections_post_the_explanation_in_the_mission_discussion(self):
         from comments.models import Comment
 
         self.auth_as(self.client_user)
-        res = self.client.patch(
-            deliverable_detail_url(self.deliverable.id),
-            {"status": "corrections", "comment": "Remplacer la photo."},
-        )
+        res = self._patch({"client_status": "corrections", "comment": "Remplacer la photo."})
         self.assertEqual(res.status_code, 200)
         comment = Comment.objects.get(mission=self.mission)
         self.assertEqual(comment.author, self.client_user)
@@ -209,18 +220,25 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
         from comments.models import Comment
 
         self.auth_as(self.admin)
-        res = self.client.patch(
-            deliverable_detail_url(self.deliverable.id), {"status": "corrections"}
-        )
-        self.assertEqual(res.status_code, 200)
+        self.assertEqual(self._patch({"status": "corrections"}).status_code, 200)
         self.assertFalse(Comment.objects.exists())
 
-    def test_collaborateur_cannot_self_validate_own_upload(self):
-        """Un collaborateur ne peut pas valider son propre livrable, même le
-        sien : seuls admin/chef de projet/client en décident."""
-        self.auth_as(self.collaborateur)
-        res = self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
-        self.assertEqual(res.status_code, 403)
+    def test_deposit_always_starts_in_agency_review(self):
+        self.auth_as(self.admin)
+        res = self.client.post(
+            deliverable_list_url(),
+            {
+                "mission_id": str(self.mission.id),
+                "name": "Dépôt",
+                "type": "lien",
+                "url": "https://example.com/depot",
+                "status": "valide",
+                "client_status": "valide",
+            },
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["status"], "en_attente")
+        self.assertEqual(res.data["client_status"], "en_attente")
 
 
 class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
@@ -261,7 +279,8 @@ class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
         self.auth_as(self.chef_projet)
         self._publish()
         self.deliverable.refresh_from_db()
-        self.assertEqual(self.deliverable.status, DeliverableStatus.EN_ATTENTE)
+        self.assertEqual(self.deliverable.status, DeliverableStatus.VALIDE)
+        self.assertEqual(self.deliverable.client_status, DeliverableStatus.EN_ATTENTE)
 
     def test_client_cannot_publish(self):
         self.auth_as(self.client_user)
@@ -353,13 +372,14 @@ class DeliverableWithoutLinkTests(DeliverableSetupMixin, RoleTestCase):
         res = self._patch({"url": "https://example.com/x"}, self.deliverable)
         self.assertEqual(res.status_code, 403)
 
-    def test_changing_link_of_validated_deliverable_resets_to_pending(self):
-        self.deliverable.status = DeliverableStatus.VALIDE
+    def test_changing_link_resets_both_validations(self):
+        self.deliverable.client_status = DeliverableStatus.VALIDE
         self.deliverable.save()
         self.auth_as(self.collaborateur)
         res = self._patch({"url": "https://example.com/nouveau"}, self.deliverable)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.data["status"], "en_attente")
+        self.assertEqual(res.data["client_status"], "en_attente")
 
     def test_removing_link_unpublishes(self):
         self.auth_as(self.admin)
@@ -370,9 +390,9 @@ class DeliverableWithoutLinkTests(DeliverableSetupMixin, RoleTestCase):
 
 
 class DeliverableClientVisibilityTests(DeliverableSetupMixin, RoleTestCase):
-    """Le client ne voit que ce que l'agence lui a envoyé : livrables avec un
-    lien, sur une mission "Envoyé au client" ou plus loin, plus ses propres
-    dépôts. Brouillons internes et "Lien à venir" restent invisibles."""
+    """Le client voit toutes ses missions, mais un livrable seulement une
+    fois validé par l'agence (et avec un lien), quel que soit le statut de
+    la mission ; plus ses propres dépôts."""
 
     def _client_ids(self):
         self.auth_as(self.client_user)
@@ -380,30 +400,28 @@ class DeliverableClientVisibilityTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 200)
         return {d["id"] for d in res.data}
 
-    def test_sees_deliverables_once_mission_sent(self):
-        self.assertIn(str(self.deliverable.id), self._client_ids())
-
-    def test_does_not_see_drafts_before_mission_is_sent(self):
-        for status in ["a_faire", "en_cours", "livrable_depose", "validation_interne"]:
-            self.mission.status = status
-            self.mission.save()
-            self.assertNotIn(str(self.deliverable.id), self._client_ids(), status)
-
-    def test_sees_deliverables_after_validation_and_publication(self):
-        for status in ["valide", "corrections", "publie", "termine"]:
-            self.mission.status = status
-            self.mission.save()
+    def test_sees_agency_validated_deliverable_whatever_the_mission_status(self):
+        for status in ["a_faire", "en_cours", "validation_interne", "valide", "publie", "termine"]:
+            Mission.objects.filter(pk=self.mission.pk).update(status=status)
             self.assertIn(str(self.deliverable.id), self._client_ids(), status)
+
+    def test_does_not_see_deliverable_under_agency_review(self):
+        for status in [DeliverableStatus.EN_ATTENTE, DeliverableStatus.CORRECTIONS]:
+            Deliverable.objects.filter(pk=self.deliverable.pk).update(status=status)
+            self.assertNotIn(str(self.deliverable.id), self._client_ids(), status)
 
     def test_does_not_see_deliverable_without_link(self):
         pending = Deliverable.objects.create(
-            mission=self.mission, name="À venir", type="lien", url="", uploaded_by=self.collaborateur
+            mission=self.mission,
+            name="À venir",
+            type="lien",
+            url="",
+            uploaded_by=self.collaborateur,
+            status=DeliverableStatus.VALIDE,
         )
         self.assertNotIn(str(pending.id), self._client_ids())
 
     def test_always_sees_own_uploads(self):
-        self.mission.status = "en_cours"
-        self.mission.save()
         own = Deliverable.objects.create(
             mission=self.mission,
             name="Brief du client",
@@ -413,11 +431,12 @@ class DeliverableClientVisibilityTests(DeliverableSetupMixin, RoleTestCase):
         )
         self.assertIn(str(own.id), self._client_ids())
 
-    def test_cannot_validate_a_draft(self):
-        self.mission.status = "validation_interne"
-        self.mission.save()
+    def test_cannot_decide_on_deliverable_under_agency_review(self):
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(status=DeliverableStatus.EN_ATTENTE)
         self.auth_as(self.client_user)
-        res = self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"client_status": "valide"}
+        )
         self.assertEqual(res.status_code, 404)
 
 
@@ -473,8 +492,8 @@ class DeliverableDeleteTests(DeliverableSetupMixin, RoleTestCase):
 
 
 class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
-    """Le client valide les livrables, la mission suit, et l'équipe est
-    prévenue (sans que le client voie cette notification)."""
+    """L'agence valide (= envoie), le client décide livrable par livrable, la
+    mission suit ; chaque côté est prévenu de ce qui le concerne."""
 
     def setUp(self):
         super().setUp()
@@ -484,16 +503,27 @@ class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
             type="lien",
             url="https://example.com/banniere",
             uploaded_by=self.collaborateur,
+            status=DeliverableStatus.VALIDE,
         )
 
-    def _decide(self, deliverable, status):
+    def _decide(self, deliverable, decision):
         self.auth_as(self.client_user)
-        payload = {"status": status}
-        if status == "corrections":
+        payload = {"client_status": decision}
+        if decision == "corrections":
             payload["comment"] = "Changer la couleur du titre."
         res = self.client.patch(deliverable_detail_url(deliverable.id), payload)
         self.assertEqual(res.status_code, 200)
         self.mission.refresh_from_db()
+
+    def _agency(self, deliverable, data):
+        self.auth_as(self.admin)
+        res = self.client.patch(deliverable_detail_url(deliverable.id), data)
+        self.assertEqual(res.status_code, 200)
+        self.mission.refresh_from_db()
+
+    def _client_ids(self):
+        self.auth_as(self.client_user)
+        return {d["id"] for d in self.client.get(deliverable_list_url()).data}
 
     def test_mission_validated_only_once_every_sent_deliverable_is(self):
         self._decide(self.deliverable, "valide")
@@ -522,22 +552,73 @@ class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
         self._decide(self.second, "valide")
         self.assertEqual(self.mission.status, MissionStatus.VALIDE)
 
+    def test_not_validated_while_a_deliverable_is_still_in_agency_review(self):
+        Deliverable.objects.create(
+            mission=self.mission,
+            name="Affiche",
+            type="lien",
+            url="https://example.com/affiche",
+            uploaded_by=self.collaborateur,
+        )
+        self._decide(self.deliverable, "valide")
+        self._decide(self.second, "valide")
+        self.assertEqual(self.mission.status, MissionStatus.VALIDATION_INTERNE)
+
     def test_corrections_on_one_deliverable_moves_mission_to_corrections(self):
         self._decide(self.deliverable, "corrections")
         self.assertEqual(self.mission.status, MissionStatus.CORRECTIONS)
 
-    def test_validating_after_corrections_brings_mission_back_to_validated(self):
-        self._decide(self.deliverable, "corrections")
+    def test_full_correction_loop(self):
+        """Corrections → l'agence change le lien (retour en revue interne) →
+        elle revalide (renvoi + notification) → le client valide."""
+        from notifications.models import Notification, NotificationType
+
         self._decide(self.second, "valide")
+        self._decide(self.deliverable, "corrections")
         self.assertEqual(self.mission.status, MissionStatus.CORRECTIONS)
+
+        self._agency(self.deliverable, {"url": "https://example.com/maquette-v2"})
+        self.assertEqual(self.mission.status, MissionStatus.VALIDATION_INTERNE)
+        self.assertNotIn(str(self.deliverable.id), self._client_ids())
+
+        self._agency(self.deliverable, {"status": "valide"})
+        self.assertEqual(self.mission.status, MissionStatus.ENVOYE_CLIENT)
+        notif = Notification.objects.get(type=NotificationType.VALIDATION)
+        self.assertIn("Maquette", notif.body)
+
         self._decide(self.deliverable, "valide")
         self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+    def test_agency_validation_moves_internal_mission_to_sent(self):
+        Mission.objects.filter(pk=self.mission.pk).update(status=MissionStatus.EN_COURS)
+        Deliverable.objects.filter(mission=self.mission).update(status=DeliverableStatus.EN_ATTENTE)
+        self._agency(self.deliverable, {"status": "valide"})
+        self.assertEqual(self.mission.status, MissionStatus.ENVOYE_CLIENT)
+
+    def test_internal_pipeline_untouched_while_nothing_is_sent(self):
+        Mission.objects.filter(pk=self.mission.pk).update(status=MissionStatus.EN_COURS)
+        Deliverable.objects.filter(mission=self.mission).update(status=DeliverableStatus.EN_ATTENTE)
+        self._agency(self.deliverable, {"name": "Maquette finale"})
+        self.assertEqual(self.mission.status, MissionStatus.EN_COURS)
 
     def test_never_moves_a_published_or_finished_mission(self):
         self.mission.status = MissionStatus.PUBLIE
         self.mission.save()
         self._decide(self.deliverable, "corrections")
         self.assertEqual(self.mission.status, MissionStatus.PUBLIE)
+
+    def test_client_is_notified_once_when_agency_sends(self):
+        from notifications.models import Notification, NotificationType
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(status=DeliverableStatus.EN_ATTENTE)
+        self._agency(self.deliverable, {"status": "valide"})
+        self._agency(self.deliverable, {"name": "Maquette finale"})
+        notifs = Notification.objects.filter(type=NotificationType.VALIDATION)
+        self.assertEqual(notifs.count(), 1)
+
+        self.auth_as(self.client_user)
+        seen = {str(n["id"]) for n in self.client.get(reverse("notification-list")).data}
+        self.assertIn(str(notifs.get().id), seen)
 
     def test_team_is_notified_and_client_does_not_see_it(self):
         from notifications.models import Notification, NotificationType
@@ -557,19 +638,135 @@ class ClientDecisionLoopTests(DeliverableSetupMixin, RoleTestCase):
     def test_agency_status_change_does_not_notify_as_client_decision(self):
         from notifications.models import Notification, NotificationType
 
-        self.auth_as(self.admin)
-        self.client.patch(deliverable_detail_url(self.deliverable.id), {"status": "valide"})
+        self._agency(self.deliverable, {"status": "corrections"})
         self.assertFalse(Notification.objects.filter(type=NotificationType.DECISION_CLIENT).exists())
 
 
-class ClientMissionDecisionNotificationTests(DeliverableSetupMixin, RoleTestCase):
-    def test_client_mission_decision_notifies_team(self):
+class SplitValidationsMigrationTests(DeliverableSetupMixin, RoleTestCase):
+    """Reprise des données (0005) : l'ancien `status` unique se répartit
+    entre la validation agence et la décision client."""
+
+    def _run(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        import_module("deliverables.migrations.0005_deliverable_client_status").split_validations(
+            apps, None
+        )
+
+    def _make(self, mission_status, status, url="https://example.com/x", published=False):
+        mission = Mission.objects.create(
+            title=f"M {mission_status} {status}",
+            project=self.project,
+            client=self.client_company,
+            assignee=self.collaborateur,
+            start_date="2026-01-01",
+            deadline="2026-12-31",
+            status=mission_status,
+        )
+        return Deliverable.objects.create(
+            mission=mission,
+            name="D",
+            type="lien",
+            url=url,
+            uploaded_by=self.collaborateur,
+            status=status,
+            published_at="2026-10-01T10:00:00Z" if published else None,
+        )
+
+    def test_split(self):
+        sent_corrections = self._make("envoye_client", "corrections")
+        sent_validated = self._make("valide", "valide")
+        sent_pending = self._make("envoye_client", "en_attente")
+        internal_validated = self._make("validation_interne", "valide")
+        internal_published = self._make("en_cours", "valide", published=True)
+        announced = self._make("envoye_client", "en_attente", url="")
+        self._run()
+        expected = {
+            sent_corrections: ("valide", "corrections"),
+            sent_validated: ("valide", "valide"),
+            sent_pending: ("valide", "en_attente"),
+            internal_validated: ("en_attente", "en_attente"),
+            internal_published: ("valide", "en_attente"),
+            announced: ("en_attente", "en_attente"),
+        }
+        for d, (status, client_status) in expected.items():
+            d.refresh_from_db()
+            self.assertEqual((d.status, d.client_status), (status, client_status), d.mission.title)
+
+
+class ClientFeedbackTests(DeliverableSetupMixin, RoleTestCase):
+    """Sur une mission à plusieurs livrables, la demande de corrections
+    s'affiche sur le livrable concerné et la notification pointe sur lui."""
+
+    def setUp(self):
+        super().setUp()
+        self.other = Deliverable.objects.create(
+            mission=self.mission,
+            name="Maquette",
+            type="lien",
+            url="https://example.com/maquette-bis",
+            uploaded_by=self.collaborateur,
+            status=DeliverableStatus.VALIDE,
+            version=2,
+        )
+
+    def _corrections(self, deliverable, text="Changer la couleur du titre."):
+        self.auth_as(self.client_user)
+        return self.client.patch(
+            deliverable_detail_url(deliverable.id),
+            {"client_status": "corrections", "comment": text},
+        )
+
+    def test_feedback_is_stored_on_the_right_deliverable_only(self):
+        res = self._corrections(self.other)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_feedback"], "Changer la couleur du titre.")
+        self.assertIsNotNone(res.data["client_feedback_at"])
+        self.deliverable.refresh_from_db()
+        self.assertEqual(self.deliverable.client_feedback, "")
+
+    def test_team_sees_the_feedback(self):
+        self._corrections(self.other)
+        self.auth_as(self.collaborateur)
+        res = self.client.get(deliverable_detail_url(self.other.id))
+        self.assertEqual(res.data["client_feedback"], "Changer la couleur du titre.")
+
+    def test_feedback_cleared_when_client_validates(self):
+        self._corrections(self.other)
+        self.auth_as(self.client_user)
+        res = self.client.patch(deliverable_detail_url(self.other.id), {"client_status": "valide"})
+        self.assertEqual(res.data["client_feedback"], "")
+        self.assertIsNone(res.data["client_feedback_at"])
+
+    def test_feedback_cleared_on_new_link(self):
+        self._corrections(self.other)
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            deliverable_detail_url(self.other.id), {"url": "https://example.com/maquette-v3"}
+        )
+        self.assertEqual(res.data["client_feedback"], "")
+
+    def test_feedback_is_read_only_for_everyone(self):
+        self.auth_as(self.admin)
+        self.client.patch(deliverable_detail_url(self.other.id), {"client_feedback": "Faux"})
+        self.other.refresh_from_db()
+        self.assertEqual(self.other.client_feedback, "")
+
+    def test_notification_and_comment_name_the_version_and_point_to_the_deliverable(self):
+        from comments.models import Comment
         from notifications.models import Notification, NotificationType
 
-        self.auth_as(self.client_user)
-        res = self.client.patch(
-            reverse("mission-detail", args=[self.mission.id]), {"status": "valide"}
-        )
-        self.assertEqual(res.status_code, 200)
+        self._corrections(self.other)
         notif = Notification.objects.get(type=NotificationType.DECISION_CLIENT)
-        self.assertEqual(notif.title, "Validé par le client")
+        self.assertIn("« Maquette » v2", notif.body)
+        self.assertEqual(notif.deliverable_id, self.other.id)
+        self.assertEqual(notif.link, f"/missions/{self.mission.id}?livrable={self.other.id}")
+        self.assertIn("« Maquette » v2", Comment.objects.get().body)
+
+        self.auth_as(self.collaborateur)
+        listed = self.client.get(reverse("notification-list")).data
+        self.assertEqual(
+            next(n for n in listed if n["id"] == str(notif.id))["deliverable_id"], str(self.other.id)
+        )

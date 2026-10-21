@@ -179,7 +179,9 @@ function StatisticsPage() {
     ? Math.round(((missionList.length - late) / missionList.length) * 100)
     : 0;
   const completion = missionList.length ? Math.round((done / missionList.length) * 100) : 0;
-  const validatedDeliverables = deliverableList.filter((d) => d.status === "valide").length;
+  const validatedDeliverables = deliverableList.filter(
+    (d) => d.status === "valide" && d.client_status === "valide",
+  ).length;
   const validationRate = deliverableList.length
     ? Math.round((validatedDeliverables / deliverableList.length) * 100)
     : 0;

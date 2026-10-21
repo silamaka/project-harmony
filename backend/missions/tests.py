@@ -370,65 +370,32 @@ class MissionCollaboratorsTests(RoleTestCase):
         self.assertEqual(res.status_code, 201)
 
 
-class ClientValidationGateTests(RoleTestCase):
-    """Régression : le client ne doit pouvoir Valider / Demander des
-    corrections qu'une fois la mission réellement envoyée par l'agence —
-    jamais avant, quel que soit le statut interne en cours."""
+class ClientCannotChangeMissionTests(RoleTestCase):
+    """Le client valide ou refuse les livrables ; le statut de la mission en
+    découle côté serveur (deliverables.decisions.sync_mission_status). Il ne
+    le modifie jamais directement, à aucune étape."""
 
-    def test_client_cannot_validate_before_mission_sent(self):
-        self.assertEqual(self.mission.status, MissionStatus.A_FAIRE)
-        self.auth_as(self.client_user)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "valide"})
-        self.assertEqual(res.status_code, 403)
-
-    def test_client_cannot_request_corrections_before_mission_sent(self):
-        self.auth_as(self.client_user)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "corrections"})
-        self.assertEqual(res.status_code, 403)
-
-    def test_client_cannot_validate_mid_pipeline(self):
-        for status in ["en_cours", "livrable_depose", "validation_interne"]:
-            self.mission.status = status
+    def test_client_cannot_change_status_at_any_step(self):
+        for current in [MissionStatus.A_FAIRE, MissionStatus.VALIDATION_INTERNE, MissionStatus.ENVOYE_CLIENT]:
+            self.mission.status = current
             self.mission.save()
             self.auth_as(self.client_user)
-            res = self.client.patch(mission_detail_url(self.mission.id), {"status": "valide"})
-            self.assertEqual(res.status_code, 403, f"failed at internal status={status}")
-
-    def test_client_can_validate_once_sent(self):
-        self.mission.status = MissionStatus.ENVOYE_CLIENT
-        self.mission.save()
-        self.auth_as(self.client_user)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "valide"})
-        self.assertEqual(res.status_code, 200)
+            for target in ["valide", "corrections"]:
+                res = self.client.patch(mission_detail_url(self.mission.id), {"status": target})
+                self.assertEqual(res.status_code, 403, f"{current} -> {target}")
         self.mission.refresh_from_db()
-        self.assertEqual(self.mission.status, "valide")
-
-    def test_client_can_request_corrections_once_sent(self):
-        self.mission.status = MissionStatus.ENVOYE_CLIENT
-        self.mission.save()
-        self.auth_as(self.client_user)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "corrections"})
-        self.assertEqual(res.status_code, 200)
-
-    def test_client_cannot_set_arbitrary_status_even_once_sent(self):
-        self.mission.status = MissionStatus.ENVOYE_CLIENT
-        self.mission.save()
-        self.auth_as(self.client_user)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "termine"})
-        self.assertEqual(res.status_code, 403)
-
-    def test_client_cannot_act_on_other_companys_mission(self):
-        self.mission.status = MissionStatus.ENVOYE_CLIENT
-        self.mission.save()
-        self.auth_as(self.other_client_user)
-        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "valide"})
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(self.mission.status, MissionStatus.ENVOYE_CLIENT)
 
     def test_client_cannot_update_other_fields(self):
-        self.mission.status = MissionStatus.ENVOYE_CLIENT
-        self.mission.save()
         self.auth_as(self.client_user)
         res = self.client.patch(mission_detail_url(self.mission.id), {"title": "Modifié"})
+        self.assertEqual(res.status_code, 403)
+
+    def test_refused_before_lookup_even_on_other_company_mission(self):
+        """Refus dès has_permission : aucune écriture client sur les missions,
+        donc rien à apprendre sur l'existence d'une mission étrangère."""
+        self.auth_as(self.other_client_user)
+        res = self.client.patch(mission_detail_url(self.mission.id), {"status": "valide"})
         self.assertEqual(res.status_code, 403)
 
 

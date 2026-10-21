@@ -6,16 +6,36 @@ from .models import Notification
 class NotificationSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
     mission_id = serializers.PrimaryKeyRelatedField(source="mission", read_only=True)
+    deliverable_id = serializers.PrimaryKeyRelatedField(source="deliverable", read_only=True)
     # Lu / non lu pour l'utilisateur connecté uniquement (Notification.read_by).
     read = serializers.BooleanField(required=False, write_only=True)
 
     class Meta:
         model = Notification
-        fields = ["id", "type", "title", "body", "read", "link", "mission_id", "created_at"]
+        fields = [
+            "id",
+            "type",
+            "title",
+            "body",
+            "read",
+            "link",
+            "mission_id",
+            "deliverable_id",
+            "created_at",
+        ]
         # Tout est en lecture seule sauf `read` (marquer comme lu) : les
         # notifications sont générées côté serveur (signaux), jamais créées
         # ni modifiées en profondeur par le client.
-        read_only_fields = ["id", "type", "title", "body", "link", "mission_id", "created_at"]
+        read_only_fields = [
+            "id",
+            "type",
+            "title",
+            "body",
+            "link",
+            "mission_id",
+            "deliverable_id",
+            "created_at",
+        ]
 
     def _user(self):
         request = self.context.get("request")
@@ -39,10 +59,11 @@ class NotificationSerializer(serializers.ModelSerializer):
             user = self._user()
             is_read = bool(user) and instance.read_by.filter(pk=user.pk).exists()
         data["read"] = bool(is_read)
-        if data.get("mission_id") is not None:
-            data["mission_id"] = str(data["mission_id"])
-        else:
-            data.pop("mission_id", None)
+        for key in ("mission_id", "deliverable_id"):
+            if data.get(key) is not None:
+                data[key] = str(data[key])
+            else:
+                data.pop(key, None)
         if not data.get("link"):
             data.pop("link", None)
         return data

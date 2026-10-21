@@ -32,8 +32,8 @@ class DeliverableSerializer(serializers.ModelSerializer):
     # posée par le serveur, jamais envoyée par le client.
     published = serializers.BooleanField(write_only=True, required=False)
     # Explication d'une demande de corrections du client, postée dans la
-    # discussion de la mission dans la même transaction que le changement de
-    # statut (voir DeliverableViewSet.perform_update).
+    # discussion de la mission dans la même transaction que sa décision
+    # (voir DeliverableViewSet.perform_update).
     comment = serializers.CharField(
         write_only=True, required=False, allow_blank=True, max_length=2000
     )
@@ -50,19 +50,28 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "size_kb",
             "uploaded_by",
             "status",
+            "client_status",
+            "client_feedback",
+            "client_feedback_at",
             "published",
             "comment",
             "published_at",
             "created_at",
         ]
-        read_only_fields = ["created_at", "uploaded_by", "published_at"]
+        read_only_fields = [
+            "created_at",
+            "uploaded_by",
+            "published_at",
+            "client_feedback",
+            "client_feedback_at",
+        ]
 
     def validate(self, attrs):
         request = self.context.get("request")
         if (
             request
             and request.user.role == Role.CLIENT
-            and attrs.get("status") == DeliverableStatus.CORRECTIONS
+            and attrs.get("client_status") == DeliverableStatus.CORRECTIONS
             and not attrs.get("comment", "").strip()
         ):
             raise serializers.ValidationError(
@@ -76,9 +85,10 @@ class DeliverableSerializer(serializers.ModelSerializer):
         # toujours par un PATCH, soumis à DeliverablePermission.
         validated_data.pop("published", None)
         validated_data["url"] = validated_data.get("url", "").strip()
-        if not validated_data["url"]:
-            # Annoncé sans lien : pas de validation possible avant le lien.
-            validated_data["status"] = DeliverableStatus.EN_ATTENTE
+        # Un dépôt commence toujours en revue chez l'agence : l'envoi au
+        # client passe par sa validation (un PATCH), qui le notifie.
+        validated_data["status"] = DeliverableStatus.EN_ATTENTE
+        validated_data["client_status"] = DeliverableStatus.EN_ATTENTE
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -86,18 +96,23 @@ class DeliverableSerializer(serializers.ModelSerializer):
         url = validated_data.get("url", instance.url).strip()
         if "url" in validated_data:
             validated_data["url"] = url
+            if url != instance.url:
+                # Nouveau contenu (ou lien retiré) : il doit être revu par
+                # l'agence puis par le client, quelles que soient les
+                # décisions prises sur l'ancien lien.
+                validated_data["status"] = DeliverableStatus.EN_ATTENTE
+                validated_data["client_status"] = DeliverableStatus.EN_ATTENTE
+                validated_data["client_feedback"] = ""
+                validated_data["client_feedback_at"] = None
             if not url:
                 # Lien retiré : le livrable redevient "à venir", ce qui
-                # annule une validation ou une publication devenues sans objet.
-                validated_data["status"] = DeliverableStatus.EN_ATTENTE
+                # annule une publication devenue sans objet.
                 validated_data["published_at"] = None
-            elif url != instance.url and instance.status != DeliverableStatus.EN_ATTENTE:
-                # Nouveau contenu : il doit être revu, quelle que soit la
-                # décision prise sur l'ancien lien.
-                validated_data["status"] = DeliverableStatus.EN_ATTENTE
 
         if not url and (
-            validated_data.get("published") or validated_data.get("status") == DeliverableStatus.VALIDE
+            validated_data.get("published")
+            or validated_data.get("status") == DeliverableStatus.VALIDE
+            or validated_data.get("client_status") == DeliverableStatus.VALIDE
         ):
             raise serializers.ValidationError(
                 "Ce livrable n'a pas encore de lien : il ne peut être ni validé ni publié."

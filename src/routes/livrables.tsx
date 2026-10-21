@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock,
   Eye,
   FileArchive,
@@ -11,13 +10,21 @@ import {
   Link2,
   Package,
   Pencil,
+  Send,
   Trash2,
   Video,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
-import { hasDeliverableLink } from "@/components/shared/badges";
+import {
+  DELIVERABLE_STATE_LABELS,
+  DeliverableStateBadge,
+  deliverableState,
+  hasDeliverableLink,
+  type DeliverableState,
+} from "@/components/shared/badges";
+import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import { EditDeliverableDialog } from "@/components/shared/edit-dialogs";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
@@ -50,29 +57,16 @@ const ICONS: Record<DeliverableType, typeof FileText> = {
   lien: Link2,
 };
 
-const STATUS_TONE: Record<Deliverable["status"], string> = {
-  en_attente: "bg-warning/20 text-warning",
-  valide: "bg-success/15 text-success",
-  corrections: "bg-destructive/12 text-destructive",
-};
-
-const STATUS_LABEL: Record<Deliverable["status"], string> = {
-  en_attente: "En attente",
-  valide: "Validé",
-  corrections: "Corrections",
-};
-
-const FILTERS = ["tous", "en_attente", "valide", "corrections"] as const;
-const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
+type Filter = "tous" | Exclude<DeliverableState, "a_venir">;
+const FILTERS: Filter[] = ["tous", "en_attente", "envoye", "corrections", "pret", "publie"];
+const FILTER_LABELS: Record<Filter, string> = {
   tous: "Tous",
-  en_attente: "En attente",
-  valide: "Validé",
-  corrections: "Corrections",
+  ...DELIVERABLE_STATE_LABELS,
 };
 
 function DeliverablesPage() {
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("tous");
+  const [filter, setFilter] = useState<Filter>("tous");
   const { user, hasRole } = useAuth();
   const canValidate = hasRole("admin", "chef_projet");
   /** Modifier (nom / lien) et supprimer : admin, chef de projet, ou l'auteur. */
@@ -87,12 +81,19 @@ function DeliverablesPage() {
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
 
+  // Validation agence : "valide" envoie le livrable au client (notifié côté
+  // serveur) ; la mission suit côté serveur.
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Deliverable["status"] }) =>
       deliverableService.updateStatus(id, status),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["deliverables"] });
-      toast.success(variables.status === "valide" ? "Livrable validé." : "Corrections demandées.");
+      queryClient.invalidateQueries({ queryKey: ["missions"] });
+      toast.success(
+        variables.status === "valide"
+          ? "Livrable validé et envoyé au client."
+          : "Corrections demandées à l'équipe.",
+      );
     },
   });
 
@@ -110,14 +111,16 @@ function DeliverablesPage() {
   const list = visible.filter(
     (d) =>
       d.name.toLowerCase().includes(q.trim().toLowerCase()) &&
-      (filter === "tous" || d.status === filter),
+      (filter === "tous" || deliverableState(d) === filter),
   );
 
+  const countState = (state: DeliverableState) =>
+    visible.filter((d) => deliverableState(d) === state).length;
   const stats = {
     total: visible.length,
-    enAttente: visible.filter((d) => d.status === "en_attente").length,
-    valides: visible.filter((d) => d.status === "valide").length,
-    corrections: visible.filter((d) => d.status === "corrections").length,
+    enRevue: countState("en_attente"),
+    chezLeClient: countState("envoye"),
+    corrections: countState("corrections"),
   };
 
   return (
@@ -129,19 +132,13 @@ function DeliverablesPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Livrables" value={stats.total} icon={Package} />
         <StatCard
-          label="En attente"
-          value={stats.enAttente}
+          label="En revue agence"
+          value={stats.enRevue}
           icon={Clock}
           tone="warning"
           delay={0.04}
         />
-        <StatCard
-          label="Validés"
-          value={stats.valides}
-          icon={CheckCircle2}
-          tone="success"
-          delay={0.08}
-        />
+        <StatCard label="Chez le client" value={stats.chezLeClient} icon={Send} delay={0.08} />
         <StatCard
           label="Corrections"
           value={stats.corrections}
@@ -195,17 +192,9 @@ function DeliverablesPage() {
                       : "Lien pas encore disponible"}
                   </p>
                 </div>
-                <span
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                    hasDeliverableLink(d)
-                      ? STATUS_TONE[d.status]
-                      : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {hasDeliverableLink(d) ? STATUS_LABEL[d.status] : "Lien à venir"}
-                </span>
+                <DeliverableStateBadge deliverable={d} />
               </div>
+              <DeliverableFeedback deliverable={d} />
               <div className="flex items-center gap-3">
                 {mission && (
                   <Link
@@ -260,7 +249,7 @@ function DeliverablesPage() {
                     disabled={d.status === "valide" || statusMutation.isPending}
                     onClick={() => statusMutation.mutate({ id: d.id, status: "valide" })}
                   >
-                    Valider
+                    {d.status === "valide" ? "Envoyé au client" : "Valider et envoyer"}
                   </Button>
                   <Button
                     size="sm"

@@ -3,7 +3,7 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 from accounts.models import Role
 
-from .models import Mission, MissionStatus
+from .models import Mission
 
 COLLABORATEUR_EDITABLE_FIELDS = {
     "title",
@@ -18,8 +18,6 @@ COLLABORATEUR_EDITABLE_FIELDS = {
     "project_id",
     "client_id",
 }
-CLIENT_EDITABLE_FIELDS = {"status"}
-CLIENT_ALLOWED_STATUSES = {MissionStatus.VALIDE, MissionStatus.CORRECTIONS}
 
 
 class MissionPermission(BasePermission):
@@ -34,9 +32,8 @@ class MissionPermission(BasePermission):
       qu'il peut faire à la création : contenu, dates, contributeurs
       additionnels et projet (limité à son périmètre, comme à la
       création) — jamais le responsable principal (assignee_id).
-    - client : uniquement une mission de sa propre entreprise, et
-      uniquement le statut (sa décision : Validé / Corrections) — jamais
-      la suppression.
+    - client : jamais. Il valide ou refuse les livrables, et le statut de
+      la mission en découle (deliverables.decisions.sync_mission_status).
 
     La portée en lecture (un collaborateur ne voit que ses missions, un
     client que celles de son entreprise) est gérée par
@@ -56,7 +53,7 @@ class MissionPermission(BasePermission):
             if request.user.role == Role.COLLABORATEUR:
                 return self._collaborateur_can_create(request)
             return False
-        return request.user.role in (Role.ADMIN, Role.CHEF_PROJET, Role.COLLABORATEUR, Role.CLIENT)
+        return request.user.role in (Role.ADMIN, Role.CHEF_PROJET, Role.COLLABORATEUR)
 
     @staticmethod
     def _collaborateur_can_create(request) -> bool:
@@ -113,19 +110,4 @@ class MissionPermission(BasePermission):
                 and set(request.data.keys()) <= COLLABORATEUR_EDITABLE_FIELDS
                 and self._collaborateur_can_move_project(request)
             )
-        if request.method == "DELETE":
-            return False
-        fields_sent = set(request.data.keys())
-        if request.user.role == Role.CLIENT:
-            if not (obj.client_id == request.user.client_id and fields_sent <= CLIENT_EDITABLE_FIELDS):
-                return False
-            # Le client ne peut valider / demander des corrections que
-            # lorsque c'est effectivement son tour (mission déjà envoyée),
-            # pas à n'importe quel stade du pipeline interne.
-            if "status" in request.data:
-                return (
-                    obj.status == MissionStatus.ENVOYE_CLIENT
-                    and request.data["status"] in CLIENT_ALLOWED_STATUSES
-                )
-            return True
         return False

@@ -1,7 +1,13 @@
 from .models import Notification, NotificationType
 
 
-def notify_client_decision(user, mission, *, validated: bool, subject: str) -> Notification:
+def deliverable_link(deliverable) -> str:
+    return f"/missions/{deliverable.mission_id}?livrable={deliverable.id}"
+
+
+def notify_client_decision(
+    user, mission, *, validated: bool, subject: str, deliverable=None
+) -> Notification:
     """Prévient l'équipe d'une décision du client (validation ou demande de
     corrections) sur une mission ou un de ses livrables. Sans cela, la
     réponse du client pouvait rester des jours sans être vue.
@@ -16,6 +22,22 @@ def notify_client_decision(user, mission, *, validated: bool, subject: str) -> N
         type=NotificationType.DECISION_CLIENT,
         title="Validé par le client" if validated else "Corrections demandées par le client",
         body=f"{author} — {subject}"[:500],
-        link=f"/missions/{mission.id}",
+        link=deliverable_link(deliverable) if deliverable else f"/missions/{mission.id}",
         mission=mission,
+        deliverable=deliverable,
+    )
+
+
+def notify_deliverable_sent(deliverable) -> Notification:
+    """Prévient le client qu'un livrable l'attend : l'agence vient de le
+    valider (première version ou nouvelle version après un changement de
+    lien). Type VALIDATION : le seul que le client voit (NotificationViewSet)."""
+    mission = deliverable.mission
+    return Notification.objects.create(
+        type=NotificationType.VALIDATION,
+        title="Nouveau livrable à valider",
+        body=f"{deliverable.label} (mission « {mission.title} ») attend votre validation."[:500],
+        link=deliverable_link(deliverable),
+        mission=mission,
+        deliverable=deliverable,
     )

@@ -102,6 +102,7 @@ function NotificationsPage() {
                 key={n.id}
                 to="/missions/$missionId"
                 params={{ missionId: n.mission_id }}
+                search={n.deliverable_id ? { livrable: n.deliverable_id } : {}}
                 onClick={() => !n.read && markOne.mutate(n.id)}
                 className={className}
               >

@@ -11,14 +11,17 @@ CLIENT_DECISIONS = (DeliverableStatus.VALIDE, DeliverableStatus.CORRECTIONS)
 
 
 class DeliverablePermission(BasePermission):
-    """Lecture/dépôt : tout utilisateur authentifié pouvant voir la mission
-    (portée déjà imposée par le queryset et par MissionPKField). Changer le
-    statut (valider / demander des corrections) : admin, chef de projet, ou
-    client (sa propre décision côté portail/fiche mission : Validé ou
-    Corrections, avec l'explication des corrections dans `comment`). Publier /
-    dépublier : admin, chef de projet, ou collaborateur de la mission.
-    Modifier le nom / le lien : admin, chef de projet, ou le collaborateur
-    auteur du dépôt.
+    """Deux validations indépendantes (voir Deliverable) :
+    - `status`, la validation de l'agence, qui vaut envoi au client : admin
+      ou chef de projet ;
+    - `client_status`, la décision du client (Validé ou Corrections, avec
+      l'explication des corrections dans `comment`) : le client seul, sur un
+      livrable de son entreprise que l'agence a validé.
+    Lecture/dépôt : tout utilisateur authentifié pouvant voir la mission
+    (portée déjà imposée par le queryset et par MissionPKField), sauf le
+    client qui ne dépose jamais. Publier / dépublier : admin, chef de projet,
+    ou collaborateur de la mission. Modifier le nom / le lien : admin, chef
+    de projet, ou le collaborateur auteur du dépôt.
     Suppression :
     admin, chef de projet, ou le collaborateur qui a lui-même déposé le
     livrable (jamais celui d'un autre)."""
@@ -35,20 +38,24 @@ class DeliverablePermission(BasePermission):
         return True
 
     def has_object_permission(self, request, view, obj) -> bool:
+        if request.method in SAFE_METHODS:
+            return True
+        fields_sent = set(request.data.keys())
+        if request.user.role == Role.CLIENT:
+            return (
+                obj.mission.client_id == request.user.client_id
+                and obj.status == DeliverableStatus.VALIDE
+                and fields_sent <= {"client_status", "comment"}
+                and request.data.get("client_status") in CLIENT_DECISIONS
+            )
+        # La décision du client n'appartient qu'à lui.
+        if "client_status" in fields_sent:
+            return False
         if request.user.role in (Role.ADMIN, Role.CHEF_PROJET):
             return True
         if request.method == "DELETE":
             return request.user.role == Role.COLLABORATEUR and obj.uploaded_by_id == request.user.id
-        if request.method in SAFE_METHODS:
-            return True
-        if request.user.role == Role.CLIENT:
-            return (
-                obj.mission.client_id == request.user.client_id
-                and set(request.data.keys()) <= {"status", "comment"}
-                and request.data.get("status") in CLIENT_DECISIONS
-            )
         if request.user.role == Role.COLLABORATEUR:
-            fields_sent = set(request.data.keys())
             # Publier un livrable de sa mission (portée déjà imposée par le
             # queryset), mais jamais le valider lui-même.
             if fields_sent <= {"published"}:

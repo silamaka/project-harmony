@@ -37,8 +37,11 @@ Django 5 + Django REST Framework + JWT (SimpleJWT) + PostgreSQL.
   (jamais une valeur du client). Les `mentions` d'un commentaire sont
   ré-extraites côté serveur depuis `body`, jamais celles envoyées par le
   client (tenter d'injecter de fausses mentions est ignoré silencieusement).
-  Un collaborateur ne peut pas auto-valider son propre livrable (statut) —
-  seuls admin/chef de projet/client (propriétaire) le peuvent.
+  Un collaborateur ne peut pas auto-valider son propre livrable. Deux
+  validations indépendantes : `status` (agence : admin/chef de projet, vaut
+  envoi au client) et `client_status` (client propriétaire seul, sur un
+  livrable déjà validé par l'agence). Le statut de mission en découle
+  (`deliverables/decisions.py`).
 - **Phase 4 — Calendrier + Notifications** : `GET /api/v1/calendar/` fusionne
   échéances de missions, dépôts de livrables et réunions (comme déjà fait
   côté frontend), mais la portée mission/livrable est désormais imposée

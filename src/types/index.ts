@@ -176,7 +176,16 @@ export interface Deliverable {
   version: number;
   size_kb?: number;
   uploaded_by: string;
+  /** Validation de l'agence : un livrable validé est envoyé au client (il ne
+   * voit rien avant). */
   status: "en_attente" | "valide" | "corrections";
+  /** Décision du client sur ce qu'il a reçu. Un nouveau lien remet les deux
+   * statuts à "en_attente". */
+  client_status: "en_attente" | "valide" | "corrections";
+  /** Dernière demande de corrections du client (vide sinon), posée par le
+   * serveur ; effacée quand il valide ou qu'un nouveau lien arrive. */
+  client_feedback: string;
+  client_feedback_at?: string | null;
   /** Date de publication (posée par le serveur), null tant que non publié. */
   published_at?: string | null;
   created_at: string;
@@ -227,6 +236,8 @@ export interface Notification {
   link?: string;
   /** Mission concernée, utilisée pour ne montrer aux collaborateurs que ce qui les concerne. */
   mission_id?: string;
+  /** Livrable concerné (décision du client, envoi) : la fiche mission s'ouvre sur lui. */
+  deliverable_id?: string;
 }
 
 export interface DashboardStats {

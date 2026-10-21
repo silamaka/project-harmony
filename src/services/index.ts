@@ -145,18 +145,33 @@ export const missionService = {
 export const deliverableService = {
   /** GET /api/v1/deliverables/ */
   list: async () => (await api.get<Deliverable[]>(endpoints.deliverables)).data,
-  /** POST /api/v1/deliverables/ */
-  create: async (payload: Omit<Deliverable, "id" | "created_at" | "uploaded_by">) =>
-    (await api.post<Deliverable>(endpoints.deliverables, payload)).data,
-  /** PATCH /api/v1/deliverables/:id/ (status) */
+  /** POST /api/v1/deliverables/ (un dépôt commence toujours en revue agence :
+   *  les deux statuts sont posés par le serveur) */
+  create: async (
+    payload: Omit<
+      Deliverable,
+      | "id"
+      | "created_at"
+      | "uploaded_by"
+      | "status"
+      | "client_status"
+      | "client_feedback"
+      | "client_feedback_at"
+    >,
+  ) => (await api.post<Deliverable>(endpoints.deliverables, payload)).data,
+  /** PATCH /api/v1/deliverables/:id/ (validation agence : "valide" = envoyé au client) */
   updateStatus: async (id: string, status: Deliverable["status"]) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { status })).data,
+  /** PATCH /api/v1/deliverables/:id/ (client : valide un livrable reçu) */
+  clientValidate: async (id: string) =>
+    (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { client_status: "valide" }))
+      .data,
   /** PATCH /api/v1/deliverables/:id/ (client : corrections + explication,
    *  postée dans la discussion de la mission par le serveur, en un seul appel) */
   requestCorrections: async (id: string, comment: string) =>
     (
       await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, {
-        status: "corrections",
+        client_status: "corrections",
         comment,
       })
     ).data,

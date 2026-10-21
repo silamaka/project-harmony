@@ -1,49 +1,48 @@
 from accounts.models import Role
 from missions.models import MissionStatus
-from notifications.services import notify_client_decision
 
 from .models import DeliverableStatus
 
-# Une mission n'est synchronisée que lorsqu'elle est du côté du client : on
-# ne fait jamais reculer une mission déjà publiée / terminée, ni avancer une
-# mission encore en préparation interne.
-CLIENT_DECISION_MISSION_STATUSES = (
+# Une mission publiée ou terminée est close : plus aucun évènement sur ses
+# livrables ne la fait reculer.
+CLOSED_MISSION_STATUSES = (MissionStatus.PUBLIE, MissionStatus.TERMINE)
+CLIENT_SIDE_MISSION_STATUSES = (
     MissionStatus.ENVOYE_CLIENT,
     MissionStatus.VALIDE,
     MissionStatus.CORRECTIONS,
 )
 
 
-def apply_client_decision(deliverable, user) -> None:
-    """Le client valide les livrables, la mission suit :
-    - une demande de corrections sur un livrable passe la mission en
-      "Corrections" ;
-    - quand tous les livrables envoyés (avec un lien, déposés par l'agence)
-      sont validés ou publiés, la mission passe "Validé".
-    Et l'équipe est prévenue dans tous les cas."""
-    mission = deliverable.mission
-    validated = deliverable.status == DeliverableStatus.VALIDE
-    notify_client_decision(
-        user,
-        mission,
-        validated=validated,
-        subject=f"livrable « {deliverable.name} » (mission « {mission.title} »)",
-    )
-
-    if mission.status not in CLIENT_DECISION_MISSION_STATUSES:
+def sync_mission_status(mission) -> None:
+    """Le statut d'une mission suit ses livrables (ceux de l'agence, avec un
+    lien) ; le client ne le change jamais directement :
+    - un livrable envoyé avec des corrections demandées → "Corrections" ;
+    - sinon un livrable envoyé qui attend le client → "Envoyé au client" ;
+    - tout est envoyé et validé (ou publié) par le client → "Validé" ;
+    - le client a traité ce qu'il a reçu mais le reste est encore en revue
+      chez l'agence → "Validation interne".
+    Rien d'envoyé : la mission reste dans le circuit interne, où l'agence la
+    pilote à la main, sauf si elle était côté client (envoi retiré, nouveau
+    lien en revue) : elle revient en "Validation interne"."""
+    if mission.status in CLOSED_MISSION_STATUSES:
         return
-    if deliverable.status == DeliverableStatus.CORRECTIONS:
-        target = MissionStatus.CORRECTIONS
-    elif validated:
-        sent = mission.deliverables.exclude(url="").exclude(uploaded_by__role=Role.CLIENT)
-        all_done = all(
-            d.status == DeliverableStatus.VALIDE or d.published_at is not None for d in sent
-        )
-        if not all_done:
+    agency = list(mission.deliverables.exclude(url="").exclude(uploaded_by__role=Role.CLIENT))
+    sent = [d for d in agency if d.status == DeliverableStatus.VALIDE]
+    awaiting = [d for d in sent if d.published_at is None]
+
+    if not sent:
+        if not agency or mission.status not in CLIENT_SIDE_MISSION_STATUSES:
             return
+        target = MissionStatus.VALIDATION_INTERNE
+    elif any(d.client_status == DeliverableStatus.CORRECTIONS for d in awaiting):
+        target = MissionStatus.CORRECTIONS
+    elif any(d.client_status != DeliverableStatus.VALIDE for d in awaiting):
+        target = MissionStatus.ENVOYE_CLIENT
+    elif len(sent) == len(agency):
         target = MissionStatus.VALIDE
     else:
-        return
+        target = MissionStatus.VALIDATION_INTERNE
+
     if mission.status != target:
         mission.status = target
         mission.save()

@@ -749,11 +749,13 @@ function EditDeliverableForm({
         <Field label="Lien (Drive, Figma, S3...)">
           <Input value={url} placeholder="https://..." onChange={(e) => setUrl(e.target.value)} />
         </Field>
-        {linkChanged && deliverable.status !== "en_attente" && (
-          <p className="text-xs text-warning">
-            Le lien change : le livrable repassera « En attente » pour être revu.
-          </p>
-        )}
+        {linkChanged &&
+          (deliverable.status !== "en_attente" || deliverable.client_status !== "en_attente") && (
+            <p className="text-xs text-warning">
+              Le lien change : le livrable repassera en revue par l'agence, puis sera renvoyé au
+              client.
+            </p>
+          )}
       </div>
       <DialogFooter>
         <Button disabled={!name.trim() || mutation.isPending} onClick={() => mutation.mutate()}>

@@ -57,8 +57,9 @@ commentaires.
 **Collaborateur** — consulte uniquement ses missions ; modifie leur statut ;
 dépose des livrables ; commente ; consulte son planning.
 
-**Client** — consulte uniquement ses projets et livrables ; commente ;
-demande des corrections ; valide un livrable.
+**Client** — consulte toutes ses missions et les livrables que l'agence lui a
+envoyés ; commente ; valide chaque livrable ou demande des corrections (il ne
+change jamais le statut d'une mission lui-même).
 
 ### Dashboard
 
@@ -97,6 +98,7 @@ Priorités : Faible, Normale, Haute, Urgente.
 
 Workflow : À faire → En cours → Livrable déposé → Validation interne →
 Envoyé au client → (Validé ou Corrections demandées) → Publié → Terminé.
+À partir de l'envoi, le statut suit les livrables (voir ci-dessous).
 
 ### Livrables
 
@@ -104,6 +106,14 @@ Types : PDF, Images, ZIP, Vidéos, Liens.
 
 Fonctionnalités : dépôt, ouverture, historique, versionnage, validation /
 demande de corrections.
+
+Double validation : l'agence (admin / chef de projet) valide d'abord le
+livrable, ce qui l'envoie au client et le notifie ; le client ne voit rien
+avant. Le client valide ensuite ou demande des corrections (avec une
+explication postée dans la discussion). Prêt à publier = validé des deux
+côtés. Un nouveau lien remet les deux validations à zéro. La mission suit :
+Corrections si un livrable envoyé est refusé, Envoyé au client tant qu'un
+livrable attend le client, Validé quand tout est validé.
 
 ### Commentaires
 
