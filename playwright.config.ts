@@ -19,6 +19,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
+  // Connexion, seeding par l'API et première compilation des pages par le
+  // serveur de dev dépassent souvent les 30 s par défaut.
+  timeout: 60_000,
   reporter: "list",
   use: {
     baseURL,

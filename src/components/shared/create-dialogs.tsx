@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link2, Plus, X } from "lucide-react";
 import { useId, useState } from "react";
-import { cloneElement, isValidElement } from "react";
+import { Children, cloneElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
 import { AvatarPicker } from "@/components/shared/avatar";
@@ -49,9 +49,13 @@ const ROLE_OPTIONS: Record<"collaborateur" | "chef_projet" | "admin" | "client",
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
-  const control = isValidElement(children)
-    ? cloneElement(children as ReactElement<{ id?: string }>, { id })
-    : children;
+  // Le libellé désigne le premier élément (le champ), même suivi d'un message.
+  let linked = false;
+  const control = Children.map(children, (child) => {
+    if (linked || !isValidElement(child)) return child;
+    linked = true;
+    return cloneElement(child as ReactElement<{ id?: string }>, { id });
+  });
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-xs">

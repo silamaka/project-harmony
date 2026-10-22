@@ -173,3 +173,18 @@ Copier `.env.example` vers `.env` pour pointer vers le backend
 (`VITE_API_URL`). Le backend (`backend/`) doit tourner pour que l'app
 fonctionne — voir `backend/README.md` pour le lancer (venv, migrations,
 PostgreSQL).
+
+### Tests de bout en bout (Playwright)
+
+Ils tournent contre le vrai backend local (API sur `localhost:8000`), qui
+doit être lancé. Une fois, créer les comptes de test (développement
+uniquement, la commande refuse de tourner si `DEBUG` est désactivé) :
+
+```sh
+cd backend && python manage.py seed_e2e_accounts
+npm run test:e2e
+```
+
+Chaque test crée ses données par l'API (entreprise, compte client, projet,
+mission) et les supprime à la fin. `e2e/deliverables-flow.spec.ts` couvre
+le circuit complet d'un livrable entre l'agence et le client.

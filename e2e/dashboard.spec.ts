@@ -44,8 +44,10 @@ test("le filtre sélectionné survit à un rechargement de page", async ({ page 
   await page.getByRole("button", { name: "Ce mois-ci" }).click();
   await page.waitForTimeout(300);
 
-  await page.reload({ waitUntil: "networkidle" });
-  await page.waitForTimeout(500);
+  // Le dashboard interroge le serveur en continu : le réseau n'est jamais
+  // "inactif", on attend donc l'affichage plutôt que networkidle.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("kpi-missions")).toBeVisible();
 
   const active = page.getByRole("button", { name: "Ce mois-ci" });
   await expect(active).toHaveClass(/bg-primary/);
@@ -66,22 +68,26 @@ test("une plage personnalisée met à jour le badge de période et les KPI", asy
 
 test("le tableau des missions récentes permet d'ouvrir la fiche d'édition", async ({ page }) => {
   // L'app démarre sans donnée métier : on seed une mission avant d'interagir avec le tableau.
-  await seedMission(page);
-  await page.goto("/dashboard", { waitUntil: "networkidle" });
-  await expect(page.getByTestId("kpi-missions")).toBeVisible();
-  await page.waitForTimeout(500);
+  const seeded = await seedMission(page);
+  try {
+    await page.goto("/dashboard", { waitUntil: "networkidle" });
+    await expect(page.getByTestId("kpi-missions")).toBeVisible();
+    await page.waitForTimeout(500);
 
-  await page.getByRole("button", { name: "Tout", exact: true }).click();
-  await page.waitForTimeout(300);
+    await page.getByRole("button", { name: "Tout", exact: true }).click();
+    await page.waitForTimeout(300);
 
-  const firstRow = page.locator("table tbody tr").first();
-  await expect(firstRow).toBeVisible();
+    const firstRow = page.locator("table tbody tr").first();
+    await expect(firstRow).toBeVisible();
 
-  await firstRow.getByRole("button", { name: "Actions sur la mission" }).click();
-  await page.getByText("Modifier", { exact: true }).click();
+    await firstRow.getByRole("button", { name: "Actions sur la mission" }).click();
+    await page.getByText("Modifier", { exact: true }).click();
 
-  await expect(page.getByText("Modifier la mission")).toBeVisible();
-  await expect(page.getByLabel("Titre")).not.toHaveValue("");
+    await expect(page.getByText("Modifier la mission")).toBeVisible();
+    await expect(page.getByLabel("Titre")).not.toHaveValue("");
+  } finally {
+    await seeded.cleanup();
+  }
 });
 
 test("un clic sur une carte KPI ouvre le panneau de détail correspondant", async ({ page }) => {

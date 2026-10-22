@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link2, Pencil, Trash2, X } from "lucide-react";
-import { cloneElement, isValidElement, useId, useState } from "react";
+import { Children, cloneElement, isValidElement, useId, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
 import { AvatarPicker } from "@/components/shared/avatar";
@@ -50,9 +50,14 @@ const selectClass =
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
-  const control = isValidElement(children)
-    ? cloneElement(children as ReactElement<{ id?: string }>, { id })
-    : children;
+  // Le libellé désigne le premier élément (le champ), même quand un message
+  // (ex. lien invalide) le suit : sans ça il n'était relié à rien.
+  let linked = false;
+  const control = Children.map(children, (child) => {
+    if (linked || !isValidElement(child)) return child;
+    linked = true;
+    return cloneElement(child as ReactElement<{ id?: string }>, { id });
+  });
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id} className="text-xs">

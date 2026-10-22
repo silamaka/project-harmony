@@ -12,11 +12,15 @@ import { login, seedMission } from "./utils";
  * que de dépendre d'un jeu de données pré-rempli, et cible sa ligne par
  * titre plutôt que par position.
  */
-let seeded: { title: string };
+let seeded: Awaited<ReturnType<typeof seedMission>>;
 
 test.beforeEach(async ({ page }) => {
   await login(page);
   seeded = await seedMission(page);
+});
+
+test.afterEach(async () => {
+  await seeded?.cleanup();
 });
 
 test("la page reste interactive après suppression d'une mission via le menu kebab", async ({
@@ -27,7 +31,7 @@ test("la page reste interactive après suppression d'une mission via le menu keb
   // mission seedée par son titre plutôt que rows.first(), qui n'est fiable que
   // si c'est la seule ligne présente.
   const row = page.locator("table tbody tr", { hasText: seeded.title });
-  await expect(page.getByText(seeded.title)).toBeVisible();
+  await expect(row).toBeVisible();
 
   await row.getByRole("button", { name: "Actions sur la mission" }).click();
   await page.getByText("Supprimer", { exact: true }).click();
@@ -36,7 +40,6 @@ test("la page reste interactive après suppression d'une mission via le menu keb
 
   // La mission seedée doit disparaître (d'autres missions, démo ou d'autres
   // tests, peuvent rester dans le tableau : ne pas supposer qu'il est vide).
-  await expect(page.getByText(seeded.title)).not.toBeVisible();
   await expect(row).toHaveCount(0);
 
   // Le body ne doit plus être verrouillé par un overlay Radix fantôme.
@@ -44,10 +47,10 @@ test("la page reste interactive après suppression d'une mission via le menu keb
   expect(pointerEvents).not.toBe("none");
 
   // La page doit rester réellement cliquable : la recherche doit fonctionner.
-  const search = page.getByPlaceholder("Rechercher une mission...");
+  const search = page.getByPlaceholder(/^Rechercher une mission/);
   await search.click();
   await search.fill("zzz-inexistant-zzz");
-  await expect(page.getByText("Aucune mission.")).toBeVisible({ timeout: 5000 });
+  await expect(page.locator("table").getByText("Aucune mission.")).toBeVisible({ timeout: 5000 });
 });
 
 test("la page reste interactive après ouverture puis annulation de la modification d'une mission", async ({
@@ -64,8 +67,8 @@ test("la page reste interactive après ouverture puis annulation de la modificat
   const pointerEvents = await page.evaluate(() => document.body.style.pointerEvents);
   expect(pointerEvents).not.toBe("none");
 
-  const search = page.getByPlaceholder("Rechercher une mission...");
+  const search = page.getByPlaceholder(/^Rechercher une mission/);
   await search.click();
   await search.fill("zzz-inexistant-zzz");
-  await expect(page.getByText("Aucune mission.")).toBeVisible({ timeout: 5000 });
+  await expect(page.locator("table").getByText("Aucune mission.")).toBeVisible({ timeout: 5000 });
 });
