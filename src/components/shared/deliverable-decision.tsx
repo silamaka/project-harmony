@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { WEB_URL_HINT, cn, isWebUrl } from "@/lib/utils";
 import { deliverableService } from "@/services";
 import { CORRECTION_CATEGORY_LABELS, type CorrectionCategory, type Deliverable } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 const CATEGORIES = Object.keys(CORRECTION_CATEGORY_LABELS) as CorrectionCategory[];
 
@@ -65,7 +66,7 @@ export function DeliverableDecision({
           : `« ${deliverable.name} » validé. Merci !`,
       );
     },
-    onError: () => toast.error("Validation impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Validation impossible.")),
   });
 
   const requestCorrections = useMutation({
@@ -87,7 +88,7 @@ export function DeliverableDecision({
           : "Demande de corrections envoyée à l'équipe.",
       );
     },
-    onError: () => toast.error("Envoi impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Envoi impossible.")),
   });
 
   const toggleCategory = (c: CorrectionCategory) =>

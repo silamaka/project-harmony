@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { missionService, userService } from "@/services";
+import { errorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/collaborateurs/")({
   head: () => ({
@@ -47,7 +48,7 @@ function CollaboratorsPage() {
       void qc.invalidateQueries({ queryKey: ["users"] });
       toast.success("Collaborateur supprimé.");
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const filtered = useMemo(

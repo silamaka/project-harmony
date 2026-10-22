@@ -32,6 +32,7 @@ import {
   type Priority,
   type ProjectStatus,
 } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/projets/$projectId")({
   head: () => ({
@@ -83,7 +84,7 @@ function ProjectDetailPage() {
         qc.invalidateQueries({ queryKey: ["projects"] }),
       );
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const updateProjectStatus = useMutation({
@@ -92,28 +93,28 @@ function ProjectDetailPage() {
       void qc.invalidateQueries({ queryKey: ["projects"] });
       void qc.invalidateQueries({ queryKey: ["projects", projectId] });
     },
-    onError: () => toast.error("Mise à jour du statut impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour du statut impossible.")),
   });
 
   const updateMissionStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: MissionStatus }) =>
       missionService.updateStatus(id, status),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions", "project", projectId] }),
-    onError: () => toast.error("Mise à jour du statut impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour du statut impossible.")),
   });
 
   const updateMissionPriority = useMutation({
     mutationFn: ({ id, priority }: { id: string; priority: Priority }) =>
       missionService.update(id, { priority }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions", "project", projectId] }),
-    onError: () => toast.error("Mise à jour de la priorité impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour de la priorité impossible.")),
   });
 
   const updateMissionAssignee = useMutation({
     mutationFn: ({ id, assignee_id }: { id: string; assignee_id: string }) =>
       missionService.update(id, { assignee_id }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions", "project", projectId] }),
-    onError: () => toast.error("Réassignation impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Réassignation impossible.")),
   });
 
   const removeMission = useMutation({
@@ -123,7 +124,7 @@ function ProjectDetailPage() {
       toast.success("Mission supprimée.");
       setDeletingMission(null);
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const client = clients?.find((c) => c.id === project?.client_id);

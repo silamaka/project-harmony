@@ -37,6 +37,7 @@ import { useAuth } from "@/context/auth-context";
 import { deliverableService, missionService, userService } from "@/services";
 import type { Deliverable, DeliverableType } from "@/types";
 import { cn } from "@/lib/utils";
+import { errorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/livrables")({
   head: () => ({
@@ -108,7 +109,7 @@ function DeliverablesPage() {
       queryClient.invalidateQueries({ queryKey: ["missions"] });
       toast.success("Livrable supprimé.");
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   /** Le backend ne renvoie déjà que les livrables visibles pour le rôle courant. */
@@ -200,15 +201,24 @@ function DeliverablesPage() {
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Icon className="h-5 w-5" />
                 </div>
+                {/* L'état et sa trace passent sous le nom, qui garde toute la
+                    largeur (à côté, une trace longue l'écrasait). */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{d.name}</p>
+                  <p className="line-clamp-2 text-sm font-semibold [overflow-wrap:anywhere]">
+                    {d.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {hasDeliverableLink(d)
                       ? `v${d.version} · ${d.size_kb ? `${d.size_kb} Ko` : d.type.toUpperCase()}`
                       : "Lien pas encore disponible"}
                   </p>
+                  {/* Le bloc "À corriger" dessous dit déjà l'état. */}
+                  {!awaitsCorrectedVersion(d) && (
+                    <div className="mt-1.5">
+                      <DeliverableStateBadge deliverable={d} />
+                    </div>
+                  )}
                 </div>
-                <DeliverableStateBadge deliverable={d} />
               </div>
               <DeliverableFeedback
                 deliverable={d}
@@ -265,8 +275,10 @@ function DeliverablesPage() {
               </p>
               {/* Envoyé au client : seule sa réponse fait avancer (icônes
                   "pour le client" sur la ligne d'actions). */}
+              {/* Publié : la validation agence n'a plus d'objet. */}
               {canValidate &&
                 hasDeliverableLink(d) &&
+                !d.published_at &&
                 !awaitsCorrectedVersion(d) &&
                 !isSentToClient(d) && (
                   <div className="flex gap-2 border-t border-border pt-3">

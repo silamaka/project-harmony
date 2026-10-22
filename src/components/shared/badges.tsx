@@ -178,17 +178,6 @@ export function DeliverableStateBadge({
   return (
     <span className="inline-flex flex-col items-start gap-0.5">
       <span className={cn(base, tones[state])}>{labels[state]}</span>
-      {/* L'agence voit qui a validé et quand : "Prêt à publier" seul ne le dit pas. */}
-      {audience === "agence" &&
-        deliverable.client_status === "valide" &&
-        deliverable.client_validated_at && (
-          <span className="text-[11px] font-medium text-success">
-            {deliverable.client_decided_by_name
-              ? `Validé pour le client par ${deliverable.client_decided_by_name} le `
-              : "Validé par le client le "}
-            {new Date(deliverable.client_validated_at).toLocaleDateString("fr-FR")}
-          </span>
-        )}
       {showPublishedDate && deliverable.published_at && (
         <span className="text-[11px] text-muted-foreground">
           le {new Date(deliverable.published_at).toLocaleDateString("fr-FR")}
@@ -198,6 +187,18 @@ export function DeliverableStateBadge({
             )}
         </span>
       )}
+      {/* L'agence voit qui a validé et quand : "Prêt à publier" seul ne le dit pas.
+          Vert atténué : une trace, pas un état (différent du vert de "Publié"). */}
+      {audience === "agence" &&
+        deliverable.client_status === "valide" &&
+        deliverable.client_validated_at && (
+          <span className="text-[11px] text-success/70">
+            {deliverable.client_decided_by_name
+              ? `Validé pour le client par ${deliverable.client_decided_by_name} le `
+              : "Validé par le client le "}
+            {new Date(deliverable.client_validated_at).toLocaleDateString("fr-FR")}
+          </span>
+        )}
     </span>
   );
 }

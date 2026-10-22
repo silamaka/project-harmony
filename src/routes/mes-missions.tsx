@@ -18,6 +18,7 @@ import {
   type Priority,
 } from "@/types";
 import { cn } from "@/lib/utils";
+import { errorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/mes-missions")({
   head: () => ({
@@ -89,14 +90,14 @@ function MyMissionsPage() {
     mutationFn: ({ id, status }: { id: string; status: MissionStatus }) =>
       missionService.updateStatus(id, status),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
-    onError: () => toast.error("Mise à jour du statut impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour du statut impossible.")),
   });
 
   const updatePriority = useMutation({
     mutationFn: ({ id, priority }: { id: string; priority: Priority }) =>
       missionService.update(id, { priority }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
-    onError: () => toast.error("Mise à jour de la priorité impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour de la priorité impossible.")),
   });
 
   const removeMission = useMutation({
@@ -106,7 +107,7 @@ function MyMissionsPage() {
       toast.success("Mission supprimée.");
       setDeletingMission(null);
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   return (

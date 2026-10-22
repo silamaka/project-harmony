@@ -97,3 +97,33 @@ export const endpoints = {
   meetings: "/meetings/",
   notifications: "/notifications/",
 } as const;
+
+/**
+ * Message d'erreur affiché à l'utilisateur : le message de l'action
+ * ("Dépôt impossible.") suivi de la vraie raison renvoyée par le serveur
+ * (validation, droits, panne, réseau) plutôt qu'un échec muet.
+ */
+export function errorMessage(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError(error)) return fallback;
+  const response = error.response;
+  if (!response) return `${fallback} Serveur injoignable : vérifiez votre connexion.`;
+  if (response.status >= 500) {
+    return `${fallback} Erreur du serveur : réessayez ou prévenez l'administrateur.`;
+  }
+  const reason = firstMessage(response.data);
+  if (reason) return `${fallback} ${reason}`;
+  if (response.status === 403) return `${fallback} Action non autorisée.`;
+  if (response.status === 404) return `${fallback} Élément introuvable (supprimé entre-temps ?).`;
+  return fallback;
+}
+
+/** Premier message lisible d'une réponse DRF : {detail}, {champ: [msg]}, [msg] ou "msg". */
+function firstMessage(data: unknown): string | undefined {
+  if (typeof data === "string") return data.length < 300 && !data.includes("<") ? data : undefined;
+  if (Array.isArray(data)) return data.map(firstMessage).find(Boolean);
+  if (data && typeof data === "object") {
+    const record = data as Record<string, unknown>;
+    return firstMessage(record["detail"]) ?? Object.values(record).map(firstMessage).find(Boolean);
+  }
+  return undefined;
+}

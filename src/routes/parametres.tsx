@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
 import { userService } from "@/services";
 import { ROLE_LABELS, type Role } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 const ROLE_FILTERS = ["tous", "admin", "chef_projet", "collaborateur", "client"] as const;
 const STATUS_FILTERS = ["tous", "actif", "inactif"] as const;
@@ -66,7 +67,7 @@ function SettingsPage() {
       void qc.invalidateQueries({ queryKey: ["clients"] });
       toast.success("Utilisateur supprimé.");
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const updateActive = useMutation({
@@ -77,7 +78,7 @@ function SettingsPage() {
       void qc.invalidateQueries({ queryKey: ["collaborators"] });
       toast.success("Statut mis à jour.");
     },
-    onError: () => toast.error("Mise à jour impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
 
   const stats = useMemo(

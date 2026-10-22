@@ -37,6 +37,7 @@ import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn } from "@/lib/utils";
 import { calendarService, isLate, missionService } from "@/services";
 import { TASK_TYPE_LABELS, type CalendarEvent as ApiCalendarEvent } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 /** Événement tel qu'affiché : `late` marque une échéance de mission dépassée
  * et pas finie ; `overdueSince` marque sa copie reportée sur aujourd'hui
@@ -147,7 +148,7 @@ function CalendarPage() {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<CalendarEvent> }) =>
       calendarService.updateMeeting(id, patch),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["calendar"] }),
-    onError: () => toast.error("Déplacement impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Déplacement impossible.")),
   });
 
   const removeMeeting = useMutation({
@@ -157,7 +158,7 @@ function CalendarPage() {
       toast.success("Réunion supprimée.");
       setSelected(null);
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const updateMissionDeadline = useMutation({
@@ -167,7 +168,7 @@ function CalendarPage() {
       void qc.invalidateQueries({ queryKey: ["calendar"] });
       void qc.invalidateQueries({ queryKey: ["missions"] });
     },
-    onError: () => toast.error("Déplacement impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Déplacement impossible.")),
   });
 
   /** Le backend ne renvoie déjà que les événements de mission/livrable visibles pour le rôle courant. */
@@ -879,7 +880,7 @@ function MeetingFormDialog({
       toast.success(isEdit ? "Réunion mise à jour." : "Réunion créée.");
       onOpenChange(false);
     },
-    onError: () => toast.error("Enregistrement impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Enregistrement impossible.")),
   });
 
   return (

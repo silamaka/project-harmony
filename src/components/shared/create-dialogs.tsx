@@ -35,6 +35,7 @@ import {
   type TaskType,
   type User,
 } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -185,7 +186,7 @@ export function CreateProjectDialog({ clientId }: { clientId?: string }) {
         owner_id: form.owner_id || managers[0]?.id || "",
       }),
     onSuccess: () => done("Projet créé."),
-    onError: () => toast.error("Création impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Création impossible.")),
   });
 
   return (
@@ -344,7 +345,7 @@ export function CreateMissionDialog({
       });
     },
     onSuccess: () => done("Mission créée."),
-    onError: () => toast.error("Création impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Création impossible.")),
   });
 
   return (
@@ -599,7 +600,7 @@ export function CreateUserDialog({
         avatar_url: "",
       });
     },
-    onError: () => toast.error("Ajout impossible (e-mail déjà utilisé ?)."),
+    onError: (error) => toast.error(errorMessage(error, "Ajout impossible.")),
   });
 
   return (
@@ -763,7 +764,7 @@ export function EditUserDialog({ user }: { user: User }) {
           ? "Utilisateur mis à jour. Transmettez-lui son nouveau mot de passe."
           : "Utilisateur mis à jour.",
       ),
-    onError: () => toast.error("Mise à jour impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
 
   return (

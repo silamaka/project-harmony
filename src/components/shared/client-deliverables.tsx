@@ -33,6 +33,7 @@ import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import { deliverableService } from "@/services";
 import type { Deliverable, DeliverableType, Mission, User } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 const TYPE_ICON: Record<DeliverableType, typeof FileText> = {
   pdf: FileText,
@@ -111,7 +112,8 @@ export function ClientDeliverables({
       refresh();
       toast.success(published ? "Livrable marqué comme publié." : "Publication annulée.");
     },
-    onError: () => toast.error("Mise à jour de la publication impossible."),
+    onError: (error) =>
+      toast.error(errorMessage(error, "Mise à jour de la publication impossible.")),
   });
 
   const validate = useMutation({
@@ -125,7 +127,7 @@ export function ClientDeliverables({
         status === "valide" ? "Livrable validé et envoyé au client." : "Envoi au client retiré.",
       );
     },
-    onError: () => toast.error("Mise à jour du statut impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour du statut impossible.")),
   });
 
   const missionById = useMemo(() => new Map(missions.map((m) => [m.id, m])), [missions]);
@@ -196,7 +198,7 @@ export function ClientDeliverables({
           <Megaphone className="h-4 w-4" />
         </button>
       )}
-      {canValidate && hasDeliverableLink(d) && !awaitsCorrectedVersion(d) && (
+      {canValidate && hasDeliverableLink(d) && !d.published_at && !awaitsCorrectedVersion(d) && (
         <button
           type="button"
           onClick={() =>
@@ -273,13 +275,20 @@ export function ClientDeliverables({
             >
               <div className="flex items-start gap-2">
                 <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                {/* L'état et sa trace ("Validé pour le client par …") passent
+                    sous le nom : à côté, ils l'écrasaient lettre par lettre. */}
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium break-words">{d.name}</p>
+                  <p className="font-medium [overflow-wrap:anywhere]">{d.name}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {hasDeliverableLink(d) ? `v${d.version}` : "Lien pas encore disponible"}
                   </p>
+                  {/* Le bloc "À corriger" dessous dit déjà l'état. */}
+                  {!awaitsCorrectedVersion(d) && (
+                    <div className="mt-1.5">
+                      <DeliverableStateBadge deliverable={d} />
+                    </div>
+                  )}
                 </div>
-                <DeliverableStateBadge deliverable={d} />
               </div>
               <DeliverableFeedback
                 deliverable={d}

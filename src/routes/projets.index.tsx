@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { clientService, projectService, userService } from "@/services";
 import { PROJECT_STATUS_LABELS, type Project, type ProjectStatus } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/projets/")({
   head: () => ({
@@ -72,7 +73,7 @@ function ProjectsPage() {
     mutationFn: ({ id, status: s }: { id: string; status: ProjectStatus }) =>
       projectService.update(id, { status: s }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["projects"] }),
-    onError: () => toast.error("Mise à jour du statut impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour du statut impossible.")),
   });
 
   const removeProject = useMutation({
@@ -81,7 +82,7 @@ function ProjectsPage() {
       void qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success("Projet supprimé.");
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   return (

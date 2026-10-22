@@ -61,6 +61,7 @@ import {
   type DeliverableType,
   type MissionStatus,
 } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 export const Route = createFileRoute("/missions/$missionId")({
   // ?livrable=<id> (lien d'une notification) : la fiche s'ouvre sur ce
@@ -174,7 +175,7 @@ function MissionDetailPage() {
       setEditingCommentId(null);
       toast.success("Commentaire modifié.");
     },
-    onError: () => toast.error("Modification impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Modification impossible.")),
   });
 
   const deleteCommentMutation = useMutation({
@@ -183,7 +184,7 @@ function MissionDetailPage() {
       refresh([["comments", missionId]]);
       toast.success("Commentaire supprimé.");
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   // Version (v1) et type (déduit du lien) sont posés par le serveur. Un
@@ -202,7 +203,7 @@ function MissionDetailPage() {
       setNewLink("");
       toast.success(url ? "Livrable ajouté." : "Livrable ajouté — lien à venir.");
     },
-    onError: () => toast.error("Dépôt impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Dépôt impossible.")),
   });
 
   // Validation agence : "valide" envoie le livrable au client (notifié côté
@@ -230,7 +231,8 @@ function MissionDetailPage() {
       refresh([["deliverables", missionId], ["deliverables"]]);
       toast.success(published ? "Livrable marqué comme publié." : "Publication annulée.");
     },
-    onError: () => toast.error("Mise à jour de la publication impossible."),
+    onError: (error) =>
+      toast.error(errorMessage(error, "Mise à jour de la publication impossible.")),
   });
 
   const navigate = useNavigate();
@@ -260,7 +262,7 @@ function MissionDetailPage() {
       const listPath = user?.role === "collaborateur" ? "/mes-missions" : "/missions";
       void navigate({ to: listPath }).then(() => refresh([["missions"]]));
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const authorName = (id: string) => {
@@ -627,6 +629,7 @@ function MissionDetailPage() {
                       <div className="ml-auto flex items-center gap-3">
                         {canValidateDeliverable &&
                           hasDeliverableLink(d) &&
+                          !d.published_at &&
                           !awaitsCorrectedVersion(d) && (
                             <button
                               type="button"

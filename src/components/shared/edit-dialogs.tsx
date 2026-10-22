@@ -43,6 +43,7 @@ import {
   type ProjectStatus,
   type TaskType,
 } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -246,7 +247,7 @@ export function EditClientDialog({ client }: { client: Client }) {
   const mutation = useMutation({
     mutationFn: () => clientService.update(client.id, { ...form, name: form.name.trim() }),
     onSuccess: () => done("Client mis à jour."),
-    onError: () => toast.error("Mise à jour impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
 
   return (
@@ -352,7 +353,7 @@ export function EditProjectDialog({
         name: form.name.trim(),
       }),
     onSuccess: () => done("Projet mis à jour."),
-    onError: () => toast.error("Mise à jour impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
 
   return (
@@ -509,7 +510,7 @@ export function EditMissionDialog({
       });
     },
     onSuccess: () => done("Mission mise à jour."),
-    onError: () => toast.error("Mise à jour impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
 
   return (
@@ -751,7 +752,7 @@ function EditDeliverableForm({
             ? "Livrable mis à jour."
             : "Livrable mis à jour — lien à venir.",
       ),
-    onError: () => toast.error("Mise à jour impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
   const linkChanged = url.trim() !== deliverable.url && deliverable.url !== "" && url.trim() !== "";
   const missingFix = fixing && (!url.trim() || url.trim() === deliverable.url);

@@ -66,6 +66,7 @@ import {
   userService,
 } from "@/services";
 import type { Mission, MissionStatus, Priority } from "@/types";
+import { errorMessage } from "@/lib/api";
 
 const PERIODS = ["tout", "jour", "semaine", "mois", "trimestre", "annee", "personnalise"] as const;
 type Period = (typeof PERIODS)[number];
@@ -234,19 +235,19 @@ function DashboardPage() {
     mutationFn: ({ id, status }: { id: string; status: MissionStatus }) =>
       missionService.updateStatus(id, status),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
-    onError: () => toast.error("Mise à jour du statut impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour du statut impossible.")),
   });
   const updatePriority = useMutation({
     mutationFn: ({ id, priority }: { id: string; priority: Priority }) =>
       missionService.update(id, { priority }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
-    onError: () => toast.error("Mise à jour de la priorité impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Mise à jour de la priorité impossible.")),
   });
   const updateAssignee = useMutation({
     mutationFn: ({ id, assignee_id }: { id: string; assignee_id: string }) =>
       missionService.update(id, { assignee_id }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["missions"] }),
-    onError: () => toast.error("Réassignation impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Réassignation impossible.")),
   });
   const removeMission = useMutation({
     mutationFn: (id: string) => missionService.remove(id),
@@ -255,7 +256,7 @@ function DashboardPage() {
       toast.success("Mission supprimée.");
       setDeletingMission(null);
     },
-    onError: () => toast.error("Suppression impossible."),
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
   const drillMissions: Mission[] | null =
