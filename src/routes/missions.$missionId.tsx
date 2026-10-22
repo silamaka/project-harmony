@@ -1,41 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  Check,
-  CheckCircle2,
-  Clock,
-  Eye,
-  FileText,
-  Film,
-  ImageIcon,
-  LinkIcon,
-  Lock,
-  Megaphone,
-  Pencil,
-  Send,
-  Trash2,
-  Upload,
-  FileArchive,
-} from "lucide-react";
+import { Check, Clock, Eye, LinkIcon, Lock, Pencil, Send, Trash2 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
 import {
   ClientMissionStatusBadge,
-  DeliverableStateBadge,
   MissionStatusBadge,
-  awaitsCorrectedVersion,
-  canTogglePublication,
-  isSentToClient,
   PriorityBadge,
-  deliverableBorderTone,
   deliverableState,
-  hasDeliverableLink,
 } from "@/components/shared/badges";
 import { ClientMissionDeliverables } from "@/components/shared/client-mission-deliverables";
-import { DeliverableDecision } from "@/components/shared/deliverable-decision";
-import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
+import { DeliverableCard } from "@/components/shared/deliverable-card";
 import {
   ConfirmDeleteButton,
   EditDeliverableDialog,
@@ -59,7 +36,6 @@ import {
   MISSION_WORKFLOW,
   MISSION_STATUS_LABELS,
   type Deliverable,
-  type DeliverableType,
   type MissionStatus,
 } from "@/types";
 import { errorMessage } from "@/lib/api";
@@ -79,14 +55,6 @@ export const Route = createFileRoute("/missions/$missionId")({
   }),
   component: MissionDetailPage,
 });
-
-const typeIcon: Record<DeliverableType, typeof FileText> = {
-  pdf: FileText,
-  image: ImageIcon,
-  zip: FileArchive,
-  video: Film,
-  lien: LinkIcon,
-};
 
 function MissionDetailPage() {
   const { missionId } = Route.useParams();
@@ -207,49 +175,7 @@ function MissionDetailPage() {
     onError: (error) => toast.error(errorMessage(error, "Dépôt impossible.")),
   });
 
-  // Validation agence : "valide" envoie le livrable au client (notifié côté
-  // serveur), "en_attente" le lui retire. La mission suit côté serveur.
-  const deliverableStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "valide" | "corrections" | "en_attente" }) =>
-      deliverableService.updateStatus(id, status),
-    onSuccess: (_d, { status }) => {
-      refresh([
-        ["deliverables", missionId],
-        ["deliverables"],
-        ["missions"],
-        ["missions", missionId],
-      ]);
-      toast.success(
-        status === "valide" ? "Livrable validé et envoyé au client." : "Envoi au client retiré.",
-      );
-    },
-  });
-
-  const deliverablePublish = useMutation({
-    mutationFn: ({ id, published }: { id: string; published: boolean }) =>
-      deliverableService.setPublished(id, published),
-    onSuccess: (_d, { published }) => {
-      refresh([["deliverables", missionId], ["deliverables"]]);
-      toast.success(published ? "Livrable marqué comme publié." : "Publication annulée.");
-    },
-    onError: (error) =>
-      toast.error(errorMessage(error, "Mise à jour de la publication impossible.")),
-  });
-
   const navigate = useNavigate();
-  const removeDeliverable = useMutation({
-    mutationFn: (id: string) => deliverableService.remove(id),
-    onSuccess: () => {
-      refresh([
-        ["deliverables", missionId],
-        ["deliverables"],
-        ["missions"],
-        ["missions", missionId],
-      ]);
-      toast.success("Livrable supprimé.");
-    },
-  });
-
   const removeMission = useMutation({
     mutationFn: () => missionService.remove(missionId),
     onSuccess: () => {
@@ -287,17 +213,6 @@ function MissionDetailPage() {
   /** Le client décide sur chaque livrable (Validé / Corrections) ; le statut
    * de la mission en découle côté serveur, il n'y touche jamais. */
   const isClient = user?.role === "client";
-  /** Livrables (voir DeliverablePermission) : la validation agence (icône ✓,
-   * qui envoie au client) = admin ou chef de projet ; publier = l'agence
-   * (admin, chef de projet, collaborateur de la mission), jamais le client.
-   * Le client a ses propres boutons Valider / Corrections
-   * (DeliverableDecision). */
-  const canValidateDeliverable = isManager;
-  const canPublishDeliverable = isManager || (user?.role === "collaborateur" && isInvolved);
-  /** Modifier (nom / lien) et supprimer : admin, chef de projet, ou le
-   * collaborateur auteur du dépôt (voir DeliverablePermission). */
-  const canManageDeliverable = (uploadedBy: string) =>
-    isManager || (user?.role === "collaborateur" && uploadedBy === user.id);
   const newLinkInvalid = newLink.trim() !== "" && !isWebUrl(newLink);
   const submitDeliverable = () => {
     if (!newName.trim() || newLinkInvalid || deliverableMutation.isPending) return;
@@ -591,163 +506,20 @@ function MissionDetailPage() {
               </div>
               {newLinkInvalid && <p className="text-xs text-destructive">{WEB_URL_HINT}</p>}
             </div>
-            <ul className="mt-4 space-y-2">
-              {(deliverables ?? []).map((d) => {
-                const Icon = typeIcon[d.type];
-                return (
-                  <li
-                    key={d.id}
-                    id={`livrable-${d.id}`}
-                    className={cn(
-                      "scroll-mt-24 rounded-lg border border-l-4 border-border px-3 py-2.5 transition-shadow duration-500",
-                      deliverableBorderTone[deliverableState(d)],
-                      highlightedId === d.id &&
-                        "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                    )}
-                  >
-                    {/* En-tête compact (nom, version, actions) ; la demande de
-                        corrections passe dessous, en pleine largeur. */}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <Icon className="h-4 w-4 shrink-0 text-primary" />
-                      <div className="min-w-[8rem] flex-1">
-                        <p className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]">
-                          {d.name}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {!hasDeliverableLink(d)
-                            ? "Lien pas encore disponible"
-                            : `v${d.version} · ${
-                                d.size_kb == null
-                                  ? "lien"
-                                  : d.size_kb >= 1024
-                                    ? `${(d.size_kb / 1024).toFixed(1)} Mo`
-                                    : `${d.size_kb} Ko`
-                              }`}
-                        </p>
-                      </div>
-                      {/* Actions groupées : elles passent sous le nom quand la
-                          colonne est trop étroite, au lieu de l'écraser. */}
-                      <div className="ml-auto flex items-center gap-3">
-                        {canValidateDeliverable &&
-                          hasDeliverableLink(d) &&
-                          !d.published_at &&
-                          !awaitsCorrectedVersion(d) && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                deliverableStatus.mutate({
-                                  id: d.id,
-                                  status: d.status === "valide" ? "en_attente" : "valide",
-                                })
-                              }
-                              disabled={deliverableStatus.isPending}
-                              aria-label={
-                                d.status === "valide"
-                                  ? `Retirer l'envoi de ${d.name}`
-                                  : `Valider et envoyer ${d.name}`
-                              }
-                              title={
-                                d.status === "valide"
-                                  ? "Validé et envoyé au client — cliquer pour retirer"
-                                  : "Valider et envoyer au client"
-                              }
-                              className={cn(
-                                "text-muted-foreground hover:text-success",
-                                d.status === "valide" && "text-success",
-                              )}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        {/* Réponse du client reçue hors du portail (ou changement
-                          d'avis) : l'admin / le chef de projet l'enregistre
-                          pour lui, sur tout livrable envoyé non publié. */}
-                        {isManager && isSentToClient(d) && (
-                          <DeliverableDecision deliverable={d} onBehalf variant="icons" />
-                        )}
-                        {canPublishDeliverable && canTogglePublication(d) && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              deliverablePublish.mutate({ id: d.id, published: !d.published_at })
-                            }
-                            disabled={deliverablePublish.isPending}
-                            aria-label={
-                              d.published_at
-                                ? `Annuler la publication de ${d.name}`
-                                : `Publier ${d.name}`
-                            }
-                            title={
-                              d.published_at
-                                ? "Publié — cliquer pour annuler"
-                                : "Marquer comme publié"
-                            }
-                            className={cn(
-                              "text-muted-foreground hover:text-primary",
-                              d.published_at && "text-primary",
-                            )}
-                          >
-                            <Megaphone className="h-4 w-4" />
-                          </button>
-                        )}
-                        {hasDeliverableLink(d) && (
-                          <a
-                            href={d.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Voir ${d.name}`}
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </a>
-                        )}
-                        {canManageDeliverable(d.uploaded_by) && (
-                          <button
-                            type="button"
-                            onClick={() => setEditingDeliverable(d)}
-                            aria-label={`Modifier ${d.name}`}
-                            title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
-                            className="text-muted-foreground hover:text-primary"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canManageDeliverable(d.uploaded_by) && (
-                          <button
-                            type="button"
-                            onClick={() => removeDeliverable.mutate(d.id)}
-                            disabled={removeDeliverable.isPending}
-                            aria-label={`Supprimer ${d.name}`}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {/* État et sa trace sous l'en-tête, en pleine largeur (la colonne
-                        est étroite) ; le bloc "À corriger" dit déjà l'état. */}
-                    {!awaitsCorrectedVersion(d) && (
-                      <div className="mt-2 pl-7">
-                        <DeliverableStateBadge deliverable={d} />
-                      </div>
-                    )}
-                    <DeliverableFeedback
-                      deliverable={d}
-                      className="mt-3"
-                      onFix={
-                        canManageDeliverable(d.uploaded_by)
-                          ? () => setEditingDeliverable(d)
-                          : undefined
-                      }
-                    />
-                  </li>
-                );
-              })}
+            <div className="mt-4 space-y-2">
+              {(deliverables ?? []).map((d) => (
+                <DeliverableCard
+                  key={d.id}
+                  id={`livrable-${d.id}`}
+                  deliverable={d}
+                  onEdit={setEditingDeliverable}
+                  highlighted={highlightedId === d.id}
+                />
+              ))}
               {(deliverables ?? []).length === 0 && (
-                <li className="text-xs text-muted-foreground">Aucun livrable déposé.</li>
+                <p className="text-xs text-muted-foreground">Aucun livrable déposé.</p>
               )}
-            </ul>
+            </div>
           </div>
         )}
       </div>
