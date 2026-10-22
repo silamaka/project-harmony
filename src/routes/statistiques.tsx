@@ -454,10 +454,17 @@ function StatisticsPage() {
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="missions" stroke="var(--primary)" strokeWidth={2} />
+                <Line
+                  type="monotone"
+                  dataKey="missions"
+                  name="Missions créées"
+                  stroke="var(--primary)"
+                  strokeWidth={2}
+                />
                 <Line
                   type="monotone"
                   dataKey="livrables"
+                  name="Livrables déposés"
                   stroke="oklch(0.72 0.16 30)"
                   strokeWidth={2}
                 />

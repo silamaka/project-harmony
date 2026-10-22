@@ -166,3 +166,58 @@ class AlertsTests(RoleTestCase):
         self.auth_as(self.admin)
         res = self.client.get(reverse("dashboard-alerts"))
         self.assertNotIn(str(d.id), [x["id"] for x in res.data["pendingDeliverables"]])
+
+
+class MonthlyEvolutionTests(RoleTestCase):
+    """Évolution mensuelle : missions créées et livrables déposés par mois,
+    du mois de la première mission jusqu'au mois en cours, creux compris."""
+
+    LABELS = ["janv.", "févr.", "mars", "avr.", "mai", "juin",
+              "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+    def _get(self):
+        self.auth_as(self.admin)
+        res = self.client.get(reverse("dashboard-monthly"))
+        self.assertEqual(res.status_code, 200)
+        return res.data
+
+    def _label(self, d):
+        return f"{self.LABELS[d.month - 1]} {d.year % 100:02d}"
+
+    def test_starts_at_the_first_mission_and_ends_this_month(self):
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        first = today.replace(day=1) - timedelta(days=95)  # environ 3 mois plus tôt
+        Mission.objects.filter(pk=self.mission.pk).update(
+            created_at=timezone.make_aware(
+                timezone.datetime(first.year, first.month, 15), timezone.get_current_timezone()
+            )
+        )
+        data = self._get()
+        self.assertEqual(data[0]["month"], self._label(first))
+        self.assertEqual(data[-1]["month"], self._label(today))
+        self.assertEqual(data[0]["missions"], 1)
+        # Mois intermédiaires présents, à 0 s'ils sont vides.
+        self.assertEqual(len(data), (today.year - first.year) * 12 + today.month - first.month + 1)
+
+    def test_only_current_month_without_missions(self):
+        from django.utils import timezone
+
+        Mission.objects.all().delete()
+        data = self._get()
+        self.assertEqual([row["month"] for row in data], [self._label(timezone.localdate())])
+
+    def test_counts_deliverables_deposited_this_month(self):
+        before = self._get()[-1]
+        Deliverable.objects.create(
+            mission=self.mission, name="Maquette", type="lien",
+            url="https://example.com/m", uploaded_by=self.collaborateur,
+        )
+        data = self._get()
+        self.assertEqual(data[-1]["livrables"], before["livrables"] + 1)
+        self.assertEqual(data[-1]["missions"], before["missions"])
+
+    def test_client_cannot_access(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(self.client.get(reverse("dashboard-monthly")).status_code, 403)

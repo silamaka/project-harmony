@@ -250,8 +250,15 @@ class DeliverableStatusUpdateTests(DeliverableSetupMixin, RoleTestCase):
 
 
 class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
-    """Chaque livrable se publie séparément (published_at), indépendamment
-    de sa validation ; la date est toujours posée par le serveur."""
+    """Chaque livrable se publie séparément (published_at), une fois validé
+    par l'agence et par le client ; la date est toujours posée par le
+    serveur."""
+
+    def setUp(self):
+        super().setUp()
+        # "Prêt à publier" : validé des deux côtés.
+        self.deliverable.client_status = DeliverableStatus.VALIDE
+        self.deliverable.save()
 
     def _publish(self, published=True):
         return self.client.patch(
@@ -288,7 +295,47 @@ class DeliverablePublishTests(DeliverableSetupMixin, RoleTestCase):
         self._publish()
         self.deliverable.refresh_from_db()
         self.assertEqual(self.deliverable.status, DeliverableStatus.VALIDE)
-        self.assertEqual(self.deliverable.client_status, DeliverableStatus.EN_ATTENTE)
+        self.assertEqual(self.deliverable.client_status, DeliverableStatus.VALIDE)
+
+    def test_cannot_publish_before_the_client_validates(self):
+        for client_status in (DeliverableStatus.EN_ATTENTE, DeliverableStatus.CORRECTIONS):
+            Deliverable.objects.filter(pk=self.deliverable.pk).update(client_status=client_status)
+            self.auth_as(self.chef_projet)
+            res = self._publish()
+            self.assertEqual(res.status_code, 400, client_status)
+            self.assertIn("published", res.data)
+        self.deliverable.refresh_from_db()
+        self.assertIsNone(self.deliverable.published_at)
+
+    def test_cannot_publish_before_the_agency_validates(self):
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            status=DeliverableStatus.EN_ATTENTE
+        )
+        self.auth_as(self.collaborateur)
+        self.assertEqual(self._publish().status_code, 400)
+
+    def test_validate_for_client_then_publish(self):
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status=DeliverableStatus.EN_ATTENTE
+        )
+        self.auth_as(self.admin)
+        self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"client_status": "valide"}, format="json"
+        )
+        self.assertEqual(self._publish().status_code, 200)
+
+    def test_already_published_unvalidated_can_still_be_unpublished(self):
+        """Publiés avant la règle : on ne casse rien, on peut toujours les
+        dépublier (ou les "republier" sans effet)."""
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status=DeliverableStatus.EN_ATTENTE, published_at="2026-10-01T10:00:00Z"
+        )
+        self.auth_as(self.collaborateur)
+        self.assertEqual(self._publish().status_code, 200)
+        res = self._publish(False)
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.data["published_at"])
+        self.assertEqual(self._publish().status_code, 400)
 
     def test_client_cannot_publish(self):
         self.auth_as(self.client_user)
@@ -390,6 +437,8 @@ class DeliverableWithoutLinkTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(res.data["client_status"], "en_attente")
 
     def test_removing_link_unpublishes(self):
+        self.deliverable.client_status = DeliverableStatus.VALIDE
+        self.deliverable.save()
         self.auth_as(self.admin)
         self._patch({"published": True}, self.deliverable)
         res = self._patch({"url": ""}, self.deliverable)

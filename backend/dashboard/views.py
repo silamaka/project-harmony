@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.db.models.functions import TruncMonth
+from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
@@ -57,13 +59,53 @@ def missions_by_collaborator(request):
     return Response(data)
 
 
+MONTH_LABELS = [
+    "janv.", "févr.", "mars", "avr.", "mai", "juin",
+    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+]
+
+
 @api_view(["GET"])
 @permission_classes([IsAdminOrChefProjet])
 def monthly(request):
-    # Pas d'historique agrégé par mois stocké pour l'instant (donnée
-    # honnêtement vide plutôt que fabriquée) — à construire quand un
-    # vrai besoin de reporting historique apparaît.
-    return Response([])
+    """Missions créées et livrables déposés par mois, depuis le mois de la
+    première mission de la plateforme jusqu'au mois en cours, calculés depuis
+    leur date de création. Pas de mois vides avant le démarrage ; les creux
+    d'activité ensuite valent 0 pour garder une courbe continue."""
+    today = timezone.localdate()
+    first = Mission.objects.order_by("created_at").values_list("created_at", flat=True).first()
+    start = timezone.localtime(first).date() if first else today
+    months = []
+    year, month = start.year, start.month
+    while (year, month) <= (today.year, today.month):
+        months.append((year, month))
+        year, month = (year, month + 1) if month < 12 else (year + 1, 1)
+    since = timezone.make_aware(
+        timezone.datetime(months[0][0], months[0][1], 1), timezone.get_current_timezone()
+    )
+
+    def per_month(queryset):
+        rows = (
+            queryset.filter(created_at__gte=since)
+            .annotate(m=TruncMonth("created_at"))
+            .values("m")
+            .annotate(n=Count("id"))
+        )
+        return {(row["m"].year, row["m"].month): row["n"] for row in rows}
+
+    missions = per_month(Mission.objects.all())
+    deliverables = per_month(Deliverable.objects.all())
+    return Response(
+        [
+            {
+                "month": f"{MONTH_LABELS[m - 1]} {y % 100:02d}",
+                "missions": missions.get((y, m), 0),
+                "livrables": deliverables.get((y, m), 0),
+            }
+            for y, m in months
+        ]
+    )
+
 
 
 @api_view(["GET"])

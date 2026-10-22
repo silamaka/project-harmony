@@ -32,6 +32,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -457,15 +458,18 @@ function DashboardPage() {
                     color: "var(--color-popover-foreground)",
                   }}
                 />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Line
                   type="monotone"
                   dataKey="missions"
+                  name="Missions créées"
                   stroke="var(--color-chart-1)"
                   strokeWidth={2}
                 />
                 <Line
                   type="monotone"
                   dataKey="livrables"
+                  name="Livrables déposés"
                   stroke="var(--color-chart-3)"
                   strokeWidth={2}
                 />

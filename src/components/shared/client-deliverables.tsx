@@ -18,6 +18,7 @@ import {
   DELIVERABLE_STATES,
   DeliverableStateBadge,
   awaitsCorrectedVersion,
+  canTogglePublication,
   isSentToClient,
   deliverableBorderTone,
   deliverableRowTone,
@@ -183,7 +184,7 @@ export function ClientDeliverables({
       {canValidate && isSentToClient(d) && (
         <DeliverableDecision deliverable={d} onBehalf variant="icons" />
       )}
-      {canPublish && hasDeliverableLink(d) && (
+      {canPublish && canTogglePublication(d) && (
         <button
           type="button"
           onClick={() => publish.mutate({ id: d.id, published: !d.published_at })}

@@ -85,6 +85,11 @@ export function deliverableState(d: DeliverableStateFields): DeliverableState {
   return "envoye";
 }
 
+/** Publier exige la double validation ("Prêt à publier", même règle côté
+ * serveur) ; un livrable déjà en ligne peut toujours être dépublié. */
+export const canTogglePublication = (d: DeliverableStateFields) =>
+  !!d.published_at || deliverableState(d) === "pret";
+
 /** Livrable envoyé au client (validé par l'agence) et pas encore publié :
  * sa décision compte encore, et l'agence peut l'enregistrer pour lui
  * (réponse reçue hors du portail), qu'il attende, soit en corrections ou

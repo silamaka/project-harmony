@@ -26,6 +26,7 @@ import {
   DeliverableStateBadge,
   MissionStatusBadge,
   awaitsCorrectedVersion,
+  canTogglePublication,
   isSentToClient,
   PriorityBadge,
   deliverableBorderTone,
@@ -664,7 +665,7 @@ function MissionDetailPage() {
                         {isManager && isSentToClient(d) && (
                           <DeliverableDecision deliverable={d} onBehalf variant="icons" />
                         )}
-                        {canPublishDeliverable && hasDeliverableLink(d) && (
+                        {canPublishDeliverable && canTogglePublication(d) && (
                           <button
                             type="button"
                             onClick={() =>

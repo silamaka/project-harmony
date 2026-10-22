@@ -193,6 +193,26 @@ class DeliverableSerializer(serializers.ModelSerializer):
                 "Ce livrable n'a pas encore de lien : il ne peut être ni validé ni publié."
             )
 
+        if (
+            validated_data.get("published")
+            and instance.published_at is None
+            and not (
+                validated_data.get("status", instance.status) == DeliverableStatus.VALIDE
+                and validated_data.get("client_status", instance.client_status)
+                == DeliverableStatus.VALIDE
+            )
+        ):
+            # Rien ne part en ligne sans l'accord du client : publier exige la
+            # double validation ("Prêt à publier"). Un client qui a répondu
+            # hors du portail : l'agence enregistre sa validation, puis publie.
+            # Dépublier reste toujours possible.
+            raise serializers.ValidationError(
+                {
+                    "published": "Ce livrable doit être validé par l'agence et par le client "
+                    "avant d'être publié."
+                }
+            )
+
         if "published" in validated_data:
             if not validated_data.pop("published"):
                 validated_data["published_at"] = None
