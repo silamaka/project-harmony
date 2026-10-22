@@ -103,3 +103,21 @@ curl http://localhost:8000/api/v1/health/   # {"status": "ok"}
 
 Le frontend (`../`) pointe vers ce backend via `VITE_API_URL` dans son
 propre `.env` (voir `../.env.example`).
+
+## Mise à jour en production (VPS)
+
+Sur le serveur, une seule commande met l'API à jour :
+
+```bash
+RESTART_CMD="sudo systemctl restart olympe-api" bash backend/deploy.sh
+```
+
+Le script récupère le code, installe les dépendances, **applique les
+migrations puis vérifie qu'il n'en reste aucune**, contrôle la
+configuration (`check --deploy`) et redémarre l'API. Il s'arrête à la
+première erreur : rien n'est redémarré sur une base à moitié à jour.
+Adapter `RESTART_CMD` à la façon dont l'API tourne sur le serveur
+(systemd, supervisor, pm2...) ; sans elle, le script rappelle de
+redémarrer à la main. Les avertissements de `check --deploy` (DEBUG actif,
+clé secrète faible, cookies non sécurisés...) sont à corriger en
+production.
