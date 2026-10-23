@@ -259,7 +259,8 @@ export interface Notification {
     | "validation"
     | "correction"
     | "retard"
-    | "decision_client";
+    | "decision_client"
+    | "publication";
   title: string;
   body: string;
   read: boolean;

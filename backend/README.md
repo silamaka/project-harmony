@@ -121,3 +121,17 @@ Adapter `RESTART_CMD` à la façon dont l'API tourne sur le serveur
 redémarrer à la main. Les avertissements de `check --deploy` (DEBUG actif,
 clé secrète faible, cookies non sécurisés...) sont à corriger en
 production.
+
+### Rappels de publication (cron)
+
+Les rappels de publication (la veille, puis « en retard » une fois la date
+passée) sont envoyés par une commande à lancer **toutes les heures**. Chaque
+rappel ne part qu'une fois par date prévue : relancer la commande ne crée
+pas de doublon. À ajouter avec `crontab -e` sur le serveur :
+
+```cron
+0 * * * * cd /chemin/vers/project-harmony/backend && .venv/bin/python manage.py send_publication_reminders >> /var/log/olympe-rappels.log 2>&1
+```
+
+Les heures affichées dans les rappels suivent `DJANGO_TIME_ZONE` (par
+exemple `Europe/Paris`) défini dans le `.env` du backend.

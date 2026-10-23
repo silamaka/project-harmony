@@ -13,6 +13,9 @@ class NotificationType(models.TextChoices):
     # Le client a validé ou demandé des corrections : destinée à l'équipe,
     # jamais montrée au client (qui ne voit que le type VALIDATION).
     DECISION_CLIENT = "decision_client", "Décision du client"
+    # Rappel de publication programmée (veille, retard) : destiné à l'équipe
+    # de la mission, collaborateurs compris (ce sont eux qui publient).
+    PUBLICATION = "publication", "Publication"
 
 
 class Notification(models.Model):

@@ -54,13 +54,15 @@ class NotificationViewSet(
                 type=NotificationType.VALIDATION, mission__in=missions_visible_to(user)
             )
         # Collaborateur : seulement ce qui lui demande d'agir sur ses
-        # missions — une nouvelle mission, ou des corrections demandées par
-        # le client (version corrigée à préparer). Le reste (validations,
+        # missions — une nouvelle mission, des corrections demandées par le
+        # client (version corrigée à préparer), un rappel de publication. Le reste (validations,
         # envois, alertes écrites pour le client) reste à l'admin et au chef
         # de projet.
         return Notification.objects.filter(mission__in=missions_visible_to(user)).filter(
             Q(type=NotificationType.MISSION_CREEE)
             | Q(type=NotificationType.DECISION_CLIENT, title=CORRECTIONS_REQUESTED_TITLE)
+            # Rappels de publication : ce sont eux qui publient.
+            | Q(type=NotificationType.PUBLICATION)
         )
 
     @action(detail=False, methods=["post"], url_path="mark-all-read")

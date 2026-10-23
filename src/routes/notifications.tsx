@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   Bell,
+  CalendarClock,
   CheckCircle2,
   MessageSquare,
   Package,
@@ -40,6 +41,7 @@ const ICONS: Record<Notification["type"], typeof Bell> = {
   correction: RefreshCcw,
   retard: AlertTriangle,
   decision_client: UserCheck,
+  publication: CalendarClock,
 };
 
 function NotificationsPage() {

@@ -51,6 +51,47 @@ def notify_deliverable_sent(deliverable) -> Notification:
     )
 
 
+def _when(deliverable) -> str:
+    from django.utils import timezone
+
+    when = timezone.localtime(deliverable.scheduled_at)
+    return f"{when:%d/%m/%Y} à {when:%H:%M}"
+
+
+def notify_publication_team(deliverable, title: str, detail: str) -> Notification:
+    """Rappel de publication pour l'équipe de la mission (admin, chef de
+    projet, collaborateurs). Type PUBLICATION : jamais montré au client."""
+    mission = deliverable.mission
+    return Notification.objects.create(
+        type=NotificationType.PUBLICATION,
+        title=title,
+        body=(
+            f"{deliverable.label} (mission « {mission.title} ») — prévue le "
+            f"{_when(deliverable)}. {detail}"
+        )[:500],
+        link=deliverable_link(deliverable),
+        mission=mission,
+        deliverable=deliverable,
+    )
+
+
+def notify_client_validation_reminder(deliverable) -> Notification:
+    """Rappel au client : un livrable qui attend sa validation doit être
+    publié bientôt. Type VALIDATION : le seul que le client voit."""
+    mission = deliverable.mission
+    return Notification.objects.create(
+        type=NotificationType.VALIDATION,
+        title="À valider avant la publication",
+        body=(
+            f"{deliverable.label} (mission « {mission.title} ») doit être publié le "
+            f"{_when(deliverable)} : il attend votre validation."
+        )[:500],
+        link=deliverable_link(deliverable),
+        mission=mission,
+        deliverable=deliverable,
+    )
+
+
 def notify_client_decision_cancelled(deliverable, what: str) -> Notification:
     """Prévient le client que l'agence (l'administrateur) a annulé sa
     décision sur un livrable, qui attend de nouveau sa réponse. Type

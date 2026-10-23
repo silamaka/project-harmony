@@ -1233,3 +1233,94 @@ class ScheduledPublicationTests(DeliverableSetupMixin, RoleTestCase):
         Deliverable.objects.filter(pk=self.deliverable.pk).update(scheduled_at=self._in(hours=-1))
         risky = self.client.get(reverse("dashboard-alerts")).data["publicationsAtRisk"]
         self.assertEqual(len(risky), 1)  # date passée sans publication
+
+
+
+class PublicationRemindersTests(DeliverableSetupMixin, RoleTestCase):
+    """Rappels de publication (commande send_publication_reminders) : la
+    veille et en retard, une seule fois par date, aux bonnes personnes."""
+
+    def setUp(self):
+        super().setUp()
+        from django.utils import timezone
+
+        from notifications.models import Notification
+
+        Notification.objects.all().delete()
+        self.now = timezone.now()
+
+    def _schedule(self, **delta):
+        from datetime import timedelta
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            scheduled_at=self.now + timedelta(**delta), publication_reminders=[]
+        )
+
+    def _run(self, **delta):
+        from datetime import timedelta
+
+        from deliverables.management.commands.send_publication_reminders import (
+            send_publication_reminders,
+        )
+
+        return send_publication_reminders(now=self.now + timedelta(**delta))
+
+    def _titles(self, **filters):
+        from notifications.models import Notification
+
+        return sorted(Notification.objects.filter(**filters).values_list("title", flat=True))
+
+    def _visible_to(self, user):
+        self.auth_as(user)
+        return {n["title"] for n in self.client.get(reverse("notification-list")).data}
+
+    def test_eve_reminder_when_client_has_not_validated(self):
+        self._schedule(hours=20)
+        self.assertEqual(self._run(), 1)
+        self.assertEqual(
+            self._titles(),
+            ["Publication prévue, pas encore validée", "À valider avant la publication"],
+        )
+        # Le client voit son rappel, pas celui de l'équipe ; le collaborateur
+        # voit celui de l'équipe.
+        self.assertEqual(self._visible_to(self.client_user), {"À valider avant la publication"})
+        self.assertIn("Publication prévue, pas encore validée", self._visible_to(self.collaborateur))
+
+    def test_eve_reminder_when_ready(self):
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status=DeliverableStatus.VALIDE
+        )
+        self._schedule(hours=20)
+        self._run()
+        self.assertEqual(self._titles(), ["À publier bientôt"])
+
+    def test_nothing_more_than_24h_before(self):
+        self._schedule(days=3)
+        self.assertEqual(self._run(), 0)
+        self.assertEqual(self._titles(), [])
+
+    def test_each_reminder_is_sent_once(self):
+        self._schedule(hours=20)
+        self._run()
+        self.assertEqual(self._run(hours=1), 0)
+        self.assertEqual(len(self._titles(title="Publication prévue, pas encore validée")), 1)
+
+    def test_late_reminder_once_the_date_has_passed(self):
+        self._schedule(hours=2)
+        self._run()  # veille
+        self._run(hours=3)  # en retard
+        self._run(hours=4)  # rien de plus
+        self.assertEqual(len(self._titles(title="Publication en retard")), 1)
+
+    def test_new_date_restarts_the_reminders(self):
+        self._schedule(hours=20)
+        self._run()
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            scheduled_at=self.now + __import__("datetime").timedelta(hours=10)
+        )
+        self.assertEqual(self._run(), 1)
+
+    def test_published_deliverables_are_ignored(self):
+        self._schedule(hours=-5)
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(published_at=self.now)
+        self.assertEqual(self._run(), 0)

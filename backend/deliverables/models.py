@@ -89,6 +89,10 @@ class Deliverable(models.Model):
     # `published_at` (la publication réelle) : rien n'est publié
     # automatiquement, la mise en ligne se fait hors de la plateforme.
     scheduled_at = models.DateTimeField(null=True, blank=True)
+    # Rappels de publication déjà envoyés pour la date en cours ("veille:<date
+    # ISO>", "retard:<date ISO>") : chaque rappel ne part qu'une fois, et une
+    # nouvelle date relance les rappels (voir send_publication_reminders).
+    publication_reminders = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
