@@ -1202,6 +1202,18 @@ class ScheduledPublicationTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(event["type"], "publication")
         self.assertEqual(event["deliverable_id"], str(self.deliverable.id))
         self.assertIn("validation du client", event["description"])
+        self.assertIsNone(event["published_at"])
+
+    def test_published_publication_stays_on_the_calendar(self):
+        self._schedule(self.admin, self._in(days=2))
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status=DeliverableStatus.VALIDE, published_at=self._in(days=2)
+        )
+        self.auth_as(self.admin)
+        events = self.client.get(reverse("calendar")).data
+        event = next(e for e in events if e["id"] == f"pub-{self.deliverable.id}")
+        self.assertIsNotNone(event["published_at"])
+        self.assertEqual(event["description"], "Publiée.")
 
     def test_dashboard_flags_publications_at_risk(self):
         self.auth_as(self.admin)

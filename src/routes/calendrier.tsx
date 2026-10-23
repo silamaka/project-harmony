@@ -79,7 +79,8 @@ const TYPE_TONE: Record<EventType, string> = {
 
 const TYPE_DOT: Record<EventType, string> = {
   mission: "bg-primary",
-  publication: "bg-success",
+  // Prévue : pastille claire ; publiée : pleine (voir dotOf).
+  publication: "bg-success/40 ring-1 ring-success",
   livrable: "bg-info",
   reunion: "bg-warning",
 };
@@ -125,7 +126,17 @@ function withOverdueRollover(events: ApiCalendarEvent[]): CalendarEvent[] {
 const byDayOrder = (a: CalendarEvent, b: CalendarEvent) =>
   Number(!!b.overdueSince) - Number(!!a.overdueSince) || (a.time ?? "").localeCompare(b.time ?? "");
 
-const toneOf = (e: CalendarEvent) => (e.late ? LATE_TONE : TYPE_TONE[e.type]);
+/** Publication effectuée : vert plein, pour la distinguer d'une publication
+ * seulement prévue (vert clair). */
+const PUBLISHED_TONE = "bg-success text-success-foreground border-success";
+
+const toneOf = (e: CalendarEvent) =>
+  e.late ? LATE_TONE : e.published_at ? PUBLISHED_TONE : TYPE_TONE[e.type];
+
+const dotOf = (e: CalendarEvent) =>
+  e.late ? "bg-destructive" : e.published_at ? "bg-success" : TYPE_DOT[e.type];
+
+const labelOf = (e: CalendarEvent) => (e.published_at ? "Publiée" : TYPE_LABEL[e.type]);
 
 /** Échéance de mission (générée côté serveur, id "ev-<uuid>") : à distinguer
  * d'un livrable réellement déposé ou d'une réunion réellement créée, qui
@@ -562,9 +573,7 @@ function DayView({
             </span>
             <span className="flex-1 truncate font-medium">{e.title}</span>
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
-              {e.overdueSince
-                ? `En retard depuis le ${formatShort(e.overdueSince)}`
-                : TYPE_LABEL[e.type]}
+              {e.overdueSince ? `En retard depuis le ${formatShort(e.overdueSince)}` : labelOf(e)}
             </span>
           </button>
         ))}
@@ -613,12 +622,7 @@ function AgendaView({
                 onClick={() => onEventClick(e)}
                 className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-accent/40"
               >
-                <span
-                  className={cn(
-                    "h-2 w-2 shrink-0 rounded-full",
-                    e.late ? "bg-destructive" : TYPE_DOT[e.type],
-                  )}
-                />
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", dotOf(e))} />
                 <span className="w-12 shrink-0 text-xs text-muted-foreground">{e.time ?? "—"}</span>
                 <span className={cn("flex-1 truncate font-medium", e.late && "text-destructive")}>
                   {e.title}
@@ -633,7 +637,7 @@ function AgendaView({
                     ? `En retard depuis le ${formatShort(e.overdueSince)}`
                     : e.late
                       ? "En retard"
-                      : TYPE_LABEL[e.type]}
+                      : labelOf(e)}
                 </span>
               </button>
             ))}
@@ -714,9 +718,9 @@ function EventDetailDialog({
           <>
             <DialogHeader>
               <div className="flex items-center gap-2">
-                <span className={cn("h-2.5 w-2.5 rounded-full", TYPE_DOT[event.type])} />
+                <span className={cn("h-2.5 w-2.5 rounded-full", dotOf(event))} />
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {TYPE_LABEL[event.type]}
+                  {labelOf(event)}
                 </span>
               </div>
               <DialogTitle>{event.title}</DialogTitle>
@@ -824,7 +828,7 @@ function DayEventsDialog({
                     <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
                       {e.overdueSince
                         ? `En retard depuis le ${formatShort(e.overdueSince)}`
-                        : TYPE_LABEL[e.type]}
+                        : labelOf(e)}
                     </span>
                   </button>
                 ))}

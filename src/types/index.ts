@@ -239,6 +239,8 @@ export interface CalendarEvent {
   deliverable_id?: string;
   /** Date et heure complètes d'une publication prévue (ISO). */
   scheduled_at?: string;
+  /** Publication effectuée (ISO), null tant qu'elle ne l'est pas. */
+  published_at?: string | null;
   /** Statut de la mission, présent sur les échéances de mission uniquement. */
   status?: MissionStatus;
   color?: string;

@@ -56,10 +56,11 @@ def calendar_events(request):
         for d in deliverables
     ]
 
-    # Publications prévues (pas encore publiées) : le planning éditorial.
-    # La description dit où en est le livrable à l'approche de la date.
+    # Publications programmées : le planning éditorial. Elles restent une
+    # fois publiées (`published_at` renseigné), le calendrier les distingue
+    # par la couleur ; la description dit où en est le livrable.
     publication_events = []
-    for d in deliverables.filter(scheduled_at__isnull=False, published_at__isnull=True):
+    for d in deliverables.filter(scheduled_at__isnull=False):
         when = timezone.localtime(d.scheduled_at)
         publication_events.append(
             {
@@ -72,6 +73,7 @@ def calendar_events(request):
                 # fuseau de l'utilisateur ("date"/"time" ci-dessus sont dans
                 # celui du serveur, à titre indicatif).
                 "scheduled_at": d.scheduled_at.isoformat(),
+                "published_at": d.published_at.isoformat() if d.published_at else None,
                 "mission_id": str(d.mission_id),
                 "deliverable_id": str(d.id),
                 "description": publication_readiness(d),
@@ -89,6 +91,8 @@ def calendar_events(request):
 
 
 def publication_readiness(deliverable) -> str:
+    if deliverable.published_at:
+        return "Publiée."
     if deliverable.status != DeliverableStatus.VALIDE:
         return "En revue chez l'agence."
     if deliverable.client_status == DeliverableStatus.VALIDE:
