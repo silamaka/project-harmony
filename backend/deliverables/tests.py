@@ -1054,3 +1054,88 @@ class DecisionRecordedForClientTests(DeliverableSetupMixin, RoleTestCase):
         self._record(self.admin, {"client_status": "valide"})
         res = self._record(self.admin, {"url": "https://example.com/v2"})
         self.assertEqual(res.data["client_decided_by_name"], "")
+
+
+class CancelDecisionRecordedForClientTests(DeliverableSetupMixin, RoleTestCase):
+    """L'agence peut annuler une décision qu'elle a enregistrée pour le
+    client (erreur, client revenu sur sa réponse), jamais celle du client
+    lui-même, et pas une fois le livrable publié."""
+
+    def _patch(self, user, data):
+        self.auth_as(user)
+        return self.client.patch(deliverable_detail_url(self.deliverable.id), data, format="json")
+
+    def test_cancel_a_validation_recorded_for_the_client(self):
+        from comments.models import Comment
+
+        self._patch(self.admin, {"client_status": "valide"})
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+        res = self._patch(self.chef_projet, {"client_status": "en_attente"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_status"], "en_attente")
+        self.assertIsNone(res.data["client_validated_at"])
+        self.assertEqual(res.data["client_decided_by_name"], "")
+        self.mission.refresh_from_db()
+        self.assertEqual(self.mission.status, MissionStatus.ENVOYE_CLIENT)
+        self.assertIn("annulée", Comment.objects.get().body)
+
+    def test_cancel_corrections_recorded_for_the_client(self):
+        self._patch(self.admin, {"client_status": "corrections", "comment": "Logo"})
+        res = self._patch(self.admin, {"client_status": "en_attente"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_feedback"], "")
+        self.assertEqual(res.data["client_feedback_categories"], [])
+
+    def test_only_the_admin_can_cancel_the_clients_own_decision(self):
+        from comments.models import Comment
+        from notifications.models import Notification, NotificationType
+
+        self._patch(self.client_user, {"client_status": "valide"})
+        self.assertEqual(
+            self._patch(self.chef_projet, {"client_status": "en_attente"}).status_code, 403
+        )
+        res = self._patch(self.admin, {"client_status": "en_attente"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_status"], "en_attente")
+
+        # Le client en est prévenu : message visible et notification.
+        message = Comment.objects.get(client_visible=True, body__startswith="Votre validation")
+        self.assertIn("annulée par l'agence", message.body)
+        notif = Notification.objects.get(
+            type=NotificationType.VALIDATION, title="Votre décision a été annulée"
+        )
+        self.auth_as(self.client_user)
+        seen = {str(n["id"]) for n in self.client.get(reverse("notification-list")).data}
+        self.assertIn(str(notif.id), seen)
+
+    def test_admin_can_cancel_the_clients_own_corrections(self):
+        self._patch(self.client_user, {"client_status": "corrections", "comment": "Logo"})
+        res = self._patch(self.admin, {"client_status": "en_attente"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_feedback"], "")
+
+    def test_can_cancel_an_old_decision_without_any_trace(self):
+        """Validé avant le suivi (ni auteur ni date) : rien ne prouve que le
+        client l'a prise, l'agence peut l'annuler."""
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status=DeliverableStatus.VALIDE
+        )
+        res = self._patch(self.admin, {"client_status": "en_attente"})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_status"], "en_attente")
+
+    def test_cannot_cancel_once_published(self):
+        self._patch(self.admin, {"client_status": "valide"})
+        self._patch(self.admin, {"published": True})
+        self.assertEqual(self._patch(self.admin, {"client_status": "en_attente"}).status_code, 403)
+
+    def test_collaborateur_and_client_cannot_cancel(self):
+        self._patch(self.admin, {"client_status": "valide"})
+        self.assertEqual(
+            self._patch(self.collaborateur, {"client_status": "en_attente"}).status_code, 403
+        )
+        self.assertEqual(
+            self._patch(self.client_user, {"client_status": "en_attente"}).status_code, 403
+        )

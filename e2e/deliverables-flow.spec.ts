@@ -5,7 +5,9 @@ import { DEMO_ACCOUNTS } from "./utils";
 /**
  * Circuit complet d'un livrable, à l'écran, avec l'agence et le client :
  * dépôt → validation agence (envoi) → corrections demandées par le client →
- * version corrigée (v2) → renvoi → validation du client → publication.
+ * version corrigée (v2) → renvoi → validation enregistrée puis annulée par
+ * l'agence → validation du client, annulée par l'administrateur puis refaite →
+ * publication.
  * Vérifie aussi les garde-fous : pas de publication avant la double
  * validation, le client ne voit rien avant l'envoi.
  *
@@ -100,9 +102,37 @@ test("circuit complet d'un livrable entre l'agence et le client", async ({ brows
     await expect(card(agency).getByText("Chez le client")).toBeVisible();
   });
 
+  await test.step("l'agence valide pour le client, puis annule (erreur de clic)", async () => {
+    await card(agency)
+      .getByRole("button", { name: `Valider ${NAME} pour le client` })
+      .click();
+    await expect(card(agency).getByText(/Validé pour le client par/)).toBeVisible();
+    await card(agency)
+      .getByRole("button", { name: `Annuler la validation de ${NAME} enregistrée pour le client` })
+      .click();
+    await agency.getByRole("dialog").getByRole("button", { name: "Annuler la validation" }).click();
+    await expect(card(agency).getByText("Chez le client")).toBeVisible();
+    await expect(card(agency).getByText(/Validé pour le client par/)).toHaveCount(0);
+  });
+
   await test.step("le client valide la version corrigée", async () => {
     await gotoMission(customer);
     await expect(card(customer).getByText(/version corrigée \(v2\)/)).toBeVisible();
+    await card(customer).getByRole("button", { name: "Valider", exact: true }).click();
+    await expect(card(customer).getByText("Validé", { exact: true })).toBeVisible();
+  });
+
+  await test.step("l'administrateur annule la validation du client, qui revalide", async () => {
+    await gotoMission(agency);
+    await card(agency)
+      .getByRole("button", { name: `Annuler la validation de ${NAME} enregistrée pour le client` })
+      .click();
+    const dialog = agency.getByRole("dialog");
+    await expect(dialog.getByText(/il sera prévenu/)).toBeVisible();
+    await dialog.getByRole("button", { name: "Annuler la validation" }).click();
+    await expect(card(agency).getByText("Chez le client")).toBeVisible();
+
+    await gotoMission(customer);
     await card(customer).getByRole("button", { name: "Valider", exact: true }).click();
     await expect(card(customer).getByText("Validé", { exact: true })).toBeVisible();
   });

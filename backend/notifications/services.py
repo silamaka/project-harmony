@@ -45,3 +45,21 @@ def notify_deliverable_sent(deliverable) -> Notification:
         mission=mission,
         deliverable=deliverable,
     )
+
+
+def notify_client_decision_cancelled(deliverable, what: str) -> Notification:
+    """Prévient le client que l'agence (l'administrateur) a annulé sa
+    décision sur un livrable, qui attend de nouveau sa réponse. Type
+    VALIDATION : le seul que le client voit (NotificationViewSet)."""
+    mission = deliverable.mission
+    return Notification.objects.create(
+        type=NotificationType.VALIDATION,
+        title="Votre décision a été annulée",
+        body=(
+            f"Votre {what} de {deliverable.label} (mission « {mission.title} ») a été "
+            "annulée par l'agence : il attend de nouveau votre réponse."
+        )[:500],
+        link=deliverable_link(deliverable),
+        mission=mission,
+        deliverable=deliverable,
+    )

@@ -6,11 +6,15 @@ from rest_framework import viewsets
 from accounts.models import Role
 from comments.models import Comment
 from missions.scoping import missions_visible_to
-from notifications.services import notify_client_decision, notify_deliverable_sent
+from notifications.services import (
+    notify_client_decision,
+    notify_client_decision_cancelled,
+    notify_deliverable_sent,
+)
 
 from .decisions import sync_mission_status
 from .models import CorrectionCategory, Deliverable, DeliverableStatus
-from .permissions import DeliverablePermission
+from .permissions import DeliverablePermission, is_clients_own_decision
 from .serializers import DeliverableSerializer
 
 
@@ -69,6 +73,8 @@ class DeliverableViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         was_sent = is_sent_to_client(serializer.instance)
         previous_client_status = serializer.instance.client_status
+        # Calculé avant l'enregistrement, qui efface la trace de la décision.
+        was_clients_own_decision = is_clients_own_decision(serializer.instance)
         comment = serializer.validated_data.get("comment", "").strip()
         categories = serializer.validated_data.get("categories", [])
         reference_url = serializer.validated_data.get("reference_url", "")
@@ -81,6 +87,33 @@ class DeliverableViewSet(viewsets.ModelViewSet):
         on_behalf = user.role != Role.CLIENT
         if user.role == Role.CLIENT or "client_status" in serializer.validated_data:
             deliverable.client_decided_by = user if on_behalf else None
+            if deliverable.client_status == DeliverableStatus.EN_ATTENTE:
+                # Décision annulée : le livrable attend de nouveau la réponse
+                # du client, sans trace restante. Si c'était la décision du
+                # client lui-même (annulée par l'administrateur), il en est
+                # prévenu : message visible et notification.
+                deliverable.client_decided_by = None
+                if was_clients_own_decision:
+                    what = (
+                        "validation"
+                        if previous_client_status == DeliverableStatus.VALIDE
+                        else "demande de corrections"
+                    )
+                    Comment.objects.create(
+                        mission=deliverable.mission,
+                        author=user,
+                        body=f"Votre {what} du livrable {deliverable.label} a été annulée par "
+                        "l'agence : il attend de nouveau votre réponse.",
+                        client_visible=True,
+                    )
+                    notify_client_decision_cancelled(deliverable, what)
+                else:
+                    Comment.objects.create(
+                        mission=deliverable.mission,
+                        author=user,
+                        body=f"Décision du client annulée sur le livrable {deliverable.label} : "
+                        "il attend de nouveau sa réponse.",
+                    )
             # Décision et explication partent ensemble : l'équipe ne voit
             # jamais un livrable en "Corrections" sans savoir quoi corriger.
             # L'explication s'affiche sur le livrable même, et reste dans la
@@ -104,9 +137,11 @@ class DeliverableViewSet(viewsets.ModelViewSet):
                 deliverable.client_feedback_at = None
                 deliverable.client_feedback_categories = []
                 deliverable.client_feedback_link = ""
+                if deliverable.client_status == DeliverableStatus.EN_ATTENTE:
+                    deliverable.client_validated_at = None
                 # Revalider sans changement garde la date de la première
                 # validation.
-                if deliverable.client_validated_at is None:
+                elif deliverable.client_validated_at is None:
                     deliverable.client_validated_at = timezone.now()
             deliverable.save(
                 update_fields=[
@@ -118,7 +153,10 @@ class DeliverableViewSet(viewsets.ModelViewSet):
                     "client_decided_by",
                 ]
             )
-            if deliverable.client_status != previous_client_status:
+            if (
+                deliverable.client_status != previous_client_status
+                and deliverable.client_status != DeliverableStatus.EN_ATTENTE
+            ):
                 notify_client_decision(
                     user,
                     deliverable.mission,

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/context/auth-context";
 import { WEB_URL_HINT, cn, isWebUrl } from "@/lib/utils";
 import { deliverableService } from "@/services";
 import { CORRECTION_CATEGORY_LABELS, type CorrectionCategory, type Deliverable } from "@/types";
@@ -27,7 +28,9 @@ const CATEGORIES = Object.keys(CORRECTION_CATEGORY_LABELS) as CorrectionCategory
  * corriger (catégories), où et quoi changer (texte libre) et un lien
  * d'exemple, le tout facultatif. `onBehalf` : l'admin / le chef de projet
  * enregistre la réponse d'un client reçue hors du portail (téléphone,
- * e-mail...) ; le serveur trace qui l'a enregistrée. `variant="icons"` :
+ * e-mail...) ; le serveur trace qui l'a enregistrée, et l'agence peut
+ * annuler une décision qu'elle a enregistrée (jamais celle du client
+ * lui-même), tant que rien n'est publié. `variant="icons"` :
  * deux icônes alignées sur les autres actions du livrable (vues agence). Mêmes règles côté serveur, qui poste aussi
  * la demande dans la discussion de la mission, dans la même transaction.
  */
@@ -47,6 +50,9 @@ export function DeliverableDecision({
   const [categories, setCategories] = useState<CorrectionCategory[]>([]);
   const [details, setDetails] = useState("");
   const [referenceUrl, setReferenceUrl] = useState("");
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("admin");
 
   // La mission suit la décision côté serveur (Validé / Corrections) : on
   // rafraîchit aussi les missions pour que le portail et la fiche suivent.
@@ -91,6 +97,17 @@ export function DeliverableDecision({
     onError: (error) => toast.error(errorMessage(error, "Envoi impossible.")),
   });
 
+  const cancelDecision = useMutation({
+    mutationFn: () => deliverableService.cancelClientDecision(deliverable.id),
+    onSuccess: () => {
+      refresh();
+      setConfirmCancelOpen(false);
+      setCorrectionsOpen(false);
+      toast.success("Décision annulée : le livrable attend de nouveau la réponse du client.");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Annulation impossible.")),
+  });
+
   const toggleCategory = (c: CorrectionCategory) =>
     setCategories((current) =>
       current.includes(c) ? current.filter((x) => x !== c) : [...current, c],
@@ -98,10 +115,19 @@ export function DeliverableDecision({
   const referenceInvalid = referenceUrl.trim() !== "" && !isWebUrl(referenceUrl);
   const canSend = !referenceInvalid && !requestCorrections.isPending;
 
-  const pending = validate.isPending || requestCorrections.isPending;
+  const pending = validate.isPending || requestCorrections.isPending || cancelDecision.isPending;
 
   const validated = deliverable.client_status === "valide";
   const inCorrections = deliverable.client_status === "corrections";
+  /** Décision enregistrée par l'agence (pas par le client lui-même) et pas
+   * encore publiée : l'agence peut l'annuler (même règle côté serveur). */
+  // Même règle côté serveur : décision enregistrée par l'agence ou ancienne
+  // décision sans trace ; celle prise par le client lui-même (datée, sans
+  // agence) : l'administrateur seul, et le client en est prévenu.
+  const clientsOwnDecision =
+    !deliverable.client_decided_by_name &&
+    (!!deliverable.client_validated_at || !!deliverable.client_feedback_at);
+  const canCancel = onBehalf && !deliverable.published_at && (!clientsOwnDecision || isAdmin);
 
   return (
     <>
@@ -109,13 +135,28 @@ export function DeliverableDecision({
         <>
           <button
             type="button"
-            onClick={() => validate.mutate()}
-            disabled={pending || validated}
-            aria-label={`Valider ${deliverable.name} pour le client`}
-            title={validated ? "Déjà validé pour le client" : "Valider pour le client"}
+            onClick={() => (validated ? setConfirmCancelOpen(true) : validate.mutate())}
+            disabled={pending || (validated && !canCancel)}
+            aria-label={
+              validated && canCancel
+                ? `Annuler la validation de ${deliverable.name} enregistrée pour le client`
+                : `Valider ${deliverable.name} pour le client`
+            }
+            title={
+              !validated
+                ? "Valider pour le client"
+                : clientsOwnDecision
+                  ? canCancel
+                    ? "Validé par le client lui-même — cliquer pour annuler (il sera prévenu)"
+                    : "Validé par le client lui-même (seul l'administrateur peut annuler)"
+                  : canCancel
+                    ? "Validé pour le client — cliquer pour annuler"
+                    : "Validé pour le client"
+            }
             className={cn(
               "shrink-0 text-muted-foreground hover:text-success disabled:cursor-default disabled:hover:text-muted-foreground",
               validated && "text-success disabled:hover:text-success",
+              validated && canCancel && "hover:text-destructive",
             )}
           >
             <UserCheck className="h-4 w-4" />
@@ -241,13 +282,74 @@ export function DeliverableDecision({
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {inCorrections && canCancel ? (
+              <Button
+                variant="outline"
+                className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                disabled={cancelDecision.isPending}
+                onClick={() => {
+                  setCorrectionsOpen(false);
+                  setConfirmCancelOpen(true);
+                }}
+              >
+                {clientsOwnDecision ? "Annuler la demande du client" : "Annuler cette demande"}
+              </Button>
+            ) : (
+              <span />
+            )}
             <Button disabled={!canSend} onClick={() => requestCorrections.mutate()}>
               {requestCorrections.isPending
                 ? "Envoi..."
                 : onBehalf
                   ? "Enregistrer"
                   : "Envoyer la demande"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Annuler une décision (validation ou demande de corrections). */}
+      <Dialog open={confirmCancelOpen} onOpenChange={setConfirmCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {validated ? "Annuler la validation ?" : "Annuler la demande de corrections ?"}
+            </DialogTitle>
+            <DialogDescription>
+              « {deliverable.name} » v{deliverable.version}{" "}
+              {clientsOwnDecision
+                ? validated
+                  ? "a été validé par le client lui-même."
+                  : "fait l'objet d'une demande de corrections du client lui-même."
+                : deliverable.client_decided_by_name
+                  ? `${validated ? "a été validé" : "a une demande de corrections enregistrée"} pour le client par ${deliverable.client_decided_by_name}.`
+                  : validated
+                    ? "a été validé par le client."
+                    : "fait l'objet d'une demande de corrections du client."}{" "}
+              Il repassera « Chez le client », en attente de sa réponse.
+            </DialogDescription>
+          </DialogHeader>
+          {clientsOwnDecision && (
+            <p className="rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
+              C'est la décision du client lui-même : il sera prévenu de l'annulation (notification
+              et message dans la discussion).
+            </p>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmCancelOpen(false)}>
+              {validated ? "Garder la validation" : "Garder la demande"}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={cancelDecision.isPending}
+              onClick={() => cancelDecision.mutate()}
+            >
+              {cancelDecision.isPending
+                ? "Annulation..."
+                : validated
+                  ? "Annuler la validation"
+                  : "Annuler la demande"}
             </Button>
           </DialogFooter>
         </DialogContent>

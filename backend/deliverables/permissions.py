@@ -11,6 +11,15 @@ CLIENT_DECISIONS = (DeliverableStatus.VALIDE, DeliverableStatus.CORRECTIONS)
 CLIENT_DECISION_FIELDS = {"client_status", "comment", "categories", "reference_url"}
 
 
+def is_clients_own_decision(deliverable) -> bool:
+    """Décision prise par le client dans le portail : datée (validation ou
+    demande de corrections) et non enregistrée par l'agence."""
+    return deliverable.client_decided_by_id is None and (
+        deliverable.client_validated_at is not None
+        or deliverable.client_feedback_at is not None
+    )
+
+
 class DeliverablePermission(BasePermission):
     """Deux validations indépendantes (voir Deliverable) :
     - `status`, la validation de l'agence, qui vaut envoi au client : admin
@@ -19,7 +28,10 @@ class DeliverablePermission(BasePermission):
       catégories / détail / exemple facultatifs) : le client, sur un livrable
       de son entreprise que l'agence a validé ; ou l'admin / le chef de
       projet qui l'enregistre pour lui (réponse reçue hors du portail),
-      tracé dans `client_decided_by`. Jamais un collaborateur.
+      tracé dans `client_decided_by`, et qui peut annuler une décision qu'il
+      a enregistrée (retour "En attente") tant que rien n'est publié ; la
+      décision prise par le client lui-même : l'administrateur seul.
+      Jamais un collaborateur.
     Lecture/dépôt : tout utilisateur authentifié pouvant voir la mission
     (portée déjà imposée par le queryset et par MissionPKField), sauf le
     client qui ne dépose jamais. Publier / dépublier : admin, chef de projet,
@@ -54,12 +66,25 @@ class DeliverablePermission(BasePermission):
         if "client_status" in fields_sent:
             # Décision du client enregistrée par l'agence : mêmes règles que
             # pour le client, sans autre champ dans la même requête.
-            return (
+            if not (
                 request.user.role in (Role.ADMIN, Role.CHEF_PROJET)
                 and obj.status == DeliverableStatus.VALIDE
                 and fields_sent <= CLIENT_DECISION_FIELDS
-                and request.data.get("client_status") in CLIENT_DECISIONS
-            )
+            ):
+                return False
+            decision = request.data.get("client_status")
+            if decision == DeliverableStatus.EN_ATTENTE:
+                # Annuler une décision, pas une fois publié : celle que
+                # l'agence a enregistrée, ou une ancienne décision sans
+                # aucune trace (rien ne prouve que le client l'a prise). Celle
+                # prise par le client lui-même (preuve de son accord) :
+                # l'administrateur seul, et le client en est prévenu.
+                return (
+                    (not is_clients_own_decision(obj) or request.user.role == Role.ADMIN)
+                    and obj.published_at is None
+                    and fields_sent == {"client_status"}
+                )
+            return decision in CLIENT_DECISIONS
         if request.user.role in (Role.ADMIN, Role.CHEF_PROJET):
             return True
         if request.method == "DELETE":

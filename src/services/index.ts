@@ -173,6 +173,14 @@ export const deliverableService = {
   clientValidate: async (id: string) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { client_status: "valide" }))
       .data,
+  /** PATCH /api/v1/deliverables/:id/ (agence : annule une décision qu'elle a
+   *  enregistrée pour le client ; le livrable attend de nouveau sa réponse) */
+  cancelClientDecision: async (id: string) =>
+    (
+      await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, {
+        client_status: "en_attente",
+      })
+    ).data,
   /** PATCH /api/v1/deliverables/:id/ (client : corrections + explication,
    *  postée dans la discussion de la mission par le serveur, en un seul appel) */
   requestCorrections: async (
