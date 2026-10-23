@@ -1173,10 +1173,13 @@ class ScheduledPublicationTests(DeliverableSetupMixin, RoleTestCase):
     def test_client_cannot_schedule(self):
         self.assertEqual(self._schedule(self.client_user, self._in(days=3)).status_code, 403)
 
-    def test_date_must_be_in_the_future(self):
-        res = self._schedule(self.admin, self._in(hours=-2))
-        self.assertEqual(res.status_code, 400)
-        self.assertIn("scheduled_at", res.data)
+    def test_past_date_is_accepted(self):
+        """Pas de limite : une date passée sert à reporter après coup une
+        publication, ou à rattraper un planning (le livrable non publié
+        apparaît alors en retard)."""
+        res = self._schedule(self.admin, self._in(days=-3))
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNotNone(res.data["scheduled_at"])
 
     def test_change_is_traced_and_visible_to_client_once_sent(self):
         from comments.models import Comment

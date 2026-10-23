@@ -1,8 +1,6 @@
 from pathlib import PurePosixPath
 from urllib.parse import urlparse
 
-from datetime import timedelta
-
 from django.core.validators import URLValidator
 from django.utils import timezone
 from rest_framework import serializers
@@ -126,14 +124,6 @@ class DeliverableSerializer(serializers.ModelSerializer):
         value = value.strip()
         if value:
             validate_http_url(value)
-        return value
-
-    def validate_scheduled_at(self, value):
-        # Une date déjà enregistrée peut être renvoyée telle quelle ; une
-        # nouvelle date doit être à venir (marge d'une minute).
-        current = self.instance.scheduled_at if self.instance else None
-        if value and value != current and value < timezone.now() - timedelta(minutes=1):
-            raise serializers.ValidationError("Choisissez une date et une heure à venir.")
         return value
 
     def validate_reference_url(self, value):

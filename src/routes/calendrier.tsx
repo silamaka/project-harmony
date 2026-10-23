@@ -33,21 +33,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  CLIENT_MISSION_STATUS_LABELS,
-  clientMissionStatus,
-  type ClientMissionStatus,
-} from "@/components/shared/badges";
+import { CLIENT_MISSION_STATUS_LABELS, clientMissionStatus } from "@/components/shared/badges";
 import { CalendarEventPreview } from "@/components/shared/calendar-event-preview";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn, searchText } from "@/lib/utils";
-import { calendarService, clientService, isLate, missionService, projectService } from "@/services";
+import {
+  calendarService,
+  clientService,
+  isLate,
+  isMissionDone,
+  missionService,
+  projectService,
+} from "@/services";
 import { useAuth } from "@/context/auth-context";
 import {
   MISSION_STATUS_LABELS,
   TASK_TYPE_LABELS,
   type CalendarEvent as ApiCalendarEvent,
-  type MissionStatus,
 } from "@/types";
 import { errorMessage } from "@/lib/api";
 
@@ -149,38 +151,47 @@ const byDayOrder = (a: CalendarEvent, b: CalendarEvent) =>
 
 /** Publication effectuée : vert plein, pour la distinguer d'une publication
  * seulement prévue (vert clair). */
-const PUBLISHED_TONE = "bg-success text-success-foreground border-success";
+/** Avancement d'une publication programmée : publiée, date dépassée sans
+ * publication, ou prévue. */
+function publicationProgress(e: CalendarEvent): "done" | "late" | "ongoing" | null {
+  if (e.type !== "publication" || !e.scheduled_at) return null;
+  if (e.published_at) return "done";
+  return new Date(e.scheduled_at).getTime() < Date.now() ? "late" : "ongoing";
+}
 
-const toneOf = (e: CalendarEvent) =>
-  e.late ? LATE_TONE : e.published_at ? PUBLISHED_TONE : TYPE_TONE[e.type];
+/** Publication : toute l'étiquette prend la couleur de son avancement. */
+const PUBLICATION_TONE = {
+  done: "bg-success/15 text-success border-success/30",
+  late: LATE_TONE,
+  ongoing: "bg-warning/20 text-warning border-warning/30",
+} as const;
+
+const toneOf = (e: CalendarEvent) => {
+  const progress = publicationProgress(e);
+  if (progress) return PUBLICATION_TONE[progress];
+  return e.late ? LATE_TONE : TYPE_TONE[e.type];
+};
+
+/** Pastille sur l'étiquette : les missions seulement (une publication est
+ * déjà colorée en entier). */
+const showsDot = (e: CalendarEvent) => e.type !== "publication";
 
 const dotOf = (e: CalendarEvent) =>
   e.late ? "bg-destructive" : e.published_at ? "bg-success" : TYPE_DOT[e.type];
 
 const labelOf = (e: CalendarEvent) => (e.published_at ? "Publiée" : TYPE_LABEL[e.type]);
 
-/** Pastille d'état d'une échéance de mission : mêmes couleurs que les
- * étiquettes d'état du reste de l'appli. */
-const MISSION_STATUS_DOT: Record<MissionStatus, string> = {
-  a_faire: "bg-muted-foreground/60",
-  en_cours: "bg-primary",
-  livrable_depose: "bg-primary",
-  validation_interne: "bg-primary",
-  envoye_client: "bg-warning",
-  corrections: "bg-destructive",
-  valide: "bg-success",
-  publie: "bg-success",
-  termine: "bg-success/50",
-};
-
-const CLIENT_STATUS_DOT: Record<ClientMissionStatus, string> = {
-  preparation: "bg-primary",
-  a_valider: "bg-warning",
-  corrections: "bg-destructive",
-  valide: "bg-success",
-  publie: "bg-success",
-  termine: "bg-success/50",
-};
+/** Pastille d'une échéance de mission ou d'une publication : trois couleurs
+ * seulement, pour lire le calendrier d'un coup d'œil — rouge en retard
+ * (échéance ou date de publication dépassée), vert fait (mission Validée,
+ * Publiée ou Terminée — même règle que le dashboard — ou publication
+ * effectuée), orange en cours / prévue. L'état précis reste au survol, dans
+ * l'agenda et dans l'aperçu. */
+const PROGRESS_DOT = {
+  late: "bg-destructive",
+  done: "bg-success",
+  ongoing: "bg-warning",
+} as const;
 
 /**
  * État d'une échéance de mission tel que l'utilisateur doit le voir (le
@@ -191,20 +202,19 @@ function useMissionStatus() {
   const { user } = useAuth();
   const isClient = user?.role === "client";
   return (e: CalendarEvent) => {
-    if (!isMissionEvent(e) || !e.status) return null;
-    if (isClient) {
-      const s = clientMissionStatus(e.status);
-      return {
-        label: CLIENT_MISSION_STATUS_LABELS[s],
-        dot: CLIENT_STATUS_DOT[s],
-        done: s === "termine",
-      };
+    // Publication : mêmes trois couleurs — publiée, prévue, date dépassée.
+    const progress = publicationProgress(e);
+    if (progress) {
+      const label = { done: "Publiée", late: "Date dépassée", ongoing: "Prévue" }[progress];
+      return { label, dot: PROGRESS_DOT[progress], done: progress === "done" };
     }
-    return {
-      label: MISSION_STATUS_LABELS[e.status],
-      dot: MISSION_STATUS_DOT[e.status],
-      done: e.status === "termine",
-    };
+    if (!isMissionEvent(e) || !e.status) return null;
+    const done = isMissionDone(e.status);
+    const dot = done ? PROGRESS_DOT.done : e.late ? PROGRESS_DOT.late : PROGRESS_DOT.ongoing;
+    const label = isClient
+      ? CLIENT_MISSION_STATUS_LABELS[clientMissionStatus(e.status)]
+      : MISSION_STATUS_LABELS[e.status];
+    return { label, dot, done };
   };
 }
 
@@ -746,7 +756,7 @@ function DayView({
             <span className="w-14 shrink-0 text-xs font-semibold">
               {e.overdueSince ? "⚠ Retard" : (e.time ?? "Toute la journée")}
             </span>
-            {statusOf(e) && <StatusDot dot={statusOf(e)!.dot} />}
+            {statusOf(e) && showsDot(e) && <StatusDot dot={statusOf(e)!.dot} />}
             <span className="flex-1 truncate font-medium">{e.title}</span>
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
               {e.overdueSince
@@ -868,15 +878,23 @@ function EventChip({
         draggable && "cursor-grab active:cursor-grabbing",
         toneOf(event),
         event.overdueSince && "font-semibold",
-        full && "whitespace-normal",
-        // Mission terminée : plus rien à faire, elle s'efface.
-        status?.done && "opacity-60",
+        // Vue semaine : retour à la ligne, y compris dans un nom sans espace
+        // (ex. une adresse e-mail), pour que la pastille reste collée au nom.
+        full && "w-full whitespace-normal [overflow-wrap:anywhere]",
       )}
     >
-      {status && <StatusDot dot={status.dot} className="mr-1 align-middle" />}
-      {event.overdueSince && <span className="mr-1">⚠</span>}
-      {event.time && <span className="mr-1 font-semibold">{event.time}</span>}
-      {event.title}
+      {/* Pastille dans sa propre colonne : elle reste collée au nom, même
+          quand celui-ci passe à la ligne (vue semaine). */}
+      <span className={cn(full && "flex items-start gap-1")}>
+        {status && showsDot(event) && (
+          <StatusDot dot={status.dot} className={cn(full ? "mt-[3px]" : "mr-1 align-middle")} />
+        )}
+        <span className={cn(full && "min-w-0")}>
+          {event.overdueSince && <span className="mr-1">⚠</span>}
+          {event.time && <span className="mr-1 font-semibold">{event.time}</span>}
+          {event.title}
+        </span>
+      </span>
       {event.overdueSince && full && (
         <span className="block text-[10px] font-normal opacity-80">
           En retard depuis le {formatShort(event.overdueSince)}
@@ -1004,7 +1022,7 @@ function DayEventsDialog({
                     <span className="w-14 shrink-0 text-xs font-semibold">
                       {e.overdueSince ? "⚠ Retard" : (e.time ?? "Toute la journée")}
                     </span>
-                    {statusOf(e) && <StatusDot dot={statusOf(e)!.dot} />}
+                    {statusOf(e) && showsDot(e) && <StatusDot dot={statusOf(e)!.dot} />}
                     <span className="flex-1 truncate font-medium">{e.title}</span>
                     <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
                       {e.overdueSince

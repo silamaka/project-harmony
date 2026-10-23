@@ -158,12 +158,15 @@ export function ScheduleButton({ deliverable: d }: { deliverable: Deliverable })
               id={`schedule-${d.id}`}
               type="datetime-local"
               value={value}
-              aria-invalid={inPast}
-              className={cn(inPast && "border-destructive")}
               onChange={(e) => setValue(e.target.value)}
             />
-            {inPast && (
-              <p className="text-xs text-destructive">Choisissez une date et une heure à venir.</p>
+            {/* Date passée acceptée (rattrapage, report après coup) : on
+                prévient seulement de l'effet. */}
+            {inPast && !d.published_at && (
+              <p className="text-xs text-warning">
+                Cette date est déjà passée : tant que le livrable n'est pas publié, il apparaîtra en
+                retard.
+              </p>
             )}
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
@@ -180,7 +183,7 @@ export function ScheduleButton({ deliverable: d }: { deliverable: Deliverable })
               <span />
             )}
             <Button
-              disabled={!parsed || inPast || save.isPending}
+              disabled={!parsed || save.isPending}
               onClick={() => parsed && save.mutate(parsed.toISOString())}
             >
               {save.isPending ? "Enregistrement..." : "Programmer"}
