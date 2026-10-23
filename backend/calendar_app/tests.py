@@ -79,6 +79,15 @@ class CalendarEventsTests(RoleTestCase):
         event = next(e for e in res.data if e.get("mission_id") == str(self.mission.id))
         self.assertEqual(event["type"], "reunion")
 
+    def test_events_carry_client_and_project_for_filtering(self):
+        Deliverable.objects.filter(mission=self.mission).update(status=DeliverableStatus.VALIDE)
+        self.auth_as(self.admin)
+        res = self.client.get(reverse("calendar"))
+        for event in res.data:
+            if event.get("mission_id") == str(self.mission.id):
+                self.assertEqual(event["client_id"], str(self.mission.client_id))
+                self.assertEqual(event["project_id"], str(self.mission.project_id))
+
     def test_mission_event_carries_status(self):
         self.mission.status = "en_cours"
         self.mission.save()

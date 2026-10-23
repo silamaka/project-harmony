@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   addDays,
   addMonths,
@@ -41,7 +41,7 @@ import {
 import { CalendarEventPreview } from "@/components/shared/calendar-event-preview";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn } from "@/lib/utils";
-import { calendarService, isLate, missionService } from "@/services";
+import { calendarService, clientService, isLate, missionService, projectService } from "@/services";
 import { useAuth } from "@/context/auth-context";
 import {
   MISSION_STATUS_LABELS,
@@ -56,7 +56,15 @@ import { errorMessage } from "@/lib/api";
  * (date d'échéance d'origine). Champs purement d'affichage. */
 type CalendarEvent = ApiCalendarEvent & { late?: boolean; overdueSince?: string };
 
+type CalendarSearch = { client?: string; projet?: string };
+
 export const Route = createFileRoute("/calendrier")({
+  // Filtres client / projet dans l'adresse : un lien partagé ou un
+  // rechargement garde la sélection. Paramètres facultatifs.
+  validateSearch: (search: Record<string, unknown>): CalendarSearch => ({
+    ...(typeof search["client"] === "string" ? { client: search["client"] } : {}),
+    ...(typeof search["projet"] === "string" ? { projet: search["projet"] } : {}),
+  }),
   head: () => ({
     meta: [
       { title: "Calendrier — OLYMPE" },
@@ -268,16 +276,49 @@ function CalendarPage() {
     onError: (error) => toast.error(errorMessage(error, "Déplacement impossible.")),
   });
 
+  // Filtres client / projet (dans l'adresse). Les réunions, rattachées à
+  // aucun client, restent affichées.
+  const { client: clientFilter, projet: projectFilter } = Route.useSearch();
+  const navigate = useNavigate({ from: "/calendrier" });
+  const setClientFilter = (client: string) =>
+    void navigate({ search: client ? { client } : {}, replace: true });
+  const setProjectFilter = (projet: string) =>
+    void navigate({
+      search: { ...(clientFilter ? { client: clientFilter } : {}), ...(projet ? { projet } : {}) },
+      replace: true,
+    });
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  // Tous les clients (même sans mission : le calendrier est alors vide), et
+  // tous les projets du client choisi.
+  const clientOptions = useMemo(
+    () => [...(clients ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [clients],
+  );
+  const projectOptions = useMemo(
+    () =>
+      clientFilter
+        ? (projects ?? [])
+            .filter((p) => p.client_id === clientFilter)
+            .sort((a, b) => a.name.localeCompare(b.name))
+        : [],
+    [projects, clientFilter],
+  );
+
   /** Le backend ne renvoie déjà que les événements de mission/livrable visibles pour le rôle courant. */
   const visibleEvents = useMemo(
     () =>
       events.filter(
         (e) =>
           (typeFilter === "tous" || e.type === typeFilter) &&
-          e.title.toLowerCase().includes(query.toLowerCase()),
+          e.title.toLowerCase().includes(query.toLowerCase()) &&
+          (!clientFilter || e.client_id === clientFilter || isRealMeeting(e)) &&
+          (!projectFilter || e.project_id === projectFilter || isRealMeeting(e)),
       ),
-    [events, typeFilter, query],
+    [events, typeFilter, query, clientFilter, projectFilter],
   );
+  const selectedClientName = clientOptions.find((c) => c.id === clientFilter)?.name;
+  const clientEventCount = visibleEvents.filter((e) => !isRealMeeting(e)).length;
 
   const eventsOn = (date: Date) =>
     visibleEvents.filter((e) => isSameDay(parseISO(e.date), date)).sort(byDayOrder);
@@ -390,6 +431,42 @@ function CalendarPage() {
           />
         </div>
 
+        <select
+          aria-label="Filtrer par client"
+          value={clientFilter ?? ""}
+          onChange={(e) => setClientFilter(e.target.value)}
+          className={cn(
+            "h-9 rounded-md border border-input bg-background px-3 text-sm",
+            clientFilter && "border-primary text-primary",
+          )}
+        >
+          <option value="">Tous les clients</option>
+          {clientOptions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        {/* Projet : seulement pour un client qui en a plusieurs. */}
+        {projectOptions.length >= 2 && (
+          <select
+            aria-label="Filtrer par projet"
+            value={projectFilter ?? ""}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className={cn(
+              "h-9 rounded-md border border-input bg-background px-3 text-sm",
+              projectFilter && "border-primary text-primary",
+            )}
+          >
+            <option value="">Tous les projets</option>
+            {projectOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setTypeFilter("tous")}
@@ -419,6 +496,23 @@ function CalendarPage() {
           ))}
         </div>
       </div>
+
+      {selectedClientName && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {clientEventCount} événement{clientEventCount > 1 ? "s" : ""} pour{" "}
+          <span className="font-medium text-foreground">{selectedClientName}</span>
+          {projectFilter &&
+            ` · projet « ${projectOptions.find((p) => p.id === projectFilter)?.name ?? ""} »`}{" "}
+          ·{" "}
+          <button
+            type="button"
+            onClick={() => setClientFilter("")}
+            className="font-medium text-primary hover:underline"
+          >
+            Tous les clients
+          </button>
+        </p>
+      )}
 
       <div className="mt-4">
         {view === "mois" && (

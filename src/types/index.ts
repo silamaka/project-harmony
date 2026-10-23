@@ -237,6 +237,9 @@ export interface CalendarEvent {
   mission_id?: string;
   /** Livrable concerné (publication prévue) : la fiche s'ouvre sur lui. */
   deliverable_id?: string;
+  /** Client et projet de la mission (filtres du calendrier). */
+  client_id?: string;
+  project_id?: string;
   /** Date et heure complètes d'une publication prévue (ISO). */
   scheduled_at?: string;
   /** Publication effectuée (ISO), null tant qu'elle ne l'est pas. */

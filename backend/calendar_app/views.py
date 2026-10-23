@@ -34,6 +34,9 @@ def calendar_events(request):
             "date": m.deadline.isoformat(),
             "type": m.task_type,
             "mission_id": str(m.id),
+            # Client et projet : filtres du calendrier.
+            "client_id": str(m.client_id),
+            "project_id": str(m.project_id),
             # Permet au calendrier de reporter sur aujourd'hui une mission
             # échue et pas encore finie (même règle que le dashboard).
             "status": m.status,
@@ -41,7 +44,7 @@ def calendar_events(request):
         for m in missions
     ]
 
-    deliverables = Deliverable.objects.filter(mission__in=missions)
+    deliverables = Deliverable.objects.filter(mission__in=missions).select_related("mission")
     if request.user.role == Role.CLIENT:
         # Même règle que DeliverableViewSet : pas de brouillon interne.
         deliverables = deliverables.filter(client_visible_q(request.user))
@@ -52,6 +55,8 @@ def calendar_events(request):
             "date": d.created_at.date().isoformat(),
             "type": "livrable",
             "mission_id": str(d.mission_id),
+            "client_id": str(d.mission.client_id),
+            "project_id": str(d.mission.project_id),
         }
         for d in deliverables
     ]
@@ -75,6 +80,8 @@ def calendar_events(request):
                 "scheduled_at": d.scheduled_at.isoformat(),
                 "published_at": d.published_at.isoformat() if d.published_at else None,
                 "mission_id": str(d.mission_id),
+                "client_id": str(d.mission.client_id),
+                "project_id": str(d.mission.project_id),
                 "deliverable_id": str(d.id),
                 "description": publication_readiness(d),
             }
