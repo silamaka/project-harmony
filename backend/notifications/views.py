@@ -9,6 +9,7 @@ from missions.scoping import missions_visible_to
 from .models import Notification, NotificationType
 from .permissions import NotificationPermission
 from .serializers import NotificationSerializer
+from .services import CORRECTIONS_REQUESTED_TITLE
 
 
 class NotificationViewSet(
@@ -52,8 +53,14 @@ class NotificationViewSet(
             return Notification.objects.filter(
                 type=NotificationType.VALIDATION, mission__in=missions_visible_to(user)
             )
-        return Notification.objects.filter(
-            Q(mission__isnull=True) | Q(mission__in=missions_visible_to(user))
+        # Collaborateur : seulement ce qui lui demande d'agir sur ses
+        # missions — une nouvelle mission, ou des corrections demandées par
+        # le client (version corrigée à préparer). Le reste (validations,
+        # envois, alertes écrites pour le client) reste à l'admin et au chef
+        # de projet.
+        return Notification.objects.filter(mission__in=missions_visible_to(user)).filter(
+            Q(type=NotificationType.MISSION_CREEE)
+            | Q(type=NotificationType.DECISION_CLIENT, title=CORRECTIONS_REQUESTED_TITLE)
         )
 
     @action(detail=False, methods=["post"], url_path="mark-all-read")

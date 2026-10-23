@@ -79,17 +79,33 @@ class NotificationReadScopingTests(NotificationSetupMixin, RoleTestCase):
             {str(self.own_validation_notification.id)},
         )
 
-    def test_collaborateur_sees_own_mission_and_global_notifications(self):
+    def test_collaborateur_sees_only_new_missions_and_corrections_on_own_missions(self):
+        corrections = Notification.objects.create(
+            type=NotificationType.DECISION_CLIENT,
+            title="Corrections demandées par le client",
+            body="Client — livrable « Maquette » v1",
+            mission=self.mission,
+        )
+        Notification.objects.create(
+            type=NotificationType.DECISION_CLIENT,
+            title="Validé par le client",
+            body="Client — livrable « Maquette » v1",
+            mission=self.mission,
+        )
+        Notification.objects.create(
+            type=NotificationType.DECISION_CLIENT,
+            title="Corrections demandées par le client",
+            body="Autre client",
+            mission=self.foreign_mission,
+        )
         self.auth_as(self.collaborateur)
         res = self.client.get(notification_list_url())
         self.assertEqual(res.status_code, 200)
+        # Ni la validation, ni l'alerte écrite pour le client, ni l'alerte
+        # globale, ni ce qui concerne la mission d'un autre.
         self.assertEqual(
             {n["id"] for n in res.data},
-            {
-                str(self.own_notification.id),
-                str(self.global_notification.id),
-                str(self.own_validation_notification.id),
-            },
+            {str(self.own_notification.id), str(corrections.id)},
         )
 
     def test_unauthenticated_rejected(self):

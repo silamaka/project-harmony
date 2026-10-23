@@ -1,5 +1,9 @@
 from .models import Notification, NotificationType
 
+# Titre des décisions "corrections" du client : la seule alerte de décision
+# montrée aux collaborateurs (voir NotificationViewSet._scoped).
+CORRECTIONS_REQUESTED_TITLE = "Corrections demandées par le client"
+
 
 def deliverable_link(deliverable) -> str:
     return f"/missions/{deliverable.mission_id}?livrable={deliverable.id}"
@@ -24,7 +28,7 @@ def notify_client_decision(
         author = f"{who} ({company})" if company else who
     return Notification.objects.create(
         type=NotificationType.DECISION_CLIENT,
-        title="Validé par le client" if validated else "Corrections demandées par le client",
+        title="Validé par le client" if validated else CORRECTIONS_REQUESTED_TITLE,
         body=f"{author} — {subject}"[:500],
         link=deliverable_link(deliverable) if deliverable else f"/missions/{mission.id}",
         mission=mission,
