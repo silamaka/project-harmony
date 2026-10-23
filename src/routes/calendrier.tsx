@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   addDays,
   addMonths,
@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CalendarEventPreview } from "@/components/shared/calendar-event-preview";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn } from "@/lib/utils";
 import { calendarService, isLate, missionService } from "@/services";
@@ -713,7 +714,7 @@ function EventDetailDialog({
 }) {
   return (
     <Dialog open={event !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         {event && (
           <>
             <DialogHeader>
@@ -737,26 +738,16 @@ function EventDetailDialog({
                 jour du calendrier pour replanifier son échéance.
               </p>
             )}
-            {event.description && (
+            {/* L'aperçu d'une mission / d'un livrable dit déjà son état. */}
+            {event.description && !event.mission_id && (
               <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
                 {event.description}
               </p>
             )}
-            <DialogFooter className="flex-row items-center justify-between sm:justify-between">
-              {event.mission_id ? (
-                <Link
-                  to="/missions/$missionId"
-                  params={{ missionId: event.mission_id }}
-                  search={event.deliverable_id ? { livrable: event.deliverable_id } : {}}
-                  onClick={onClose}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  {event.deliverable_id ? "Voir le livrable →" : "Voir la mission →"}
-                </Link>
-              ) : (
-                <span />
-              )}
-              {isRealMeeting(event) && (
+            {/* Mission, livrable ou publication : aperçu et accès direct. */}
+            <CalendarEventPreview event={event} onClose={onClose} />
+            {isRealMeeting(event) && (
+              <DialogFooter className="flex-row items-center justify-end">
                 <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => onEdit(event)}>
                     Modifier
@@ -768,8 +759,8 @@ function EventDetailDialog({
                     onConfirm={() => onDelete(event.id)}
                   />
                 </div>
-              )}
-            </DialogFooter>
+              </DialogFooter>
+            )}
           </>
         )}
       </DialogContent>
