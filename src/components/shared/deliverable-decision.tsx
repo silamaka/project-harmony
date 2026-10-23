@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
+import { actionChip, actionLabel } from "@/components/shared/action-chip";
 import { WEB_URL_HINT, cn, isWebUrl } from "@/lib/utils";
 import { deliverableService } from "@/services";
 import { CORRECTION_CATEGORY_LABELS, type CorrectionCategory, type Deliverable } from "@/types";
@@ -154,12 +155,20 @@ export function DeliverableDecision({
                     : "Validé pour le client"
             }
             className={cn(
-              "shrink-0 text-muted-foreground hover:text-success disabled:cursor-default disabled:hover:text-muted-foreground",
+              actionChip,
+              "hover:text-success disabled:cursor-default disabled:hover:text-muted-foreground",
               validated && "text-success disabled:hover:text-success",
               validated && canCancel && "hover:text-destructive",
             )}
           >
-            <UserCheck className="h-4 w-4" />
+            <UserCheck className="h-4 w-4 shrink-0" />
+            <span className={actionLabel}>
+              {!validated
+                ? "Valider (client)"
+                : canCancel
+                  ? "Annuler validation"
+                  : "Validé (client)"}
+            </span>
           </button>
           <button
             type="button"
@@ -171,12 +180,10 @@ export function DeliverableDecision({
                 ? "Corrections pour le client (mettre à jour la demande)"
                 : "Corrections pour le client"
             }
-            className={cn(
-              "shrink-0 text-muted-foreground hover:text-warning",
-              inCorrections && "text-destructive",
-            )}
+            className={cn(actionChip, "hover:text-warning", inCorrections && "text-destructive")}
           >
-            <UserPen className="h-4 w-4" />
+            <UserPen className="h-4 w-4 shrink-0" />
+            <span className={actionLabel}>Corriger (client)</span>
           </button>
         </>
       ) : (

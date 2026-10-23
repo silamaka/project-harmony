@@ -30,7 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/auth-context";
-import { WEB_URL_HINT, cn, isWebUrl } from "@/lib/utils";
+import { WEB_URL_HINT, cn, isWebUrl, searchText } from "@/lib/utils";
 import { commentService, deliverableService, missionService, userService } from "@/services";
 import {
   MISSION_WORKFLOW,
@@ -43,8 +43,10 @@ import { errorMessage } from "@/lib/api";
 export const Route = createFileRoute("/missions/$missionId")({
   // ?livrable=<id> (lien d'une notification) : la fiche s'ouvre sur ce
   // livrable, mis en évidence. Paramètre facultatif.
-  validateSearch: (search: Record<string, unknown>): { livrable?: string } =>
-    typeof search["livrable"] === "string" ? { livrable: search["livrable"] } : {},
+  validateSearch: (search: Record<string, unknown>): { livrable?: string } => {
+    const livrable = searchText(search["livrable"]);
+    return livrable ? { livrable } : {};
+  },
   head: () => ({
     meta: [
       { title: "Détail mission — OLYMPE" },

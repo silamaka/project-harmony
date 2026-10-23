@@ -40,7 +40,7 @@ import {
 } from "@/components/shared/badges";
 import { CalendarEventPreview } from "@/components/shared/calendar-event-preview";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
-import { cn } from "@/lib/utils";
+import { cn, searchText } from "@/lib/utils";
 import { calendarService, clientService, isLate, missionService, projectService } from "@/services";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -61,10 +61,11 @@ type CalendarSearch = { client?: string; projet?: string };
 export const Route = createFileRoute("/calendrier")({
   // Filtres client / projet dans l'adresse : un lien partagé ou un
   // rechargement garde la sélection. Paramètres facultatifs.
-  validateSearch: (search: Record<string, unknown>): CalendarSearch => ({
-    ...(typeof search["client"] === "string" ? { client: search["client"] } : {}),
-    ...(typeof search["projet"] === "string" ? { projet: search["projet"] } : {}),
-  }),
+  validateSearch: (search: Record<string, unknown>): CalendarSearch => {
+    const client = searchText(search["client"]);
+    const projet = searchText(search["projet"]);
+    return { ...(client ? { client } : {}), ...(projet ? { projet } : {}) };
+  },
   head: () => ({
     meta: [
       { title: "Calendrier — OLYMPE" },
@@ -319,6 +320,9 @@ function CalendarPage() {
   );
   const selectedClientName = clientOptions.find((c) => c.id === clientFilter)?.name;
   const clientEventCount = visibleEvents.filter((e) => !isRealMeeting(e)).length;
+  // Réunions (rattachées à aucun client) qui restent affichées avec le filtre :
+  // annoncées à part, pour que le compteur corresponde à ce qu'on voit.
+  const meetingCount = visibleEvents.length - clientEventCount;
 
   const eventsOn = (date: Date) =>
     visibleEvents.filter((e) => isSameDay(parseISO(e.date), date)).sort(byDayOrder);
@@ -503,6 +507,8 @@ function CalendarPage() {
           <span className="font-medium text-foreground">{selectedClientName}</span>
           {projectFilter &&
             ` · projet « ${projectOptions.find((p) => p.id === projectFilter)?.name ?? ""} »`}{" "}
+          {meetingCount > 0 &&
+            `· ${meetingCount} réunion${meetingCount > 1 ? "s" : ""} interne${meetingCount > 1 ? "s" : ""} aussi affichée${meetingCount > 1 ? "s" : ""} `}
           ·{" "}
           <button
             type="button"

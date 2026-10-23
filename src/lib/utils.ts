@@ -16,4 +16,11 @@ export function isWebUrl(value: string) {
   }
 }
 
+/** Paramètre d'adresse lu en texte : un identifiant "7" arrive en nombre. */
+export function searchText(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return undefined;
+}
+
 export const WEB_URL_HINT = "Colle l'adresse complète du lien, commençant par https://";

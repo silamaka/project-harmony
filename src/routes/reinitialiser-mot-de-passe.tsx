@@ -11,8 +11,10 @@ import { authService } from "@/services";
 
 export const Route = createFileRoute("/reinitialiser-mot-de-passe")({
   validateSearch: z.object({
-    uid: z.string().catch(""),
-    token: z.string().catch(""),
+    // Un uid / jeton purement numérique arriverait en nombre (lecture de
+    // l'adresse) : reconverti en texte.
+    uid: z.coerce.string().catch(""),
+    token: z.coerce.string().catch(""),
   }),
   head: () => ({
     meta: [

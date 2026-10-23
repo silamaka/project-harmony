@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   DeliverableStateBadge,
@@ -24,8 +25,10 @@ import {
   isSentToClient,
 } from "@/components/shared/badges";
 import { DeliverableDecision } from "@/components/shared/deliverable-decision";
+import { actionBar, actionChip, actionLabel } from "@/components/shared/action-chip";
 import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
 import { ScheduleButton, ScheduledLine } from "@/components/shared/deliverable-schedule";
+import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { errorMessage } from "@/lib/api";
@@ -114,13 +117,12 @@ export function useDeliverableActions() {
   return { setStatus, setPublished, remove };
 }
 
-const iconButton = "shrink-0 text-muted-foreground disabled:opacity-50";
-
 /**
- * Barre d'icônes d'un livrable, toujours dans le même ordre : envoyer au
- * client (✓), décision pour le client, programmer (📅), publier, ouvrir,
- * modifier, supprimer.
- * Seules les actions possibles (état + droits) apparaissent.
+ * Actions d'un livrable, toujours dans le même ordre : envoyer au client
+ * (✓), décision pour le client, programmer (📅), publier, ouvrir, modifier,
+ * supprimer. Seules les actions possibles (état + droits) apparaissent.
+ * Icônes sur ordinateur, boutons nommés sur téléphone ; supprimer demande
+ * une confirmation.
  */
 export function DeliverableActions({
   deliverable: d,
@@ -133,10 +135,11 @@ export function DeliverableActions({
 }) {
   const { canValidate, canPublish, canManage } = useDeliverablePermissions();
   const { setStatus, setPublished, remove } = useDeliverableActions();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const sent = d.status === "valide";
 
   return (
-    <div className="flex items-center gap-3">
+    <div className={actionBar}>
       {/* Envoyer / retirer l'envoi : sans objet une fois publié ou quand le
           client attend une version corrigée. */}
       {canValidate && hasDeliverableLink(d) && !d.published_at && !awaitsCorrectedVersion(d) && (
@@ -150,9 +153,10 @@ export function DeliverableActions({
               ? "Validé et envoyé au client — cliquer pour retirer"
               : "Valider et envoyer au client"
           }
-          className={cn(iconButton, "hover:text-success", sent && "text-success")}
+          className={cn(actionChip, "hover:text-success", sent && "text-success")}
         >
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span className={actionLabel}>{sent ? "Retirer l'envoi" : "Envoyer au client"}</span>
         </button>
       )}
       {/* Réponse du client reçue hors du portail (ou changement d'avis). */}
@@ -167,9 +171,10 @@ export function DeliverableActions({
           disabled={setPublished.isPending}
           aria-label={d.published_at ? `Annuler la publication de ${d.name}` : `Publier ${d.name}`}
           title={d.published_at ? "Publié — cliquer pour annuler" : "Marquer comme publié"}
-          className={cn(iconButton, "hover:text-primary", d.published_at && "text-primary")}
+          className={cn(actionChip, "hover:text-primary", d.published_at && "text-primary")}
         >
-          <Megaphone className="h-4 w-4" />
+          <Megaphone className="h-4 w-4 shrink-0" />
+          <span className={actionLabel}>{d.published_at ? "Dépublier" : "Publier"}</span>
         </button>
       )}
       {hasDeliverableLink(d) && (
@@ -179,9 +184,10 @@ export function DeliverableActions({
           rel="noreferrer"
           aria-label={`Ouvrir ${d.name}`}
           title="Ouvrir"
-          className={cn(iconButton, "hover:text-primary")}
+          className={cn(actionChip, "hover:text-primary")}
         >
-          <Eye className="h-4 w-4" />
+          <Eye className="h-4 w-4 shrink-0" />
+          <span className={actionLabel}>Ouvrir</span>
         </a>
       )}
       {canManage(d) && (
@@ -190,22 +196,36 @@ export function DeliverableActions({
           onClick={() => onEdit(d)}
           aria-label={`Modifier ${d.name}`}
           title={hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
-          className={cn(iconButton, "hover:text-primary")}
+          className={cn(actionChip, "hover:text-primary")}
         >
-          <Pencil className="h-4 w-4" />
+          <Pencil className="h-4 w-4 shrink-0" />
+          <span className={actionLabel}>
+            {hasDeliverableLink(d) ? "Modifier" : "Ajouter le lien"}
+          </span>
         </button>
       )}
       {allowDelete && canManage(d) && (
-        <button
-          type="button"
-          onClick={() => remove.mutate(d.id)}
-          disabled={remove.isPending}
-          aria-label={`Supprimer ${d.name}`}
-          title="Supprimer"
-          className={cn(iconButton, "hover:text-destructive")}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={remove.isPending}
+            aria-label={`Supprimer ${d.name}`}
+            title="Supprimer"
+            className={cn(actionChip, "hover:text-destructive")}
+          >
+            <Trash2 className="h-4 w-4 shrink-0" />
+            <span className={actionLabel}>Supprimer</span>
+          </button>
+          <ConfirmDeleteButton
+            open={confirmDelete}
+            onOpenChange={setConfirmDelete}
+            title={`Supprimer « ${d.name} » ?`}
+            description="Le livrable et son historique de validation seront supprimés définitivement. Cette action est irréversible."
+            pending={remove.isPending}
+            onConfirm={() => remove.mutate(d.id, { onSuccess: () => setConfirmDelete(false) })}
+          />
+        </>
       )}
     </div>
   );
@@ -289,7 +309,7 @@ export function DeliverableCard({
           )}
           <ScheduledLine deliverable={d} className="mt-1" />
         </div>
-        <div className="ml-auto">
+        <div className="w-full sm:ml-auto sm:w-auto">
           <DeliverableActions deliverable={d} onEdit={onEdit} allowDelete={allowDelete} />
         </div>
       </div>

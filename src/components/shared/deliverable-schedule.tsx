@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { actionChip, actionLabel } from "@/components/shared/action-chip";
 import { errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { deliverableService } from "@/services";
@@ -133,12 +134,10 @@ export function ScheduleButton({ deliverable: d }: { deliverable: Deliverable })
             ? `Publication prévue le ${formatWhen(d.scheduled_at as string)} — modifier`
             : "Programmer la publication"
         }
-        className={cn(
-          "shrink-0 text-muted-foreground hover:text-primary",
-          scheduled && "text-primary",
-        )}
+        className={cn(actionChip, "hover:text-primary", scheduled && "text-primary")}
       >
-        <CalendarClock className="h-4 w-4" />
+        <CalendarClock className="h-4 w-4 shrink-0" />
+        <span className={actionLabel}>{scheduled ? "Date prévue" : "Programmer"}</span>
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
