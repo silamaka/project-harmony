@@ -21,7 +21,7 @@ def calendar_events(request):
     ici la portée (missions/livrables visibles) est imposée côté serveur,
     pas filtrée après coup par le client."""
     missions = missions_visible_to(request.user)
-    # `type` reflète Mission.task_type (Mission/Editos/Livrable/Réunion) plutôt
+    # `type` reflète Mission.task_type (Mission/Livrable/Réunion) plutôt
     # que d'être figé à "mission" : une mission taguée "Réunion" doit filtrer
     # et s'afficher comme telle sur le calendrier, au même titre qu'une vraie
     # réunion — seul le préfixe "ev-" de l'id distingue encore côté frontend

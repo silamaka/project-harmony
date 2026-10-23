@@ -72,14 +72,12 @@ const VIEWS: { key: ViewMode; label: string }[] = [
 
 const TYPE_TONE: Record<EventType, string> = {
   mission: "bg-primary/10 text-primary border-primary/20",
-  editos: "bg-accent text-accent-foreground border-accent",
   livrable: "bg-info/15 text-info border-info/20",
   reunion: "bg-warning/20 text-warning border-warning/30",
 };
 
 const TYPE_DOT: Record<EventType, string> = {
   mission: "bg-primary",
-  editos: "bg-foreground",
   livrable: "bg-info",
   reunion: "bg-warning",
 };

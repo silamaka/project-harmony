@@ -130,7 +130,7 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
 /** Ordre du plus urgent au moins urgent, pour trier les listes de missions. */
 export const PRIORITY_ORDER: Priority[] = ["urgente", "haute", "normale", "faible"];
 
-export type TaskType = "mission" | "editos" | "livrable" | "reunion";
+export type TaskType = "mission" | "livrable" | "reunion";
 
 /** Ce que le client demande de corriger (miroir de CorrectionCategory côté serveur). */
 export type CorrectionCategory =
@@ -147,7 +147,6 @@ export const CORRECTION_CATEGORY_LABELS: Record<CorrectionCategory, string> = {
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   mission: "Mission",
-  editos: "Editos",
   livrable: "Livrable",
   reunion: "Réunion",
 };

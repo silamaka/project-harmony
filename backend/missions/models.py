@@ -11,7 +11,6 @@ class Priority(models.TextChoices):
 
 class TaskType(models.TextChoices):
     MISSION = "mission", "Mission"
-    EDITOS = "editos", "Editos"
     LIVRABLE = "livrable", "Livrable"
     REUNION = "reunion", "Réunion"
 

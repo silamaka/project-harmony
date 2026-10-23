@@ -72,12 +72,12 @@ class CalendarEventsTests(RoleTestCase):
         self.assertEqual([e for e in res.data if e["type"] == "livrable"], [])
 
     def test_mission_event_type_reflects_task_type(self):
-        self.mission.task_type = "editos"
+        self.mission.task_type = "reunion"
         self.mission.save()
         self.auth_as(self.admin)
         res = self.client.get(reverse("calendar"))
         event = next(e for e in res.data if e.get("mission_id") == str(self.mission.id))
-        self.assertEqual(event["type"], "editos")
+        self.assertEqual(event["type"], "reunion")
 
     def test_mission_event_carries_status(self):
         self.mission.status = "en_cours"
