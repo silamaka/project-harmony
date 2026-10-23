@@ -233,7 +233,7 @@ export function clientMissionStatus(status: MissionStatus): ClientMissionStatus 
   }
 }
 
-const CLIENT_MISSION_STATUS_LABELS: Record<ClientMissionStatus, string> = {
+export const CLIENT_MISSION_STATUS_LABELS: Record<ClientMissionStatus, string> = {
   preparation: "En préparation",
   a_valider: "À valider",
   corrections: "Corrections en cours",

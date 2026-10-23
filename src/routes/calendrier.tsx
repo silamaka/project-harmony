@@ -33,11 +33,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  CLIENT_MISSION_STATUS_LABELS,
+  clientMissionStatus,
+  type ClientMissionStatus,
+} from "@/components/shared/badges";
 import { CalendarEventPreview } from "@/components/shared/calendar-event-preview";
 import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn } from "@/lib/utils";
 import { calendarService, isLate, missionService } from "@/services";
-import { TASK_TYPE_LABELS, type CalendarEvent as ApiCalendarEvent } from "@/types";
+import { useAuth } from "@/context/auth-context";
+import {
+  MISSION_STATUS_LABELS,
+  TASK_TYPE_LABELS,
+  type CalendarEvent as ApiCalendarEvent,
+  type MissionStatus,
+} from "@/types";
 import { errorMessage } from "@/lib/api";
 
 /** Événement tel qu'affiché : `late` marque une échéance de mission dépassée
@@ -138,6 +149,68 @@ const dotOf = (e: CalendarEvent) =>
   e.late ? "bg-destructive" : e.published_at ? "bg-success" : TYPE_DOT[e.type];
 
 const labelOf = (e: CalendarEvent) => (e.published_at ? "Publiée" : TYPE_LABEL[e.type]);
+
+/** Pastille d'état d'une échéance de mission : mêmes couleurs que les
+ * étiquettes d'état du reste de l'appli. */
+const MISSION_STATUS_DOT: Record<MissionStatus, string> = {
+  a_faire: "bg-muted-foreground/60",
+  en_cours: "bg-primary",
+  livrable_depose: "bg-primary",
+  validation_interne: "bg-primary",
+  envoye_client: "bg-warning",
+  corrections: "bg-destructive",
+  valide: "bg-success",
+  publie: "bg-success",
+  termine: "bg-success/50",
+};
+
+const CLIENT_STATUS_DOT: Record<ClientMissionStatus, string> = {
+  preparation: "bg-primary",
+  a_valider: "bg-warning",
+  corrections: "bg-destructive",
+  valide: "bg-success",
+  publie: "bg-success",
+  termine: "bg-success/50",
+};
+
+/**
+ * État d'une échéance de mission tel que l'utilisateur doit le voir (le
+ * client avec ses propres libellés : les étapes internes de l'agence se
+ * résument à "En préparation"). Rien pour les autres événements.
+ */
+function useMissionStatus() {
+  const { user } = useAuth();
+  const isClient = user?.role === "client";
+  return (e: CalendarEvent) => {
+    if (!isMissionEvent(e) || !e.status) return null;
+    if (isClient) {
+      const s = clientMissionStatus(e.status);
+      return {
+        label: CLIENT_MISSION_STATUS_LABELS[s],
+        dot: CLIENT_STATUS_DOT[s],
+        done: s === "termine",
+      };
+    }
+    return {
+      label: MISSION_STATUS_LABELS[e.status],
+      dot: MISSION_STATUS_DOT[e.status],
+      done: e.status === "termine",
+    };
+  };
+}
+
+function StatusDot({ dot, className }: { dot: string; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-background",
+        dot,
+        className,
+      )}
+    />
+  );
+}
 
 /** Échéance de mission (générée côté serveur, id "ev-<uuid>") : à distinguer
  * d'un livrable réellement déposé ou d'une réunion réellement créée, qui
@@ -550,6 +623,7 @@ function DayView({
   eventsOn: (date: Date) => CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
 }) {
+  const statusOf = useMissionStatus();
   const list = eventsOn(cursor);
 
   return (
@@ -572,9 +646,12 @@ function DayView({
             <span className="w-14 shrink-0 text-xs font-semibold">
               {e.overdueSince ? "⚠ Retard" : (e.time ?? "Toute la journée")}
             </span>
+            {statusOf(e) && <StatusDot dot={statusOf(e)!.dot} />}
             <span className="flex-1 truncate font-medium">{e.title}</span>
             <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
-              {e.overdueSince ? `En retard depuis le ${formatShort(e.overdueSince)}` : labelOf(e)}
+              {e.overdueSince
+                ? `En retard depuis le ${formatShort(e.overdueSince)}`
+                : (statusOf(e)?.label ?? labelOf(e))}
             </span>
           </button>
         ))}
@@ -591,6 +668,7 @@ function AgendaView({
   events: CalendarEvent[];
   onEventClick: (event: CalendarEvent) => void;
 }) {
+  const statusOf = useMissionStatus();
   const grouped = useMemo(() => {
     const sorted = [...events].sort((a, b) => a.date.localeCompare(b.date) || byDayOrder(a, b));
     const map = new Map<string, CalendarEvent[]>();
@@ -623,7 +701,9 @@ function AgendaView({
                 onClick={() => onEventClick(e)}
                 className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm transition-colors hover:bg-accent/40"
               >
-                <span className={cn("h-2 w-2 shrink-0 rounded-full", dotOf(e))} />
+                <span
+                  className={cn("h-2 w-2 shrink-0 rounded-full", statusOf(e)?.dot ?? dotOf(e))}
+                />
                 <span className="w-12 shrink-0 text-xs text-muted-foreground">{e.time ?? "—"}</span>
                 <span className={cn("flex-1 truncate font-medium", e.late && "text-destructive")}>
                   {e.title}
@@ -638,7 +718,7 @@ function AgendaView({
                     ? `En retard depuis le ${formatShort(e.overdueSince)}`
                     : e.late
                       ? "En retard"
-                      : labelOf(e)}
+                      : (statusOf(e)?.label ?? labelOf(e))}
                 </span>
               </button>
             ))}
@@ -659,6 +739,7 @@ function EventChip({
   onClick: (event: CalendarEvent) => void;
   full?: boolean;
 }) {
+  const status = useMissionStatus()(event);
   const draggable = isMissionEvent(event) || isRealMeeting(event);
   return (
     <p
@@ -671,21 +752,28 @@ function EventChip({
         e.stopPropagation();
         onClick(event);
       }}
-      title={
+      title={[
+        event.title,
+        status?.label,
         event.overdueSince
-          ? `${event.title} — en retard depuis le ${formatShort(event.overdueSince)}`
+          ? `en retard depuis le ${formatShort(event.overdueSince)}`
           : event.late
-            ? `${event.title} — en retard`
-            : event.title
-      }
+            ? "en retard"
+            : null,
+      ]
+        .filter(Boolean)
+        .join(" — ")}
       className={cn(
         "truncate rounded px-1.5 py-0.5 text-[10px] font-medium",
         draggable && "cursor-grab active:cursor-grabbing",
         toneOf(event),
         event.overdueSince && "font-semibold",
         full && "whitespace-normal",
+        // Mission terminée : plus rien à faire, elle s'efface.
+        status?.done && "opacity-60",
       )}
     >
+      {status && <StatusDot dot={status.dot} className="mr-1 align-middle" />}
       {event.overdueSince && <span className="mr-1">⚠</span>}
       {event.time && <span className="mr-1 font-semibold">{event.time}</span>}
       {event.title}
@@ -784,6 +872,7 @@ function DayEventsDialog({
   onEventClick: (event: CalendarEvent) => void;
   onAdd: (date: Date) => void;
 }) {
+  const statusOf = useMissionStatus();
   const sorted = [...events].sort(byDayOrder);
 
   return (
@@ -815,11 +904,12 @@ function DayEventsDialog({
                     <span className="w-14 shrink-0 text-xs font-semibold">
                       {e.overdueSince ? "⚠ Retard" : (e.time ?? "Toute la journée")}
                     </span>
+                    {statusOf(e) && <StatusDot dot={statusOf(e)!.dot} />}
                     <span className="flex-1 truncate font-medium">{e.title}</span>
                     <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide opacity-70">
                       {e.overdueSince
                         ? `En retard depuis le ${formatShort(e.overdueSince)}`
-                        : labelOf(e)}
+                        : (statusOf(e)?.label ?? labelOf(e))}
                     </span>
                   </button>
                 ))}
