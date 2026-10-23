@@ -1,10 +1,11 @@
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import Role
-from deliverables.models import Deliverable
+from deliverables.models import Deliverable, DeliverableStatus
 from deliverables.views import client_visible_q
 from missions.scoping import missions_visible_to
 
@@ -55,12 +56,47 @@ def calendar_events(request):
         for d in deliverables
     ]
 
+    # Publications prévues (pas encore publiées) : le planning éditorial.
+    # La description dit où en est le livrable à l'approche de la date.
+    publication_events = []
+    for d in deliverables.filter(scheduled_at__isnull=False, published_at__isnull=True):
+        when = timezone.localtime(d.scheduled_at)
+        publication_events.append(
+            {
+                "id": f"pub-{d.id}",
+                "title": d.name,
+                "date": when.date().isoformat(),
+                "time": f"{when:%H:%M}",
+                "type": "publication",
+                # Date et heure complètes : le navigateur les affiche dans le
+                # fuseau de l'utilisateur ("date"/"time" ci-dessus sont dans
+                # celui du serveur, à titre indicatif).
+                "scheduled_at": d.scheduled_at.isoformat(),
+                "mission_id": str(d.mission_id),
+                "deliverable_id": str(d.id),
+                "description": publication_readiness(d),
+            }
+        )
+
     meeting_events = [
         {**MeetingSerializer(m).data, "date": m.date.isoformat(), "type": "reunion"}
         for m in Meeting.objects.all()
     ]
 
-    return Response([*mission_events, *deliverable_events, *meeting_events])
+    return Response(
+        [*mission_events, *deliverable_events, *publication_events, *meeting_events]
+    )
+
+
+def publication_readiness(deliverable) -> str:
+    if deliverable.status != DeliverableStatus.VALIDE:
+        return "En revue chez l'agence."
+    if deliverable.client_status == DeliverableStatus.VALIDE:
+        return "Prêt à publier."
+    if deliverable.client_status == DeliverableStatus.CORRECTIONS:
+        return "Corrections demandées par le client."
+    return "En attente de la validation du client."
+
 
 
 class MeetingViewSet(viewsets.ModelViewSet):

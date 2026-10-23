@@ -34,8 +34,8 @@ class DeliverablePermission(BasePermission):
       Jamais un collaborateur.
     Lecture/dépôt : tout utilisateur authentifié pouvant voir la mission
     (portée déjà imposée par le queryset et par MissionPKField), sauf le
-    client qui ne dépose jamais. Publier / dépublier : admin, chef de projet,
-    ou collaborateur de la mission. Modifier le nom / le lien : admin, chef
+    client qui ne dépose jamais. Publier / dépublier et programmer la date
+    de publication : admin, chef de projet, ou collaborateur de la mission. Modifier le nom / le lien : admin, chef
     de projet, ou le collaborateur auteur du dépôt.
     Suppression :
     admin, chef de projet, ou le collaborateur qui a lui-même déposé le
@@ -90,9 +90,10 @@ class DeliverablePermission(BasePermission):
         if request.method == "DELETE":
             return request.user.role == Role.COLLABORATEUR and obj.uploaded_by_id == request.user.id
         if request.user.role == Role.COLLABORATEUR:
-            # Publier un livrable de sa mission (portée déjà imposée par le
-            # queryset), mais jamais le valider lui-même.
-            if fields_sent <= {"published"}:
+            # Publier un livrable de sa mission, ou programmer sa date de
+            # publication (portée déjà imposée par le queryset), mais jamais
+            # le valider lui-même.
+            if fields_sent <= {"published", "scheduled_at"}:
                 return True
             # Modifier le nom / le lien : seulement son propre dépôt, comme
             # pour la suppression (ex. ajouter le lien d'un livrable annoncé).

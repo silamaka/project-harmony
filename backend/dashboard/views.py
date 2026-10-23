@@ -137,6 +137,20 @@ def alerts(request):
         status__in=DONE_STATUSES
     )
     blocked_qs = Mission.objects.filter(status=MissionStatus.CORRECTIONS)
+    # Publications à risque : prévues dans les 48 h et pas prêtes (validation
+    # agence ou client manquante), ou dont la date est passée sans
+    # publication.
+    now = timezone.now()
+    ready = Q(status=DeliverableStatus.VALIDE, client_status=DeliverableStatus.VALIDE)
+    at_risk_qs = (
+        Deliverable.objects.filter(
+            published_at__isnull=True,
+            scheduled_at__isnull=False,
+            scheduled_at__lte=now + timedelta(hours=48),
+        )
+        .filter(~ready | Q(scheduled_at__lt=now))
+        .order_by("scheduled_at")
+    )
     # À valider par l'agence (avant envoi au client) : sans lien, rien à revoir.
     pending_qs = Deliverable.objects.filter(status=DeliverableStatus.EN_ATTENTE).exclude(url="")
 
@@ -146,5 +160,6 @@ def alerts(request):
             "in48h": MissionSerializer(in_48h_qs, many=True).data,
             "blocked": MissionSerializer(blocked_qs, many=True).data,
             "pendingDeliverables": DeliverableSerializer(pending_qs, many=True).data,
+            "publicationsAtRisk": DeliverableSerializer(at_risk_qs, many=True).data,
         }
     )

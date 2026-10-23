@@ -98,7 +98,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "fr-fr"
-TIME_ZONE = "UTC"
+# Fuseau de l'agence, pour les textes datés générés côté serveur (ex.
+# "publication prévue le … à 10:00" dans la discussion). L'interface, elle,
+# affiche les dates dans le fuseau du navigateur de chaque utilisateur.
+TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 

@@ -207,6 +207,8 @@ export interface Deliverable {
   client_decided_by_name: string;
   /** Date de publication (posée par le serveur), null tant que non publié. */
   published_at?: string | null;
+  /** Date de publication prévue, programmée par l'équipe (null sinon). */
+  scheduled_at?: string | null;
   created_at: string;
 }
 
@@ -230,8 +232,13 @@ export interface CalendarEvent {
   date: string;
   time?: string;
   description?: string;
-  type: TaskType;
+  /** "publication" : publication prévue d'un livrable (id "pub-…"). */
+  type: TaskType | "publication";
   mission_id?: string;
+  /** Livrable concerné (publication prévue) : la fiche s'ouvre sur lui. */
+  deliverable_id?: string;
+  /** Date et heure complètes d'une publication prévue (ISO). */
+  scheduled_at?: string;
   /** Statut de la mission, présent sur les échéances de mission uniquement. */
   status?: MissionStatus;
   color?: string;

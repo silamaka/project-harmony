@@ -1139,3 +1139,82 @@ class CancelDecisionRecordedForClientTests(DeliverableSetupMixin, RoleTestCase):
         self.assertEqual(
             self._patch(self.client_user, {"client_status": "en_attente"}).status_code, 403
         )
+
+
+
+class ScheduledPublicationTests(DeliverableSetupMixin, RoleTestCase):
+    """Date de publication prévue : programmée par l'équipe (pas le client),
+    à venir, tracée dans la discussion, visible au calendrier et dans les
+    alertes quand la publication est à risque."""
+
+    def _schedule(self, user, when):
+        self.auth_as(user)
+        value = when.isoformat() if when else None
+        return self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"scheduled_at": value}, format="json"
+        )
+
+    def _in(self, **delta):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        return timezone.now() + timedelta(**delta)
+
+    def test_team_can_schedule_and_clear(self):
+        for user in (self.admin, self.chef_projet, self.collaborateur):
+            res = self._schedule(user, self._in(days=3))
+            self.assertEqual(res.status_code, 200, user.role)
+            self.assertIsNotNone(res.data["scheduled_at"])
+        res = self._schedule(self.collaborateur, None)
+        self.assertEqual(res.status_code, 200)
+        self.assertIsNone(res.data["scheduled_at"])
+
+    def test_client_cannot_schedule(self):
+        self.assertEqual(self._schedule(self.client_user, self._in(days=3)).status_code, 403)
+
+    def test_date_must_be_in_the_future(self):
+        res = self._schedule(self.admin, self._in(hours=-2))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("scheduled_at", res.data)
+
+    def test_change_is_traced_and_visible_to_client_once_sent(self):
+        from comments.models import Comment
+
+        self._schedule(self.admin, self._in(days=2))
+        comment = Comment.objects.get()
+        self.assertIn("prévue le", comment.body)
+        self.assertTrue(comment.client_visible)  # livrable déjà envoyé (setup)
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            status=DeliverableStatus.EN_ATTENTE
+        )
+        self._schedule(self.admin, None)
+        last = Comment.objects.order_by("-id").first()
+        self.assertIn("retirée", last.body)
+        self.assertFalse(last.client_visible)  # en revue agence : interne
+
+    def test_calendar_shows_upcoming_publications(self):
+        self._schedule(self.admin, self._in(days=2))
+        self.auth_as(self.admin)
+        events = self.client.get(reverse("calendar")).data
+        event = next(e for e in events if e["id"] == f"pub-{self.deliverable.id}")
+        self.assertEqual(event["type"], "publication")
+        self.assertEqual(event["deliverable_id"], str(self.deliverable.id))
+        self.assertIn("validation du client", event["description"])
+
+    def test_dashboard_flags_publications_at_risk(self):
+        self.auth_as(self.admin)
+        self._schedule(self.admin, self._in(hours=20))  # client pas encore validé
+        risky = self.client.get(reverse("dashboard-alerts")).data["publicationsAtRisk"]
+        self.assertEqual([d["id"] for d in risky], [str(self.deliverable.id)])
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status=DeliverableStatus.VALIDE
+        )
+        risky = self.client.get(reverse("dashboard-alerts")).data["publicationsAtRisk"]
+        self.assertEqual(risky, [])  # prêt à temps : pas de risque
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(scheduled_at=self._in(hours=-1))
+        risky = self.client.get(reverse("dashboard-alerts")).data["publicationsAtRisk"]
+        self.assertEqual(len(risky), 1)  # date passée sans publication

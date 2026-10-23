@@ -199,6 +199,10 @@ export const deliverableService = {
   /** PATCH /api/v1/deliverables/:id/ (publier / dépublier, date posée par le serveur) */
   setPublished: async (id: string, published: boolean) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { published })).data,
+  /** PATCH /api/v1/deliverables/:id/ (date de publication prévue, null = retirée) */
+  schedule: async (id: string, scheduledAt: string | null) =>
+    (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { scheduled_at: scheduledAt }))
+      .data,
   /** GET /api/v1/deliverables/?mission=:missionId */
   byMission: async (missionId: string) =>
     (await api.get<Deliverable[]>(endpoints.deliverables, { params: { mission: missionId } })).data,
@@ -307,6 +311,7 @@ export const dashboardService = {
         in48h: Mission[];
         blocked: Mission[];
         pendingDeliverables: Deliverable[];
+        publicationsAtRisk: Deliverable[];
       }>(`${endpoints.dashboard}alerts/`)
     ).data,
 };

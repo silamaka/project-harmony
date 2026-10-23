@@ -4,7 +4,8 @@ import { DEMO_ACCOUNTS } from "./utils";
 
 /**
  * Circuit complet d'un livrable, à l'écran, avec l'agence et le client :
- * dépôt → validation agence (envoi) → corrections demandées par le client →
+ * dépôt → validation agence (envoi) → publication programmée → corrections
+ * demandées par le client →
  * version corrigée (v2) → renvoi → validation enregistrée puis annulée par
  * l'agence → validation du client, annulée par l'administrateur puis refaite →
  * publication.
@@ -70,6 +71,18 @@ test("circuit complet d'un livrable entre l'agence et le client", async ({ brows
       .click();
     await expect(card(agency).getByText("Chez le client")).toBeVisible();
     await expect(card(agency).getByRole("button", { name: `Publier ${NAME}` })).toHaveCount(0);
+  });
+
+  await test.step("l'agence programme la publication, le client voit la date", async () => {
+    await card(agency)
+      .getByRole("button", { name: `Programmer la publication de ${NAME}` })
+      .click();
+    // Valeur proposée par défaut : demain à 10 h.
+    await agency.getByRole("dialog").getByRole("button", { name: "Programmer" }).click();
+    await expect(card(agency).getByText(/Publication prévue le/)).toBeVisible();
+
+    await gotoMission(customer);
+    await expect(card(customer).getByText(/Publication prévue le/)).toBeVisible();
   });
 
   await test.step("le client demande des corrections", async () => {
@@ -145,5 +158,7 @@ test("circuit complet d'un livrable entre l'agence et le client", async ({ brows
       .getByRole("button", { name: `Publier ${NAME}` })
       .click();
     await expect(card(agency).getByText("Publié", { exact: true })).toBeVisible();
+    // Publié : la date prévue n'a plus lieu d'être affichée.
+    await expect(card(agency).getByText(/Publication prévue le/)).toHaveCount(0);
   });
 });

@@ -43,6 +43,16 @@ def correction_comment_body(
     return "\n".join(lines)
 
 
+def schedule_comment_body(deliverable) -> str:
+    if not deliverable.scheduled_at:
+        return f"Date de publication prévue retirée pour le livrable {deliverable.label}."
+    when = timezone.localtime(deliverable.scheduled_at)
+    return (
+        f"Publication du livrable {deliverable.label} prévue le "
+        f"{when:%d/%m/%Y} à {when:%H:%M}."
+    )
+
+
 def is_sent_to_client(deliverable) -> bool:
     return deliverable.status == DeliverableStatus.VALIDE and bool(deliverable.url)
 
@@ -73,6 +83,7 @@ class DeliverableViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         was_sent = is_sent_to_client(serializer.instance)
         previous_client_status = serializer.instance.client_status
+        previous_scheduled_at = serializer.instance.scheduled_at
         # Calculé avant l'enregistrement, qui efface la trace de la décision.
         was_clients_own_decision = is_clients_own_decision(serializer.instance)
         comment = serializer.validated_data.get("comment", "").strip()
@@ -167,6 +178,16 @@ class DeliverableViewSet(viewsets.ModelViewSet):
                 )
         elif not was_sent and is_sent_to_client(deliverable):
             notify_deliverable_sent(deliverable)
+
+        if deliverable.scheduled_at != previous_scheduled_at:
+            # Trace du planning dans la discussion ; visible du client dès
+            # que le livrable lui a été envoyé (il voit alors la date).
+            Comment.objects.create(
+                mission=deliverable.mission,
+                author=user,
+                body=schedule_comment_body(deliverable),
+                client_visible=is_sent_to_client(deliverable),
+            )
 
         sync_mission_status(deliverable.mission)
 

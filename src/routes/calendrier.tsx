@@ -72,17 +72,22 @@ const VIEWS: { key: ViewMode; label: string }[] = [
 
 const TYPE_TONE: Record<EventType, string> = {
   mission: "bg-primary/10 text-primary border-primary/20",
+  publication: "bg-success/15 text-success border-success/30",
   livrable: "bg-info/15 text-info border-info/20",
   reunion: "bg-warning/20 text-warning border-warning/30",
 };
 
 const TYPE_DOT: Record<EventType, string> = {
   mission: "bg-primary",
+  publication: "bg-success",
   livrable: "bg-info",
   reunion: "bg-warning",
 };
 
-const TYPE_LABEL = TASK_TYPE_LABELS;
+const TYPE_LABEL: Record<EventType, string> = {
+  ...TASK_TYPE_LABELS,
+  publication: "Publication",
+};
 
 const LATE_TONE = "bg-destructive/12 text-destructive border-destructive/30";
 
@@ -95,7 +100,16 @@ const formatShort = (iso: string) => format(parseISO(iso), "dd/MM", { locale: fr
 function withOverdueRollover(events: ApiCalendarEvent[]): CalendarEvent[] {
   const today = format(new Date(), "yyyy-MM-dd");
   const result: CalendarEvent[] = [];
-  for (const e of events) {
+  for (const raw of events) {
+    // Publication prévue : date et heure dans le fuseau du navigateur (le
+    // serveur les calcule dans le sien).
+    const e = raw.scheduled_at
+      ? {
+          ...raw,
+          date: format(parseISO(raw.scheduled_at), "yyyy-MM-dd"),
+          time: format(parseISO(raw.scheduled_at), "HH:mm"),
+        }
+      : raw;
     const late = isMissionEvent(e) && !!e.status && isLate({ deadline: e.date, status: e.status });
     result.push(late ? { ...e, late } : e);
     if (late) {
@@ -729,10 +743,11 @@ function EventDetailDialog({
                 <Link
                   to="/missions/$missionId"
                   params={{ missionId: event.mission_id }}
+                  search={event.deliverable_id ? { livrable: event.deliverable_id } : {}}
                   onClick={onClose}
                   className="text-xs font-medium text-primary hover:underline"
                 >
-                  Voir la mission →
+                  {event.deliverable_id ? "Voir le livrable →" : "Voir la mission →"}
                 </Link>
               ) : (
                 <span />

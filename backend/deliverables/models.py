@@ -84,6 +84,11 @@ class Deliverable(models.Model):
     # Indépendant de `status` : un livrable validé n'est pas forcément déjà
     # publié, et une mission à plusieurs livrables les publie un par un.
     published_at = models.DateTimeField(null=True, blank=True)
+    # Date de publication prévue, programmée par l'équipe (planning
+    # éditorial, échéance de validation pour le client). Distincte de
+    # `published_at` (la publication réelle) : rien n'est publié
+    # automatiquement, la mise en ligne se fait hors de la plateforme.
+    scheduled_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

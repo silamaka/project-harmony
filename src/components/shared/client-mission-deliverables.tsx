@@ -8,6 +8,7 @@ import {
 } from "@/components/shared/badges";
 import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
+import { ScheduledLine } from "@/components/shared/deliverable-schedule";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Deliverable } from "@/types";
@@ -97,6 +98,7 @@ export function ClientMissionDeliverables({
                 />
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{metaLine(d)}</p>
+              <ScheduledLine deliverable={d} className="mt-1" />
               <DeliverableFeedback deliverable={d} audience="client" className="mt-2" />
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">

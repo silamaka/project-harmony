@@ -25,6 +25,7 @@ import {
 } from "@/components/shared/badges";
 import { DeliverableDecision } from "@/components/shared/deliverable-decision";
 import { DeliverableFeedback } from "@/components/shared/deliverable-feedback";
+import { ScheduleButton, ScheduledLine } from "@/components/shared/deliverable-schedule";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { errorMessage } from "@/lib/api";
@@ -117,7 +118,8 @@ const iconButton = "shrink-0 text-muted-foreground disabled:opacity-50";
 
 /**
  * Barre d'icônes d'un livrable, toujours dans le même ordre : envoyer au
- * client (✓), décision pour le client, publier, ouvrir, modifier, supprimer.
+ * client (✓), décision pour le client, programmer (📅), publier, ouvrir,
+ * modifier, supprimer.
  * Seules les actions possibles (état + droits) apparaissent.
  */
 export function DeliverableActions({
@@ -157,6 +159,7 @@ export function DeliverableActions({
       {canValidate && isSentToClient(d) && (
         <DeliverableDecision deliverable={d} onBehalf variant="icons" />
       )}
+      {canPublish && !d.published_at && <ScheduleButton deliverable={d} />}
       {canPublish && canTogglePublication(d) && (
         <button
           type="button"
@@ -284,6 +287,7 @@ export function DeliverableCard({
               <DeliverableStateBadge deliverable={d} />
             </div>
           )}
+          <ScheduledLine deliverable={d} className="mt-1" />
         </div>
         <div className="ml-auto">
           <DeliverableActions deliverable={d} onEdit={onEdit} allowDelete={allowDelete} />

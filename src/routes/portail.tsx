@@ -21,6 +21,7 @@ import {
   hasDeliverableLink,
 } from "@/components/shared/badges";
 import { DeliverableDecision } from "@/components/shared/deliverable-decision";
+import { ScheduledLine } from "@/components/shared/deliverable-schedule";
 import { StatCard } from "@/components/shared/stat-card";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -252,6 +253,8 @@ function ClientPortalPage() {
                       {waitingDays >= REVIEW_REMINDER_DAYS &&
                         ` · en attente de votre retour depuis ${waitingDays} jours`}
                     </p>
+                    {/* L'échéance qui compte pour le client : valider avant. */}
+                    <ScheduledLine deliverable={d} className="mt-0.5" />
                   </div>
                   <a
                     href={d.url}

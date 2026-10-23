@@ -19,6 +19,7 @@ import { fr } from "date-fns/locale";
 import {
   AlertTriangle,
   Building2,
+  CalendarClock,
   CalendarDays,
   Clock,
   FolderKanban,
@@ -42,6 +43,8 @@ import {
 } from "recharts";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/shared/stat-card";
+import { DeliverableStateBadge } from "@/components/shared/badges";
+import { ScheduledLine } from "@/components/shared/deliverable-schedule";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -403,7 +406,7 @@ function DashboardPage() {
           (toujours en temps réel, hors filtre de période)
         </span>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="Échéance dans 24 h"
           value={alerts?.in24h.length ?? 0}
@@ -435,6 +438,15 @@ function DashboardPage() {
           tone="info"
           delay={0.12}
           onClick={() => setDrill("pendingDeliverables")}
+        />
+        {/* Prévues dans les 48 h sans être prêtes, ou date dépassée. */}
+        <StatCard
+          label="Publications à risque"
+          value={alerts?.publicationsAtRisk.length ?? 0}
+          icon={CalendarClock}
+          tone="danger"
+          delay={0.16}
+          onClick={() => setDrill("publicationsAtRisk")}
         />
       </div>
 
@@ -618,6 +630,7 @@ function DashboardPage() {
               {drill === "in48h" && "Échéances dans 48 h"}
               {drill === "blocked" && "Missions bloquées (corrections)"}
               {drill === "pendingDeliverables" && "Livrables en attente de validation"}
+              {drill === "publicationsAtRisk" && "Publications à risque"}
             </DialogTitle>
             <DialogDescription>
               Cliquez sur une ligne pour ouvrir la fiche détaillée.
@@ -709,6 +722,37 @@ function DashboardPage() {
                   <span className="text-xs text-muted-foreground">{userName(d.uploaded_by)}</span>
                 </Link>
               ))}
+            </div>
+          )}
+
+          {drill === "publicationsAtRisk" && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Prévues dans les 48 h sans être validées par l'agence et le client, ou date de
+                publication dépassée.
+              </p>
+              {(alerts?.publicationsAtRisk ?? []).map((d) => (
+                <Link
+                  key={d.id}
+                  to="/missions/$missionId"
+                  params={{ missionId: d.mission_id }}
+                  search={{ livrable: d.id }}
+                  onClick={() => setDrill(null)}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border p-3 text-sm transition hover:border-primary/50"
+                >
+                  <span className="min-w-0 flex-1 font-medium">{d.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {missionTitle(d.mission_id)}
+                  </span>
+                  <DeliverableStateBadge deliverable={d} />
+                  <ScheduledLine deliverable={d} className="w-full" />
+                </Link>
+              ))}
+              {(alerts?.publicationsAtRisk ?? []).length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Aucune publication à risque.
+                </p>
+              )}
             </div>
           )}
 
