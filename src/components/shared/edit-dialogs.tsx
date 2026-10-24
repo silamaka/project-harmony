@@ -487,20 +487,11 @@ export function EditMissionDialog({
   const setOpen = controlled ? setControlledOpen : setInternalOpen;
   const { user: currentUser } = useAuth();
   // Même formulaire qu'à la création (CreateMissionDialog) : un collaborateur
-  // y garde les mêmes droits — projet limité à son périmètre, responsable
+  // y garde les mêmes droits — tous les projets au choix, responsable
   // principal verrouillé (voir MissionPermission côté serveur).
   const isManager = currentUser?.role === "admin" || currentUser?.role === "chef_projet";
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
-  const { data: allProjects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
-  const { data: visibleMissions } = useQuery({
-    queryKey: ["missions"],
-    queryFn: missionService.list,
-    enabled: !isManager,
-  });
-  const ownProjectIds = new Set((visibleMissions ?? []).map((m) => m.project_id));
-  const projects = isManager
-    ? allProjects
-    : (allProjects ?? []).filter((p) => ownProjectIds.has(p.id) || p.id === mission.project_id);
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
   const nameOf = (id: string) => {
     const u = assignees.find((a) => a.id === id);

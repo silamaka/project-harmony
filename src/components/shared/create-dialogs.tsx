@@ -296,25 +296,20 @@ export function CreateMissionDialog({
   projectId,
   clientId,
   assigneeId,
-  allowedProjectIds,
   lockAssignee = false,
 }: {
   projectId?: string;
   clientId?: string;
   /** Pré-sélectionne le responsable (ex. depuis la fiche d'un collaborateur). */
   assigneeId?: string;
-  /** Restreint le sélecteur de projet à cette liste (ex. auto-création par un collaborateur). */
-  allowedProjectIds?: string[];
   /** Masque le champ "Assigné à" : la mission reste assignée à `assigneeId`. */
   lockAssignee?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const { data: allProjects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
-  const projects = allowedProjectIds
-    ? (allProjects ?? []).filter((p) => allowedProjectIds.includes(p.id))
-    : clientId
-      ? (allProjects ?? []).filter((p) => p.client_id === clientId)
-      : allProjects;
+  const projects = clientId
+    ? (allProjects ?? []).filter((p) => p.client_id === clientId)
+    : allProjects;
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const assignees = (users ?? []).filter((u) => u.role !== "client");
   const nameOf = (id: string) => {

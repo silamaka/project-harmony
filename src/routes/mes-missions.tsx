@@ -62,10 +62,6 @@ function MyMissionsPage() {
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
 
   const ownMissions = useMemo(() => missions ?? [], [missions]);
-  const ownProjectIds = useMemo(
-    () => Array.from(new Set(ownMissions.map((m) => m.project_id))),
-    [ownMissions],
-  );
   const clientName = (id: string) => (clients ?? []).find((c) => c.id === id)?.name ?? "—";
   const missionDeliverables = (missionId: string) =>
     (deliverables ?? []).filter((d) => d.mission_id === missionId);
@@ -117,11 +113,8 @@ function MyMissionsPage() {
       allow={["collaborateur"]}
       actions={
         user && (
-          <CreateMissionDialog
-            assigneeId={user.id}
-            allowedProjectIds={ownProjectIds}
-            lockAssignee
-          />
+          // Tous les projets au choix ; la mission reste à son nom.
+          <CreateMissionDialog assigneeId={user.id} lockAssignee />
         )
       }
     >

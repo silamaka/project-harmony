@@ -114,7 +114,9 @@ class MissionCreateDeleteTests(RoleTestCase):
         res = self.client.post(mission_list_url(), payload)
         self.assertEqual(res.status_code, 403)
 
-    def test_collaborateur_cannot_create_mission_on_uninvolved_project(self):
+    def test_collaborateur_can_create_mission_on_any_project(self):
+        """Tous les projets sont ouverts au collaborateur, même un projet
+        neuf où il n'a encore aucune mission (toujours pour lui-même)."""
         other_project = Project.objects.create(
             name="Projet sans lui",
             client=self.client_company,
@@ -126,7 +128,7 @@ class MissionCreateDeleteTests(RoleTestCase):
         self.auth_as(self.collaborateur)
         payload = {**self._payload(), "project_id": str(other_project.id)}
         res = self.client.post(mission_list_url(), payload)
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 201)
 
     def test_client_cannot_create_mission(self):
         self.auth_as(self.client_user)
@@ -197,7 +199,8 @@ class CollaborateurUpdateTests(RoleTestCase):
         )
         self.assertEqual(res.status_code, 403)
 
-    def test_cannot_move_own_mission_to_another_project(self):
+    def test_can_move_own_mission_to_any_project(self):
+        """Comme à la création : tous les projets sont ouverts."""
         other_project = Project.objects.create(
             name="Autre projet",
             client=self.client_company,
@@ -210,7 +213,7 @@ class CollaborateurUpdateTests(RoleTestCase):
         res = self.client.patch(
             mission_detail_url(self.mission.id), {"project_id": str(other_project.id)}
         )
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200)
 
     def test_can_update_collaborators_on_own_mission(self):
         self.auth_as(self.collaborateur)
