@@ -329,7 +329,7 @@ function QuotaColumn({
         <span className="pb-1 text-[10px] text-muted-foreground">Pas de forfait</span>
       ) : (
         <div
-          className="flex w-full flex-col-reverse gap-0.5"
+          className="flex w-6 flex-col-reverse gap-0.5"
           role="img"
           aria-label={`${row.name} : ${rowDetail(row)}`}
         >
@@ -339,7 +339,7 @@ function QuotaColumn({
               title={row.deliverables[i]?.name}
               style={{ height: CELL_PX }}
               className={cn(
-                "w-full rounded-[3px]",
+                "w-full rounded-[2px]",
                 // Au-delà du forfait : contenus en plus, en orange.
                 i >= quota
                   ? "bg-warning"
