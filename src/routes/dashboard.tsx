@@ -32,6 +32,8 @@ import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/shared/stat-card";
+import { ObliqueNameTick } from "@/components/shared/oblique-name-tick";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ContentQuotaChart } from "@/components/shared/content-quota-chart";
 import { DeliverableStateBadge } from "@/components/shared/badges";
 import { ScheduledLine } from "@/components/shared/deliverable-schedule";
@@ -74,6 +76,14 @@ const PERIOD_LABELS: Record<Period, string> = {
   personnalise: "Personnalisé",
 };
 
+/** Axe X des graphiques par nom : noms en oblique, comme « Contenus du mois ». */
+const obliqueAxisProps = (isMobile: boolean) => ({
+  interval: 0 as const,
+  height: isMobile ? 96 : 72,
+  tickLine: false,
+  tick: <ObliqueNameTick angle={isMobile ? -60 : -35} />,
+});
+
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
@@ -102,6 +112,7 @@ function DashboardPage() {
   const { data: comments } = useQuery({ queryKey: ["comments"], queryFn: commentService.list });
 
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [drill, setDrill] = useState<null | string>(null);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
@@ -437,7 +448,7 @@ function DashboardPage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Missions par client</h2>
-          <div className="mt-4 h-60">
+          <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byClient} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
                 <CartesianGrid
@@ -448,11 +459,7 @@ function DashboardPage() {
                 <XAxis
                   dataKey="name"
                   stroke="var(--color-muted-foreground)"
-                  fontSize={11}
-                  interval={0}
-                  angle={-20}
-                  textAnchor="end"
-                  height={48}
+                  {...obliqueAxisProps(isMobile)}
                 />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
                 <Tooltip
@@ -476,7 +483,7 @@ function DashboardPage() {
 
         <div className="surface-card p-5">
           <h2 className="text-sm font-semibold">Missions par collaborateur</h2>
-          <div className="mt-4 h-60">
+          <div className="mt-4 h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byCollab} margin={{ top: 4, right: 4, left: -20, bottom: 4 }}>
                 <CartesianGrid
@@ -487,11 +494,7 @@ function DashboardPage() {
                 <XAxis
                   dataKey="name"
                   stroke="var(--color-muted-foreground)"
-                  fontSize={11}
-                  interval={0}
-                  angle={-20}
-                  textAnchor="end"
-                  height={48}
+                  {...obliqueAxisProps(isMobile)}
                 />
                 <YAxis stroke="var(--color-muted-foreground)" fontSize={11} allowDecimals={false} />
                 <Tooltip
