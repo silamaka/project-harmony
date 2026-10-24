@@ -29,20 +29,10 @@ import {
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppShell } from "@/components/layout/app-shell";
 import { StatCard } from "@/components/shared/stat-card";
+import { ContentQuotaChart } from "@/components/shared/content-quota-chart";
 import { DeliverableStateBadge } from "@/components/shared/badges";
 import { ScheduledLine } from "@/components/shared/deliverable-schedule";
 import { Button } from "@/components/ui/button";
@@ -97,10 +87,6 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardPage() {
-  const { data: monthly } = useQuery({
-    queryKey: ["dashboard", "monthly"],
-    queryFn: dashboardService.monthly,
-  });
   const { data: alerts } = useQuery({
     queryKey: ["dashboard", "alerts"],
     queryFn: dashboardService.alerts,
@@ -204,12 +190,6 @@ function DashboardPage() {
       })),
     [collaborators, filteredMissions],
   );
-  const completedInPeriod = filteredMissions.filter(
-    (m) => m.status === "termine" || m.status === "valide" || m.status === "publie",
-  ).length;
-  const rate = filteredMissions.length
-    ? Math.round((completedInPeriod / filteredMissions.length) * 100)
-    : 0;
 
   const stats = {
     clients: (clients ?? []).length,
@@ -450,61 +430,8 @@ function DashboardPage() {
         />
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <div className="surface-card p-5 lg:col-span-2">
-          <h2 className="text-sm font-semibold">Évolution mensuelle</h2>
-          <p className="text-xs text-muted-foreground">
-            Tendance globale, indépendante du filtre de période.
-          </p>
-          <div className="mt-4 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={monthly ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="month" stroke="var(--color-muted-foreground)" fontSize={12} />
-                <YAxis stroke="var(--color-muted-foreground)" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--color-popover)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 12,
-                    color: "var(--color-popover-foreground)",
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line
-                  type="monotone"
-                  dataKey="missions"
-                  name="Missions créées"
-                  stroke="var(--color-chart-1)"
-                  strokeWidth={2}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="livrables"
-                  name="Livrables déposés"
-                  stroke="var(--color-chart-3)"
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="surface-card flex flex-col items-center justify-center p-5">
-          <h2 className="self-start text-sm font-semibold">Taux de réalisation</h2>
-          <div className="relative mt-6 flex h-40 w-40 items-center justify-center rounded-full bg-muted">
-            <div
-              className="absolute inset-0 rounded-full"
-              style={{
-                background: `conic-gradient(var(--color-primary) ${rate * 3.6}deg, transparent 0)`,
-              }}
-            />
-            <div className="relative flex h-28 w-28 items-center justify-center rounded-full bg-card">
-              <span className="text-3xl font-extrabold">{rate}%</span>
-            </div>
-          </div>
-          <p className="mt-4 text-xs text-muted-foreground">Missions validées ou terminées</p>
-        </div>
+      <div className="mt-6">
+        <ContentQuotaChart />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">

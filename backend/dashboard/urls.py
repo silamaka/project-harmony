@@ -11,6 +11,7 @@ urlpatterns = [
         name="dashboard-missions-by-collaborator",
     ),
     path("dashboard/monthly/", views.monthly, name="dashboard-monthly"),
+    path("dashboard/content-quota/", views.content_quota, name="dashboard-content-quota"),
     path("dashboard/completion-rate/", views.completion_rate, name="dashboard-completion-rate"),
     path("dashboard/alerts/", views.alerts, name="dashboard-alerts"),
 ]

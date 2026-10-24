@@ -19,6 +19,8 @@ class Client(models.Model):
     # URL base64 générée côté client.
     logo_url = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=ClientStatus.choices, default=ClientStatus.PROSPECT)
+    # Nombre de contenus promis au client chaque mois (jauge du dashboard).
+    monthly_quota = models.PositiveSmallIntegerField(default=16)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

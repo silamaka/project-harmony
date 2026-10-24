@@ -53,6 +53,8 @@ export interface Client {
   address?: string;
   logo_url?: string;
   status: "actif" | "inactif" | "prospect";
+  /** Contenus promis chaque mois (jauge du dashboard). */
+  monthly_quota: number;
   contacts: Contact[];
   created_at: string;
 }

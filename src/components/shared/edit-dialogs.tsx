@@ -246,11 +246,19 @@ export function EditClientDialog({ client }: { client: Client }) {
     address: client.address ?? "",
     status: client.status,
     logo_url: client.logo_url ?? "",
+    monthly_quota: String(client.monthly_quota ?? 16),
   });
+  const quota = Number(form.monthly_quota);
+  const quotaValid = form.monthly_quota.trim() !== "" && Number.isInteger(quota) && quota >= 0;
   const done = useSaved([["clients"], ["clients", client.id]], () => setOpen(false));
 
   const mutation = useMutation({
-    mutationFn: () => clientService.update(client.id, { ...form, name: form.name.trim() }),
+    mutationFn: () =>
+      clientService.update(client.id, {
+        ...form,
+        name: form.name.trim(),
+        monthly_quota: quota,
+      }),
     onSuccess: () => done("Client mis à jour."),
     onError: (error) => toast.error(errorMessage(error, "Mise à jour impossible.")),
   });
@@ -316,10 +324,21 @@ export function EditClientDialog({ client }: { client: Client }) {
               <option value="inactif">Inactif</option>
             </select>
           </Field>
+          <Field label="Contenus par mois">
+            <Input
+              type="number"
+              min={0}
+              max={999}
+              inputMode="numeric"
+              value={form.monthly_quota}
+              aria-invalid={!quotaValid}
+              onChange={(e) => setForm({ ...form, monthly_quota: e.target.value })}
+            />
+          </Field>
         </div>
         <DialogFooter>
           <Button
-            disabled={!form.name.trim() || mutation.isPending}
+            disabled={!form.name.trim() || !quotaValid || mutation.isPending}
             onClick={() => mutation.mutate()}
           >
             {mutation.isPending ? "Enregistrement..." : "Enregistrer"}

@@ -7,10 +7,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from accounts.models import Role, User
-from clients.models import Client
+from clients.models import Client, ClientStatus
 from deliverables.models import Deliverable, DeliverableStatus
 from deliverables.serializers import DeliverableSerializer
 from missions.models import DONE_STATUSES, Mission, MissionStatus
+from missions.scoping import missions_visible_to
 from missions.serializers import MissionSerializer
 from projects.models import Project
 
@@ -106,6 +107,74 @@ def monthly(request):
         ]
     )
 
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrChefProjet])
+def content_quota(request):
+    """Contenus du mois par client, face à son forfait (monthly_quota).
+
+    `?month=AAAA-MM` (mois en cours par défaut). Un livrable compte une fois,
+    au mois de son dépôt : ses versions suivantes (v2, v3...) restent le même
+    livrable. `with_link` : contenu fourni ; `without_link` : annoncé, lien
+    pas encore déposé. Clients listés : les actifs, plus tout client ayant
+    des livrables ce mois-là."""
+    today = timezone.localdate()
+    try:
+        year, month = (int(part) for part in request.query_params.get("month", "").split("-"))
+        date(year, month, 1)
+    except ValueError:
+        year, month = today.year, today.month
+    tz = timezone.get_current_timezone()
+    start = timezone.make_aware(timezone.datetime(year, month, 1), tz)
+    next_year, next_month = (year, month + 1) if month < 12 else (year + 1, 1)
+    end = timezone.make_aware(timezone.datetime(next_year, next_month, 1), tz)
+
+    # Livrables du mois groupés par client : avec lien d'abord (ordre des
+    # cases de la jauge), puis par date de dépôt.
+    by_client = {}
+    month_deliverables = (
+        Deliverable.objects.filter(created_at__gte=start, created_at__lt=end)
+        .select_related("mission")
+        .order_by("created_at")
+    )
+    # Tout le monde voit toute la jauge (transparence), mais le lien vers la
+    # mission n'est proposé que si l'utilisateur peut l'ouvrir.
+    openable = set(
+        missions_visible_to(request.user)
+        .filter(deliverables__in=month_deliverables)
+        .values_list("id", flat=True)
+    )
+    for d in month_deliverables:
+        by_client.setdefault(d.mission.client_id, []).append(
+            {
+                "id": str(d.id),
+                "name": d.name,
+                "mission_id": str(d.mission_id),
+                "mission_title": d.mission.title,
+                "can_open": d.mission_id in openable,
+                "has_link": bool(d.url),
+                "created_at": d.created_at,
+            }
+        )
+    for items in by_client.values():
+        items.sort(key=lambda item: not item["has_link"])
+    clients = Client.objects.filter(Q(status=ClientStatus.ACTIF) | Q(id__in=by_client.keys()))
+    rows = []
+    for c in clients.order_by("name"):
+        items = by_client.get(c.id, [])
+        with_link = sum(item["has_link"] for item in items)
+        rows.append(
+            {
+                "client_id": str(c.id),
+                "name": c.name,
+                "quota": c.monthly_quota,
+                "with_link": with_link,
+                "without_link": len(items) - with_link,
+                "deliverables": items,
+            }
+        )
+    return Response({"month": f"{year:04d}-{month:02d}", "clients": rows})
 
 
 @api_view(["GET"])

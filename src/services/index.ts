@@ -303,6 +303,31 @@ export const dashboardService = {
         `${endpoints.dashboard}monthly/`,
       )
     ).data,
+  /** GET /api/v1/dashboard/content-quota/?month=AAAA-MM */
+  contentQuota: async (month: string) =>
+    (
+      await api.get<{
+        month: string;
+        clients: {
+          client_id: string;
+          name: string;
+          quota: number;
+          with_link: number;
+          without_link: number;
+          /** Livrables du mois : avec lien d'abord, puis par date de dépôt. */
+          deliverables: {
+            id: string;
+            name: string;
+            mission_id: string;
+            mission_title: string;
+            /** L'utilisateur peut ouvrir la mission (sinon, nom affiché sans lien). */
+            can_open: boolean;
+            has_link: boolean;
+            created_at: string;
+          }[];
+        }[];
+      }>(`${endpoints.dashboard}content-quota/`, { params: { month } })
+    ).data,
   /** GET /api/v1/dashboard/alerts/ */
   alerts: async () =>
     (

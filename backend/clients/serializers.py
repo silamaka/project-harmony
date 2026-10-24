@@ -26,6 +26,7 @@ class ClientSerializer(serializers.ModelSerializer):
             "address",
             "logo_url",
             "status",
+            "monthly_quota",
             "contacts",
             "created_at",
         ]

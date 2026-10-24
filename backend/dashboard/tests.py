@@ -221,3 +221,96 @@ class MonthlyEvolutionTests(RoleTestCase):
     def test_client_cannot_access(self):
         self.auth_as(self.client_user)
         self.assertEqual(self.client.get(reverse("dashboard-monthly")).status_code, 403)
+
+
+class ContentQuotaTests(RoleTestCase):
+    """Jauge des contenus du mois par client, face à son forfait."""
+
+    def _get(self, **params):
+        self.auth_as(self.admin)
+        res = self.client.get(reverse("dashboard-content-quota"), params)
+        self.assertEqual(res.status_code, 200)
+        return res.data
+
+    def _row(self, data, client):
+        return next(r for r in data["clients"] if r["client_id"] == str(client.id))
+
+    def _deliverable(self, url=""):
+        return Deliverable.objects.create(
+            mission=self.mission, name="Post", type="lien", url=url,
+            uploaded_by=self.collaborateur,
+        )
+
+    def test_counts_with_and_without_link_against_the_quota(self):
+        from clients.models import Client
+
+        Client.objects.filter(pk=self.client_company.pk).update(monthly_quota=12)
+        self._deliverable("https://example.com/a")
+        self._deliverable("https://example.com/b")
+        self._deliverable()
+        row = self._row(self._get(), self.client_company)
+        self.assertEqual(
+            (row["quota"], row["with_link"], row["without_link"]), (12, 2, 1)
+        )
+        # Un client sans livrable ce mois-ci figure quand même, à zéro.
+        other = self._row(self._get(), self.other_client_company)
+        self.assertEqual((other["quota"], other["with_link"], other["without_link"]), (16, 0, 0))
+
+    def test_a_new_version_does_not_add_a_content(self):
+        d = self._deliverable("https://example.com/a")
+        Deliverable.objects.filter(pk=d.pk).update(url="https://example.com/a-v2", version=2)
+        self.assertEqual(self._row(self._get(), self.client_company)["with_link"], 1)
+
+    def test_other_months_are_separate(self):
+        from django.utils import timezone
+
+        d = self._deliverable("https://example.com/a")
+        last_month = timezone.localdate().replace(day=1) - timedelta(days=1)
+        Deliverable.objects.filter(pk=d.pk).update(
+            created_at=timezone.make_aware(
+                timezone.datetime(last_month.year, last_month.month, 10),
+                timezone.get_current_timezone(),
+            )
+        )
+        self.assertEqual(self._row(self._get(), self.client_company)["with_link"], 0)
+        past = self._get(month=f"{last_month.year}-{last_month.month:02d}")
+        self.assertEqual(past["month"], f"{last_month.year}-{last_month.month:02d}")
+        self.assertEqual(self._row(past, self.client_company)["with_link"], 1)
+
+    def test_inactive_clients_only_listed_with_contents(self):
+        from clients.models import Client, ClientStatus
+
+        Client.objects.filter(pk=self.client_company.pk).update(status=ClientStatus.INACTIF)
+        ids = {r["client_id"] for r in self._get()["clients"]}
+        self.assertNotIn(str(self.client_company.id), ids)
+        self._deliverable()
+        ids = {r["client_id"] for r in self._get()["clients"]}
+        self.assertIn(str(self.client_company.id), ids)
+
+    def test_invalid_month_falls_back_to_current(self):
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        self.assertEqual(self._get(month="nimporte")["month"], f"{today.year}-{today.month:02d}")
+
+    def test_client_cannot_access(self):
+        self.auth_as(self.client_user)
+        self.assertEqual(
+            self.client.get(reverse("dashboard-content-quota")).status_code, 403
+        )
+
+    def test_lists_the_month_deliverables_links_first(self):
+        self._deliverable()
+        linked = self._deliverable("https://example.com/a")
+        items = self._row(self._get(), self.client_company)["deliverables"]
+        self.assertEqual([i["has_link"] for i in items], [True, False])
+        self.assertEqual(items[0]["id"], str(linked.id))
+        self.assertEqual(items[0]["mission_title"], self.mission.title)
+
+    def test_mission_link_only_for_missions_the_user_can_open(self):
+        self._deliverable("https://example.com/a")
+        self.auth_as(self.other_collaborateur)
+        res = self.client.get(reverse("dashboard-content-quota"))
+        item = self._row(res.data, self.client_company)["deliverables"][0]
+        self.assertFalse(item["can_open"])
+        self.assertTrue(self._row(self._get(), self.client_company)["deliverables"][0]["can_open"])
