@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { addMonths, format, parse, parseISO } from "date-fns";
@@ -19,10 +19,10 @@ const MONTH_FORMAT = "yyyy-MM";
 // Une case = 12 px de haut + 2 px d'écart : l'axe Y se cale sur cette grille.
 const CELL_PX = 12;
 const UNIT_PX = CELL_PX + 2;
-// Largeur d'une colonne, partagée par les colonnes et les noms de l'axe X :
-// elles s'étirent pour occuper la carte, sans devenir énormes.
-const COLUMN_CLASS = "min-w-20 max-w-40 flex-1 px-1.5";
-const AXIS_CLASS = "sticky left-0 z-20 w-8 shrink-0 bg-card";
+// Colonnes partagées par les barres et les noms de l'axe X : elles se
+// répartissent toute la largeur de la carte, sans défilement.
+const COLUMN_CLASS = "min-w-0 flex-1 px-0.5";
+const AXIS_CLASS = "relative w-8 shrink-0";
 
 /** Graduations de l'axe Y : de 0 au plus haut, par pas lisible. */
 function yTicks(max: number) {
@@ -80,19 +80,6 @@ export function ContentQuotaChart() {
     { done: 0, quota: 0 },
   );
   const anyOver = rows.some((r) => r.total > r.quota);
-
-  // Fondu sur le bord droit tant qu'il reste des clients à faire défiler.
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [moreRight, setMoreRight] = useState(false);
-  const updateMoreRight = useCallback(() => {
-    const el = scrollRef.current;
-    setMoreRight(!!el && el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  }, []);
-  useEffect(() => {
-    updateMoreRight();
-    window.addEventListener("resize", updateMoreRight);
-    return () => window.removeEventListener("resize", updateMoreRight);
-  }, [updateMoreRight, rows.length]);
 
   return (
     <div className="surface-card p-5">
@@ -157,80 +144,69 @@ export function ContentQuotaChart() {
         <p className="mt-4 text-xs text-muted-foreground">Aucun client actif ce mois-ci.</p>
       )}
       {rows.length > 0 && (
-        // Axe Y (contenus) fixe à gauche, axe X (clients) en bas ; les
-        // colonnes défilent horizontalement quand il y a beaucoup de clients.
-        <div className="relative mt-4">
-          <div ref={scrollRef} onScroll={updateMoreRight} className="overflow-x-auto pb-1">
-            <div className="w-max min-w-full">
-              <div className="flex items-end">
-                {/* Au-dessus de la ligne des noms : le "0" déborde sous l'axe. */}
-                <div className={cn(AXIS_CLASS, "z-30")}>
-                  <span className="block pb-3 text-[10px] text-muted-foreground">Contenus</span>
-                  <div
-                    className="relative border-r border-border"
-                    style={{ height: maxCells * UNIT_PX - 2 }}
+        // Axe Y (contenus) à gauche, axe X (clients) en bas, noms en
+        // oblique : tout tient dans la carte, les colonnes se resserrent.
+        <div className="mt-4">
+          <span className="mb-1 block text-[10px] text-muted-foreground">Contenus</span>
+          <div className="flex items-end">
+            {/* Au-dessus de la ligne des noms : le "0" déborde sous l'axe. */}
+            <div className={cn(AXIS_CLASS, "z-30")}>
+              <div
+                className="relative border-r border-border"
+                style={{ height: maxCells * UNIT_PX - 2 }}
+              >
+                {ticks.map((v) => (
+                  <span
+                    key={v}
+                    className="absolute right-1.5 translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
+                    style={{ bottom: tickBottom(v) }}
                   >
-                    {ticks.map((v) => (
-                      <span
-                        key={v}
-                        className="absolute right-1.5 translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
-                        style={{ bottom: tickBottom(v) }}
-                      >
-                        {v}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="relative flex flex-1 items-end justify-around gap-1 border-b border-border">
-                  {/* Lignes de repère, derrière les colonnes. */}
-                  {ticks
-                    .filter((v) => v > 0)
-                    .map((v) => (
-                      <span
-                        key={v}
-                        aria-hidden
-                        className="pointer-events-none absolute inset-x-0 border-t border-border/50"
-                        style={{ bottom: tickBottom(v) }}
-                      />
-                    ))}
-                  {rows.map((row) => (
-                    <QuotaColumn
-                      key={row.client_id}
-                      row={row}
-                      isCurrent={isCurrent}
-                      onOpen={() => setSelected(row)}
-                    />
-                  ))}
-                </div>
-              </div>
-              {/* Axe X : un nom par colonne, cliquable comme la colonne. */}
-              <div className="flex">
-                <div className={AXIS_CLASS} />
-                <div className="flex flex-1 justify-around gap-1">
-                  {rows.map((row) => (
-                    <button
-                      key={row.client_id}
-                      type="button"
-                      title={row.name}
-                      onClick={() => setSelected(row)}
-                      className={cn(
-                        COLUMN_CLASS,
-                        "line-clamp-2 break-normal pt-1.5 text-center text-[11px] font-medium leading-tight hover:underline",
-                      )}
-                    >
-                      {row.name}
-                    </button>
-                  ))}
-                </div>
+                    {v}
+                  </span>
+                ))}
               </div>
             </div>
+            <div className="relative flex min-w-0 flex-1 items-end border-b border-border">
+              {/* Lignes de repère, derrière les colonnes. */}
+              {ticks
+                .filter((v) => v > 0)
+                .map((v) => (
+                  <span
+                    key={v}
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 border-t border-border/50"
+                    style={{ bottom: tickBottom(v) }}
+                  />
+                ))}
+              {rows.map((row) => (
+                <QuotaColumn
+                  key={row.client_id}
+                  row={row}
+                  isCurrent={isCurrent}
+                  onOpen={() => setSelected(row)}
+                />
+              ))}
+            </div>
           </div>
-          {moreRight && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-card to-transparent"
-            />
-          )}
+          {/* Axe X : noms en oblique, ancrés sous leur colonne et cliquables
+              comme elle ; le nom complet s'affiche au survol. */}
+          <div className="flex">
+            <div className={AXIS_CLASS} />
+            <div className="flex min-w-0 flex-1">
+              {rows.map((row) => (
+                <div key={row.client_id} className={cn(COLUMN_CLASS, "relative h-24 sm:h-16")}>
+                  <button
+                    type="button"
+                    title={row.name}
+                    onClick={() => setSelected(row)}
+                    className="absolute right-1/2 top-1.5 max-w-24 origin-top-right -rotate-[60deg] truncate sm:-rotate-[35deg] whitespace-nowrap text-[11px] font-medium hover:underline"
+                  >
+                    {row.name}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -312,24 +288,26 @@ function QuotaColumn({
       title={status ? `${row.name} · ${status.label}` : row.name}
       className={cn(
         COLUMN_CLASS,
-        "relative z-10 flex flex-col items-center gap-1.5 rounded-t-lg pt-2 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "relative z-10 flex flex-col items-center gap-1.5 rounded-t-md pt-2 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
       {/* Compteur : vert forfait atteint, orange hors forfait ou sous le forfait. */}
       <span
         className={cn(
-          "text-xs font-semibold tabular-nums",
+          "whitespace-nowrap text-[10px] font-semibold tabular-nums sm:text-xs",
           status?.tone === "success" && "text-success",
           status?.tone === "warning" && "text-amber-600 dark:text-warning",
         )}
       >
-        {total}/{quota}
+        {total}
+        {/* Sur téléphone, colonnes étroites : le nombre seul. */}
+        <span className="hidden sm:inline">/{quota}</span>
       </span>
       {cells === 0 ? (
         <span className="pb-1 text-[10px] text-muted-foreground">Pas de forfait</span>
       ) : (
         <div
-          className="flex w-6 flex-col-reverse gap-0.5"
+          className="flex w-full max-w-6 flex-col-reverse gap-0.5"
           role="img"
           aria-label={`${row.name} : ${rowDetail(row)}`}
         >
