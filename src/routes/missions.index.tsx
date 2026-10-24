@@ -30,13 +30,13 @@ import { errorMessage } from "@/lib/api";
 const TASK_TYPE_TONE: Record<TaskType, string> = {
   mission: "bg-primary/10 text-primary border-primary/20",
   livrable: "bg-info/15 text-info border-info/20",
-  reunion: "bg-warning/20 text-warning border-warning/30",
+  descente: "bg-violet-500/15 text-violet-600 border-violet-500/30 dark:text-violet-400",
 };
 
 const TASK_TYPE_DOT: Record<TaskType, string> = {
   mission: "bg-primary",
   livrable: "bg-info",
-  reunion: "bg-warning",
+  descente: "bg-violet-500",
 };
 
 export const Route = createFileRoute("/missions/")({

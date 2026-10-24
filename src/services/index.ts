@@ -241,17 +241,6 @@ export const commentService = {
 export const calendarService = {
   /** GET /api/v1/calendar/ — portée déjà filtrée côté serveur selon le rôle. */
   list: async () => (await api.get<CalendarEvent[]>(endpoints.calendar)).data,
-  /** POST /api/v1/meetings/ */
-  createMeeting: async (payload: Omit<CalendarEvent, "id" | "type">) =>
-    (await api.post<CalendarEvent>(endpoints.meetings, payload)).data,
-  /** PATCH /api/v1/meetings/:id/ */
-  updateMeeting: async (id: string, patch: Partial<CalendarEvent>) =>
-    (await api.patch<CalendarEvent>(`${endpoints.meetings}${id}/`, patch)).data,
-  /** DELETE /api/v1/meetings/:id/ */
-  removeMeeting: async (id: string) => {
-    await api.delete(`${endpoints.meetings}${id}/`);
-    return true;
-  },
 };
 
 /* ----------------------------- Notifications ------------------------------ */

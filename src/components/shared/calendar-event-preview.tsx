@@ -33,7 +33,7 @@ import type { CalendarEvent, Deliverable, Mission } from "@/types";
  * livrable / une publication (état, dates, demande de corrections). Réutilise
  * les données déjà chargées par l'appli (mêmes clés de cache) ; la portée
  * vient du serveur (un client ne reçoit que ce qui le concerne), et la
- * priorité, interne, ne lui est pas montrée. Rien pour une réunion.
+ * priorité, interne, ne lui est pas montrée.
  */
 export function CalendarEventPreview({
   event,

@@ -17,25 +17,21 @@ import {
   subWeeks,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CLIENT_MISSION_STATUS_LABELS, clientMissionStatus } from "@/components/shared/badges";
 import { CalendarEventPreview } from "@/components/shared/calendar-event-preview";
-import { ConfirmDeleteButton } from "@/components/shared/edit-dialogs";
 import { cn, searchText } from "@/lib/utils";
 import {
   calendarService,
@@ -74,7 +70,7 @@ export const Route = createFileRoute("/calendrier")({
       {
         name: "description",
         content:
-          "Vue jour, semaine, mois et agenda des échéances de missions, livrables et réunions.",
+          "Vue jour, semaine, mois et agenda des échéances de missions, livrables et publications.",
       },
       { property: "og:title", content: "Calendrier — OLYMPE" },
       { property: "og:description", content: "Planning complet de l'agence, façon Google Agenda." },
@@ -97,7 +93,7 @@ const TYPE_TONE: Record<EventType, string> = {
   mission: "bg-primary/10 text-primary border-primary/20",
   publication: "bg-success/15 text-success border-success/30",
   livrable: "bg-info/15 text-info border-info/20",
-  reunion: "bg-warning/20 text-warning border-warning/30",
+  descente: "bg-violet-500/15 text-violet-600 border-violet-500/30 dark:text-violet-400",
 };
 
 const TYPE_DOT: Record<EventType, string> = {
@@ -105,7 +101,7 @@ const TYPE_DOT: Record<EventType, string> = {
   // Prévue : pastille claire ; publiée : pleine (voir dotOf).
   publication: "bg-success/40 ring-1 ring-success",
   livrable: "bg-info",
-  reunion: "bg-warning",
+  descente: "bg-violet-500",
 };
 
 const TYPE_LABEL: Record<EventType, string> = {
@@ -232,13 +228,9 @@ function StatusDot({ dot, className }: { dot: string; className?: string }) {
 }
 
 /** Échéance de mission (générée côté serveur, id "ev-<uuid>") : à distinguer
- * d'un livrable réellement déposé ou d'une réunion réellement créée, qui
- * partagent parfois le même `type` (une mission peut être taguée "Réunion"
- * sans être une vraie réunion du modèle Meeting). */
+ * d'un livrable réellement déposé, qui partage le même `type` qu'une mission
+ * taguée "Livrable". */
 const isMissionEvent = (e: ApiCalendarEvent) => e.id.startsWith("ev-");
-/** Vraie réunion (modèle Meeting) : jamais de mission_id, contrairement à
- * une mission taguée "Réunion" ou à un livrable déposé sur une mission. */
-const isRealMeeting = (e: CalendarEvent) => e.type === "reunion" && !e.mission_id;
 
 function CalendarPage() {
   const qc = useQueryClient();
@@ -256,27 +248,6 @@ function CalendarPage() {
   const [typeFilter, setTypeFilter] = useState<"tous" | EventType>("tous");
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [dayView, setDayView] = useState<Date | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formEvent, setFormEvent] = useState<CalendarEvent | null>(null);
-  const [formDate, setFormDate] = useState<string | null>(null);
-
-  const updateMeeting = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<CalendarEvent> }) =>
-      calendarService.updateMeeting(id, patch),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["calendar"] }),
-    onError: (error) => toast.error(errorMessage(error, "Déplacement impossible.")),
-  });
-
-  const removeMeeting = useMutation({
-    mutationFn: (id: string) => calendarService.removeMeeting(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["calendar"] });
-      toast.success("Réunion supprimée.");
-      setSelected(null);
-    },
-    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
-  });
-
   const updateMissionDeadline = useMutation({
     mutationFn: ({ id, deadline }: { id: string; deadline: string }) =>
       missionService.update(id, { deadline }),
@@ -287,8 +258,7 @@ function CalendarPage() {
     onError: (error) => toast.error(errorMessage(error, "Déplacement impossible.")),
   });
 
-  // Filtres client / projet (dans l'adresse). Les réunions, rattachées à
-  // aucun client, restent affichées.
+  // Filtres client / projet (dans l'adresse).
   const { client: clientFilter, projet: projectFilter } = Route.useSearch();
   const navigate = useNavigate({ from: "/calendrier" });
   const setClientFilter = (client: string) =>
@@ -323,16 +293,13 @@ function CalendarPage() {
         (e) =>
           (typeFilter === "tous" || e.type === typeFilter) &&
           e.title.toLowerCase().includes(query.toLowerCase()) &&
-          (!clientFilter || e.client_id === clientFilter || isRealMeeting(e)) &&
-          (!projectFilter || e.project_id === projectFilter || isRealMeeting(e)),
+          (!clientFilter || e.client_id === clientFilter) &&
+          (!projectFilter || e.project_id === projectFilter),
       ),
     [events, typeFilter, query, clientFilter, projectFilter],
   );
   const selectedClientName = clientOptions.find((c) => c.id === clientFilter)?.name;
-  const clientEventCount = visibleEvents.filter((e) => !isRealMeeting(e)).length;
-  // Réunions (rattachées à aucun client) qui restent affichées avec le filtre :
-  // annoncées à part, pour que le compteur corresponde à ce qu'on voit.
-  const meetingCount = visibleEvents.length - clientEventCount;
+  const clientEventCount = visibleEvents.length;
 
   const eventsOn = (date: Date) =>
     visibleEvents.filter((e) => isSameDay(parseISO(e.date), date)).sort(byDayOrder);
@@ -346,22 +313,7 @@ function CalendarPage() {
     const iso = format(date, "yyyy-MM-dd");
     if (isMissionEvent(ev) && ev.mission_id) {
       updateMissionDeadline.mutate({ id: ev.mission_id, deadline: iso });
-    } else if (isRealMeeting(ev)) {
-      updateMeeting.mutate({ id: ev.id, patch: { date: iso } });
     }
-  };
-
-  const openCreate = (date: Date) => {
-    setFormEvent(null);
-    setFormDate(format(date, "yyyy-MM-dd"));
-    setFormOpen(true);
-  };
-
-  const openEdit = (event: CalendarEvent) => {
-    setSelected(null);
-    setFormEvent(event);
-    setFormDate(null);
-    setFormOpen(true);
   };
 
   const goToday = () => setCursor(new Date());
@@ -404,16 +356,6 @@ function CalendarPage() {
               </Button>
             </div>
           )}
-          <Button
-            size="sm"
-            onClick={() => {
-              setFormEvent(null);
-              setFormDate(format(cursor, "yyyy-MM-dd"));
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="mr-1 h-4 w-4" /> Nouvel événement
-          </Button>
         </div>
       }
     >
@@ -517,8 +459,6 @@ function CalendarPage() {
           <span className="font-medium text-foreground">{selectedClientName}</span>
           {projectFilter &&
             ` · projet « ${projectOptions.find((p) => p.id === projectFilter)?.name ?? ""} »`}{" "}
-          {meetingCount > 0 &&
-            `· ${meetingCount} réunion${meetingCount > 1 ? "s" : ""} interne${meetingCount > 1 ? "s" : ""} aussi affichée${meetingCount > 1 ? "s" : ""} `}
           ·{" "}
           <button
             type="button"
@@ -555,13 +495,7 @@ function CalendarPage() {
         {view === "agenda" && <AgendaView events={visibleEvents} onEventClick={setSelected} />}
       </div>
 
-      <EventDetailDialog
-        event={selected}
-        onClose={() => setSelected(null)}
-        onEdit={openEdit}
-        onDelete={(id) => removeMeeting.mutate(id)}
-        deletePending={removeMeeting.isPending}
-      />
+      <EventDetailDialog event={selected} onClose={() => setSelected(null)} />
 
       <DayEventsDialog
         date={dayView}
@@ -572,17 +506,6 @@ function CalendarPage() {
           setDayView(null);
           setSelected(e);
         }}
-        onAdd={(date) => {
-          setDayView(null);
-          openCreate(date);
-        }}
-      />
-
-      <MeetingFormDialog
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        event={formEvent}
-        defaultDate={formDate}
       />
     </AppShell>
   );
@@ -850,7 +773,7 @@ function EventChip({
   full?: boolean;
 }) {
   const status = useMissionStatus()(event);
-  const draggable = isMissionEvent(event) || isRealMeeting(event);
+  const draggable = isMissionEvent(event);
   return (
     <p
       draggable={draggable}
@@ -908,15 +831,9 @@ function EventChip({
 function EventDetailDialog({
   event,
   onClose,
-  onEdit,
-  onDelete,
-  deletePending,
 }: {
   event: CalendarEvent | null;
   onClose: () => void;
-  onEdit: (event: CalendarEvent) => void;
-  onDelete: (id: string) => void;
-  deletePending: boolean;
 }) {
   return (
     <Dialog open={event !== null} onOpenChange={(o) => !o && onClose()}>
@@ -944,29 +861,8 @@ function EventDetailDialog({
                 jour du calendrier pour replanifier son échéance.
               </p>
             )}
-            {/* L'aperçu d'une mission / d'un livrable dit déjà son état. */}
-            {event.description && !event.mission_id && (
-              <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
-                {event.description}
-              </p>
-            )}
             {/* Mission, livrable ou publication : aperçu et accès direct. */}
             <CalendarEventPreview event={event} onClose={onClose} />
-            {isRealMeeting(event) && (
-              <DialogFooter className="flex-row items-center justify-end">
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => onEdit(event)}>
-                    Modifier
-                  </Button>
-                  <ConfirmDeleteButton
-                    title="Supprimer cette réunion ?"
-                    description="Cet événement sera retiré du calendrier. Cette action est irréversible."
-                    pending={deletePending}
-                    onConfirm={() => onDelete(event.id)}
-                  />
-                </div>
-              </DialogFooter>
-            )}
           </>
         )}
       </DialogContent>
@@ -981,14 +877,12 @@ function DayEventsDialog({
   hiddenByFilters = 0,
   onClose,
   onEventClick,
-  onAdd,
 }: {
   date: Date | null;
   events: CalendarEvent[];
   hiddenByFilters?: number;
   onClose: () => void;
   onEventClick: (event: CalendarEvent) => void;
-  onAdd: (date: Date) => void;
 }) {
   const statusOf = useMissionStatus();
   const sorted = [...events].sort(byDayOrder);
@@ -1033,142 +927,8 @@ function DayEventsDialog({
                 ))}
               </div>
             )}
-            <DialogFooter>
-              <Button size="sm" onClick={() => onAdd(date)}>
-                <Plus className="mr-1 h-4 w-4" /> Ajouter un événement
-              </Button>
-            </DialogFooter>
           </>
         )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ----------------------------- Créer / modifier ----------------------------- */
-function MeetingFormDialog({
-  open,
-  onOpenChange,
-  event,
-  defaultDate,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  event: CalendarEvent | null;
-  defaultDate: string | null;
-}) {
-  const qc = useQueryClient();
-  const isEdit = event !== null;
-  const titleId = useId();
-  const dateId = useId();
-  const timeId = useId();
-  const descriptionId = useId();
-  const [form, setForm] = useState({
-    title: event?.title ?? "",
-    date: event?.date.slice(0, 10) ?? defaultDate ?? format(new Date(), "yyyy-MM-dd"),
-    time: event?.time ?? "",
-    description: event?.description ?? "",
-  });
-
-  const resetFor = (e: CalendarEvent | null, date: string | null) => {
-    setForm({
-      title: e?.title ?? "",
-      date: e?.date.slice(0, 10) ?? date ?? format(new Date(), "yyyy-MM-dd"),
-      time: e?.time ?? "",
-      description: e?.description ?? "",
-    });
-  };
-
-  const mutation = useMutation({
-    mutationFn: () => {
-      const payload = {
-        title: form.title.trim(),
-        date: form.date,
-        ...(form.time ? { time: form.time } : {}),
-        ...(form.description.trim() ? { description: form.description.trim() } : {}),
-      };
-      return isEdit && event
-        ? calendarService.updateMeeting(event.id, payload)
-        : calendarService.createMeeting(payload);
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["calendar"] });
-      toast.success(isEdit ? "Réunion mise à jour." : "Réunion créée.");
-      onOpenChange(false);
-    },
-    onError: (error) => toast.error(errorMessage(error, "Enregistrement impossible.")),
-  });
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        onOpenChange(o);
-        if (o) resetFor(event, defaultDate);
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Modifier la réunion" : "Nouvelle réunion"}</DialogTitle>
-          <DialogDescription>
-            Seules les réunions peuvent être créées directement ; les échéances de missions et
-            dépôts de livrables apparaissent automatiquement.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label htmlFor={titleId} className="text-xs">
-              Titre
-            </Label>
-            <Input
-              id={titleId}
-              value={form.title}
-              maxLength={140}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={dateId} className="text-xs">
-              Date
-            </Label>
-            <Input
-              id={dateId}
-              type="date"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={timeId} className="text-xs">
-              Heure (optionnel)
-            </Label>
-            <Input
-              id={timeId}
-              type="time"
-              value={form.time}
-              onChange={(e) => setForm({ ...form, time: e.target.value })}
-            />
-          </div>
-          <div className="sm:col-span-2 space-y-1.5">
-            <Label htmlFor={descriptionId} className="text-xs">
-              Description
-            </Label>
-            <Textarea
-              id={descriptionId}
-              value={form.description}
-              maxLength={500}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!form.title.trim() || !form.date || mutation.isPending}
-            onClick={() => mutation.mutate()}
-          >
-            {mutation.isPending ? "Enregistrement..." : isEdit ? "Enregistrer" : "Créer"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

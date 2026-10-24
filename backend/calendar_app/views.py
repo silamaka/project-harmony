@@ -87,14 +87,9 @@ def calendar_events(request):
             }
         )
 
-    meeting_events = [
-        {**MeetingSerializer(m).data, "date": m.date.isoformat(), "type": "reunion"}
-        for m in Meeting.objects.all()
-    ]
-
-    return Response(
-        [*mission_events, *deliverable_events, *publication_events, *meeting_events]
-    )
+    # Les réunions (modèle Meeting) ne sont plus affichées au calendrier :
+    # les déplacements passent par les missions de type "Descente".
+    return Response([*mission_events, *deliverable_events, *publication_events])
 
 
 def publication_readiness(deliverable) -> str:

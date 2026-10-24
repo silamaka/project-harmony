@@ -12,7 +12,8 @@ class Priority(models.TextChoices):
 class TaskType(models.TextChoices):
     MISSION = "mission", "Mission"
     LIVRABLE = "livrable", "Livrable"
-    REUNION = "reunion", "Réunion"
+    # Déplacement sur le terrain (tournage, shooting, visite client...).
+    DESCENTE = "descente", "Descente"
 
 
 class MissionStatus(models.TextChoices):

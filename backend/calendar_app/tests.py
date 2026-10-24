@@ -72,12 +72,12 @@ class CalendarEventsTests(RoleTestCase):
         self.assertEqual([e for e in res.data if e["type"] == "livrable"], [])
 
     def test_mission_event_type_reflects_task_type(self):
-        self.mission.task_type = "reunion"
+        self.mission.task_type = "descente"
         self.mission.save()
         self.auth_as(self.admin)
         res = self.client.get(reverse("calendar"))
         event = next(e for e in res.data if e.get("mission_id") == str(self.mission.id))
-        self.assertEqual(event["type"], "reunion")
+        self.assertEqual(event["type"], "descente")
 
     def test_events_carry_client_and_project_for_filtering(self):
         Deliverable.objects.filter(mission=self.mission).update(status=DeliverableStatus.VALIDE)
@@ -96,13 +96,13 @@ class CalendarEventsTests(RoleTestCase):
         event = next(e for e in res.data if e["id"] == f"ev-{self.mission.id}")
         self.assertEqual(event["status"], "en_cours")
 
-    def test_meetings_are_visible_to_everyone_including_client(self):
-        """Design documenté : contrairement aux missions/livrables, les
-        réunions ne sont pas scopées à l'entreprise."""
-        self.auth_as(self.client_user)
+    def test_meetings_are_not_shown_on_the_calendar(self):
+        """Les réunions ont été retirées du calendrier (remplacées par les
+        missions de type "Descente")."""
+        self.auth_as(self.admin)
         res = self.client.get(reverse("calendar"))
-        reunion_titles = {e["title"] for e in res.data if e["type"] == "reunion"}
-        self.assertIn("Point hebdo", reunion_titles)
+        self.assertNotIn("Point hebdo", {e["title"] for e in res.data})
+        self.assertEqual([e for e in res.data if e["type"] == "reunion"], [])
 
 
 class MeetingReadTests(RoleTestCase):
