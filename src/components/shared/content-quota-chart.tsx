@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { addMonths, format, parse, parseISO } from "date-fns";
@@ -16,6 +16,21 @@ import { cn } from "@/lib/utils";
 import { dashboardService } from "@/services";
 
 const MONTH_FORMAT = "yyyy-MM";
+// Une case = 12 px de haut + 2 px d'écart : l'axe Y se cale sur cette grille.
+const CELL_PX = 12;
+const UNIT_PX = CELL_PX + 2;
+// Largeur d'une colonne, partagée par les colonnes et les noms de l'axe X :
+// elles s'étirent pour occuper la carte, sans devenir énormes.
+const COLUMN_CLASS = "min-w-20 max-w-40 flex-1 px-1.5";
+const AXIS_CLASS = "sticky left-0 z-20 w-8 shrink-0 bg-card";
+
+/** Graduations de l'axe Y : de 0 au plus haut, par pas lisible. */
+function yTicks(max: number) {
+  const step = max <= 20 ? 4 : max <= 50 ? 10 : 20;
+  const ticks = [];
+  for (let v = 0; v <= max; v += step) ticks.push(v);
+  return ticks;
+}
 
 type QuotaRow = Awaited<ReturnType<typeof dashboardService.contentQuota>>["clients"][number];
 type Row = QuotaRow & { total: number };
@@ -37,7 +52,8 @@ function rowDetail(row: Row) {
 }
 
 /** Une case par contenu : vert = déposé avec lien, gris = annoncé sans lien,
- *  pointillé = encore à produire pour tenir le forfait du mois. */
+ *  gris pâle = encore à produire pour tenir le forfait du mois, orange =
+ *  contenus au-delà du forfait. */
 export function ContentQuotaChart() {
   const now = new Date();
   const current = format(now, MONTH_FORMAT);
@@ -50,22 +66,47 @@ export function ContentQuotaChart() {
   const monthDate = parse(month, MONTH_FORMAT, new Date());
   const shift = (delta: number) => setMonth(format(addMonths(monthDate, delta), MONTH_FORMAT));
   const isCurrent = month === current;
-  const fill = (r: Row) => (r.quota ? r.total / r.quota : 1);
 
   const rows: Row[] = (data?.clients ?? [])
     .map((row) => ({ ...row, total: row.with_link + row.without_link }))
-    // Les moins avancés sur leur forfait d'abord.
-    .sort((a, b) => fill(a) - fill(b) || a.name.localeCompare(b.name, "fr"));
+    // Les clients qui ont le plus de livrables ce mois-ci d'abord.
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "fr"));
+  const maxCells = Math.max(1, ...rows.map((r) => Math.max(r.quota, r.total)));
+  const ticks = yTicks(maxCells);
+  // Position d'une valeur sur l'axe : le haut de sa case.
+  const tickBottom = (v: number) => (v === 0 ? 0 : v * UNIT_PX - 2);
   const totals = rows.reduce(
     (acc, r) => ({ done: acc.done + r.total, quota: acc.quota + r.quota }),
     { done: 0, quota: 0 },
   );
+  const anyOver = rows.some((r) => r.total > r.quota);
+
+  // Fondu sur le bord droit tant qu'il reste des clients à faire défiler.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [moreRight, setMoreRight] = useState(false);
+  const updateMoreRight = useCallback(() => {
+    const el = scrollRef.current;
+    setMoreRight(!!el && el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+  useEffect(() => {
+    updateMoreRight();
+    window.addEventListener("resize", updateMoreRight);
+    return () => window.removeEventListener("resize", updateMoreRight);
+  }, [updateMoreRight, rows.length]);
 
   return (
     <div className="surface-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold">Contenus du mois</h2>
+          <h2 className="text-sm font-semibold">
+            Contenus du mois
+            {rows.length > 1 && (
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                · {totals.done}/{totals.quota}
+              </span>
+            )}
+          </h2>
           <p className="text-xs text-muted-foreground">Par client, face au forfait mensuel.</p>
         </div>
         <div className="flex items-center gap-1">
@@ -102,30 +143,95 @@ export function ContentQuotaChart() {
           <span className="h-2.5 w-2.5 rounded-[3px] bg-muted-foreground/35" /> Sans lien
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-[3px] border border-dashed border-muted-foreground/50" />{" "}
-          À produire
+          <span className="h-2.5 w-2.5 rounded-[3px] bg-muted" /> À produire
         </span>
-      </div>
-
-      <div className="mt-4 max-h-80 space-y-1 overflow-y-auto pr-1">
-        {isLoading && <p className="text-xs text-muted-foreground">Chargement...</p>}
-        {!isLoading && rows.length === 0 && (
-          <p className="text-xs text-muted-foreground">Aucun client actif ce mois-ci.</p>
+        {anyOver && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-[3px] bg-warning" /> Hors forfait
+          </span>
         )}
-        {rows.map((row) => (
-          <QuotaBar
-            key={row.client_id}
-            row={row}
-            isCurrent={isCurrent}
-            onOpen={() => setSelected(row)}
-          />
-        ))}
       </div>
 
-      {rows.length > 1 && (
-        <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-          Agence <span className="font-semibold text-foreground">{totals.done}</span>/{totals.quota}
-        </p>
+      {isLoading && <p className="mt-4 text-xs text-muted-foreground">Chargement...</p>}
+      {!isLoading && rows.length === 0 && (
+        <p className="mt-4 text-xs text-muted-foreground">Aucun client actif ce mois-ci.</p>
+      )}
+      {rows.length > 0 && (
+        // Axe Y (contenus) fixe à gauche, axe X (clients) en bas ; les
+        // colonnes défilent horizontalement quand il y a beaucoup de clients.
+        <div className="relative mt-4">
+          <div ref={scrollRef} onScroll={updateMoreRight} className="overflow-x-auto pb-1">
+            <div className="w-max min-w-full">
+              <div className="flex items-end">
+                {/* Au-dessus de la ligne des noms : le "0" déborde sous l'axe. */}
+                <div className={cn(AXIS_CLASS, "z-30")}>
+                  <span className="block pb-3 text-[10px] text-muted-foreground">Contenus</span>
+                  <div
+                    className="relative border-r border-border"
+                    style={{ height: maxCells * UNIT_PX - 2 }}
+                  >
+                    {ticks.map((v) => (
+                      <span
+                        key={v}
+                        className="absolute right-1.5 translate-y-1/2 text-[10px] tabular-nums text-muted-foreground"
+                        style={{ bottom: tickBottom(v) }}
+                      >
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="relative flex flex-1 items-end justify-around gap-1 border-b border-border">
+                  {/* Lignes de repère, derrière les colonnes. */}
+                  {ticks
+                    .filter((v) => v > 0)
+                    .map((v) => (
+                      <span
+                        key={v}
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 border-t border-border/50"
+                        style={{ bottom: tickBottom(v) }}
+                      />
+                    ))}
+                  {rows.map((row) => (
+                    <QuotaColumn
+                      key={row.client_id}
+                      row={row}
+                      isCurrent={isCurrent}
+                      onOpen={() => setSelected(row)}
+                    />
+                  ))}
+                </div>
+              </div>
+              {/* Axe X : un nom par colonne, cliquable comme la colonne. */}
+              <div className="flex">
+                <div className={AXIS_CLASS} />
+                <div className="flex flex-1 justify-around gap-1">
+                  {rows.map((row) => (
+                    <button
+                      key={row.client_id}
+                      type="button"
+                      title={row.name}
+                      onClick={() => setSelected(row)}
+                      className={cn(
+                        COLUMN_CLASS,
+                        "line-clamp-2 break-normal pt-1.5 text-center text-[11px] font-medium leading-tight hover:underline",
+                      )}
+                    >
+                      {row.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          {moreRight && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-card to-transparent"
+            />
+          )}
+        </div>
       )}
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
@@ -135,6 +241,9 @@ export function ContentQuotaChart() {
             <DialogDescription>
               <span className="capitalize">{format(monthDate, "MMMM yyyy", { locale: fr })}</span>
               {selected && ` · ${rowDetail(selected)}`}
+              {selected &&
+                rowStatus(selected, isCurrent) &&
+                ` · ${rowStatus(selected, isCurrent)!.label}`}
             </DialogDescription>
           </DialogHeader>
           {selected?.deliverables.length ? (
@@ -183,7 +292,7 @@ export function ContentQuotaChart() {
   );
 }
 
-function QuotaBar({
+function QuotaColumn({
   row,
   isCurrent,
   onOpen,
@@ -200,45 +309,45 @@ function QuotaBar({
     <button
       type="button"
       onClick={onOpen}
-      className="block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      title={status ? `${row.name} · ${status.label}` : row.name}
+      className={cn(
+        COLUMN_CLASS,
+        "relative z-10 flex flex-col items-center gap-1.5 rounded-t-lg pt-2 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+      )}
     >
-      <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
-        <span className="truncate font-medium">{row.name}</span>
-        <span className="flex items-center gap-2">
-          <span className="font-semibold tabular-nums">
-            {total}/{quota}
-          </span>
-          {status && (
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                status.tone === "warning"
-                  ? "bg-warning/15 text-warning-foreground dark:text-warning"
-                  : "bg-success/15 text-success",
-              )}
-            >
-              {status.label}
-            </span>
-          )}
-        </span>
-      </div>
+      {/* Compteur : vert forfait atteint, orange hors forfait ou sous le forfait. */}
+      <span
+        className={cn(
+          "text-xs font-semibold tabular-nums",
+          status?.tone === "success" && "text-success",
+          status?.tone === "warning" && "text-amber-600 dark:text-warning",
+        )}
+      >
+        {total}/{quota}
+      </span>
       {cells === 0 ? (
-        <p className="text-[11px] text-muted-foreground">Pas de forfait défini.</p>
+        <span className="pb-1 text-[10px] text-muted-foreground">Pas de forfait</span>
       ) : (
-        <div className="flex h-5 gap-0.5" role="img" aria-label={`${row.name} : ${rowDetail(row)}`}>
+        <div
+          className="flex w-full flex-col-reverse gap-0.5"
+          role="img"
+          aria-label={`${row.name} : ${rowDetail(row)}`}
+        >
           {Array.from({ length: cells }, (_, i) => (
             <span
               key={i}
               title={row.deliverables[i]?.name}
+              style={{ height: CELL_PX }}
               className={cn(
-                "min-w-0 flex-1 rounded-[3px]",
-                i < row.with_link
-                  ? "bg-success"
-                  : i < total
-                    ? "bg-muted-foreground/35"
-                    : "border border-dashed border-muted-foreground/40",
-                // Au-delà du forfait : contenus en plus, soulignés.
-                i >= quota && "ring-1 ring-warning ring-offset-1 ring-offset-card",
+                "w-full rounded-[3px]",
+                // Au-delà du forfait : contenus en plus, en orange.
+                i >= quota
+                  ? "bg-warning"
+                  : i < row.with_link
+                    ? "bg-success"
+                    : i < total
+                      ? "bg-muted-foreground/35"
+                      : "bg-muted",
               )}
             />
           ))}
