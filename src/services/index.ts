@@ -75,6 +75,8 @@ export const userService = {
       is_active?: boolean;
       created_at?: string;
       password: string;
+      /** Compte client : entreprise saisie par son nom (rattachée ou créée). */
+      company_name?: string;
     },
   ) => (await api.post<User>(endpoints.users, payload)).data,
   /** GET /api/v1/users/?role=collaborateur */

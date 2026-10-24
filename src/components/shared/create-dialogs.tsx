@@ -562,6 +562,7 @@ export function CreateUserDialog({
     password: "",
     role,
     client_id: clientId ?? "",
+    company_name: "",
     is_active: true,
     workload: 0,
     avatar_url: "",
@@ -571,17 +572,21 @@ export function CreateUserDialog({
 
   const mutation = useMutation({
     mutationFn: () => {
-      const { client_id, ...rest } = form;
-      // Un compte "Client" est toujours rattaché à une entreprise existante
-      // (jamais créée ici) : une entreprise peut avoir plusieurs contacts, et
-      // en recréer une donnerait au client un portail vide (doublon).
+      const { client_id, company_name, ...rest } = form;
+      // Compte "Client" : entreprise fixée par le contexte (fiche client), ou
+      // saisie par son nom. Le serveur la rattache si elle existe déjà (même
+      // nom), la crée sinon.
       return userService.create({
         ...rest,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         email: form.email.trim(),
         role: form.role,
-        ...(form.role === "client" ? { client_id } : {}),
+        ...(form.role === "client"
+          ? clientId
+            ? { client_id }
+            : { company_name: company_name.trim() }
+          : {}),
       });
     },
     onSuccess: () => {
@@ -599,6 +604,7 @@ export function CreateUserDialog({
         password: "",
         role,
         client_id: clientId ?? "",
+        company_name: "",
         is_active: true,
         workload: 0,
         avatar_url: "",
@@ -682,11 +688,15 @@ export function CreateUserDialog({
           </Field>
           {form.role === "client" && (
             <div className="sm:col-span-2">
-              <CompanyField
-                value={form.client_id}
-                locked={!!clientId}
-                clients={clients ?? []}
-                onChange={(client_id) => setForm({ ...form, client_id })}
+              <CompanyNameField
+                // Depuis la fiche client : l'entreprise est fixée d'office.
+                value={
+                  clientId
+                    ? (clients?.find((c) => c.id === clientId)?.name ?? "")
+                    : form.company_name
+                }
+                disabled={!!clientId}
+                onChange={(company_name) => setForm({ ...form, company_name })}
               />
             </div>
           )}
@@ -715,7 +725,8 @@ export function CreateUserDialog({
               !form.first_name.trim() ||
               !form.email.trim() ||
               form.password.trim().length < 4 ||
-              (form.role === "client" && !form.client_id) ||
+              (form.role === "client" &&
+                (clientId ? !form.client_id : !form.company_name.trim())) ||
               mutation.isPending
             }
             onClick={() => mutation.mutate()}
@@ -742,22 +753,26 @@ export function EditUserDialog({ user }: { user: User }) {
     job_title: user.job_title ?? "",
     password: "",
     role: user.role,
-    client_id: user.client_id ?? "",
+    // null = entreprise inchangée ; sinon le nom tapé (rattachée ou créée).
+    company_name: null as string | null,
     is_active: user.is_active,
     avatar_url: user.avatar_url ?? "",
   });
   const [form, setForm] = useState(buildForm);
   const done = useCreate([["users"], ["collaborators"], ["clients"]], () => setOpen(false));
+  const currentCompany = clients?.find((c) => c.id === user.client_id)?.name ?? "";
+  const companyValue = form.company_name ?? currentCompany;
 
   const mutation = useMutation({
     mutationFn: () => {
-      const { password, client_id, ...rest } = form;
-      // L'entreprise se modifie depuis sa fiche client, jamais ici : un
-      // contact ne renomme pas son entreprise (qui peut en avoir d'autres).
+      const { password, company_name, ...rest } = form;
+      // Changer le nom rattache le compte à une autre entreprise (existante
+      // ou créée) ; l'entreprise elle-même se renomme depuis sa fiche client.
+      const changed = company_name !== null && company_name.trim() !== currentCompany;
       return userService.update(user.id, {
         ...rest,
         role: form.role,
-        ...(form.role === "client" ? { client_id } : {}),
+        ...(form.role === "client" && changed ? { company_name: company_name.trim() } : {}),
         // Vide = inchangé ; sinon l'admin redonne un mot de passe au compte.
         ...(password.trim() ? { password: password.trim() } : {}),
       });
@@ -849,10 +864,9 @@ export function EditUserDialog({ user }: { user: User }) {
           </Field>
           {form.role === "client" && (
             <div className="sm:col-span-2">
-              <CompanyField
-                value={form.client_id}
-                clients={clients ?? []}
-                onChange={(client_id) => setForm({ ...form, client_id })}
+              <CompanyNameField
+                value={companyValue}
+                onChange={(company_name) => setForm({ ...form, company_name })}
               />
             </div>
           )}
@@ -882,7 +896,7 @@ export function EditUserDialog({ user }: { user: User }) {
           <Button
             disabled={
               mutation.isPending ||
-              (form.role === "client" && !form.client_id) ||
+              (form.role === "client" && !companyValue.trim()) ||
               (form.password.trim().length > 0 && form.password.trim().length < 4)
             }
             onClick={() => mutation.mutate()}
@@ -895,42 +909,29 @@ export function EditUserDialog({ user }: { user: User }) {
   );
 }
 
-/** Entreprise d'un compte "client" : toujours une fiche existante (jamais
- * créée ici, pour éviter les doublons). `locked` : fixée par le contexte
- * (ex. "Créer un accès" depuis la fiche client). */
-function CompanyField({
+/** Entreprise d'un compte "client", saisie par son nom : le serveur la
+ * rattache si elle existe déjà (même nom, sans tenir compte de la casse), la
+ * crée sinon. Champ texte simple : ni suggestions, ni saisie automatique du
+ * navigateur. */
+function CompanyNameField({
   value,
-  clients,
   onChange,
-  locked = false,
+  disabled = false,
 }: {
   value: string;
-  clients: Client[];
-  onChange: (clientId: string) => void;
-  locked?: boolean;
+  onChange: (name: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <Field label="Entreprise">
-      <select
-        className={selectClass}
+      <Input
+        name="olympe-company"
+        autoComplete="off"
+        placeholder="Nom de l'entreprise"
         value={value}
-        disabled={locked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-      >
-        <option value="">Sélectionner une entreprise…</option>
-        {[...clients]
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-      </select>
-      {!locked && (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Entreprise absente de la liste ? Créez-la d'abord dans Clients.
-        </p>
-      )}
+      />
     </Field>
   );
 }

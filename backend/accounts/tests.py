@@ -49,8 +49,69 @@ class CreateUserPermissionTests(RoleTestCase):
     def test_admin_can_create_any_role(self):
         for role in ["admin", "chef_projet", "collaborateur", "client"]:
             self.auth_as(self.admin)
-            res = self.client.post(user_list_url(), self._payload(role=role, email=f"new-{role}@test.local"))
+            payload = self._payload(role=role, email=f"new-{role}@test.local")
+            if role == "client":
+                payload["company_name"] = "Client Test"
+            res = self.client.post(user_list_url(), payload)
             self.assertEqual(res.status_code, 201, f"failed for role={role}")
+
+    def test_client_account_requires_a_company(self):
+        self.auth_as(self.admin)
+        res = self.client.post(user_list_url(), self._payload(role="client", email="c1@test.local"))
+        self.assertEqual(res.status_code, 400)
+        self.assertIn("company_name", res.data)
+
+    def test_typed_company_name_links_existing_company_ignoring_case(self):
+        from clients.models import Client
+
+        before = Client.objects.count()
+        self.auth_as(self.admin)
+        payload = self._payload(role="client", email="c2@test.local")
+        payload["company_name"] = "  client TEST "
+        res = self.client.post(user_list_url(), payload)
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["client_id"], str(self.client_company.id))
+        self.assertEqual(Client.objects.count(), before)
+
+    def test_typed_company_name_creates_a_new_active_company(self):
+        from clients.models import Client, ClientStatus
+
+        self.auth_as(self.admin)
+        payload = self._payload(role="client", email="c3@test.local")
+        payload["company_name"] = "Nouvelle Boutique"
+        res = self.client.post(user_list_url(), payload)
+        self.assertEqual(res.status_code, 201)
+        company = Client.objects.get(name="Nouvelle Boutique")
+        self.assertEqual(res.data["client_id"], str(company.id))
+        self.assertEqual(company.status, ClientStatus.ACTIF)
+
+    def test_editing_company_name_moves_the_account(self):
+        from clients.models import Client
+
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            reverse("user-detail", args=[self.client_user.id]),
+            {"company_name": "Autre Client"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["client_id"], str(self.other_client_company.id))
+        res = self.client.patch(
+            reverse("user-detail", args=[self.client_user.id]),
+            {"company_name": "Toute Nouvelle"},
+            format="json",
+        )
+        self.assertEqual(res.data["client_id"], str(Client.objects.get(name="Toute Nouvelle").id))
+
+    def test_no_company_created_when_the_account_fails(self):
+        from clients.models import Client
+
+        self.auth_as(self.admin)
+        payload = self._payload(role="client", email=self.admin.email)  # e-mail déjà pris
+        payload["company_name"] = "Boutique Fantome"
+        res = self.client.post(user_list_url(), payload)
+        self.assertEqual(res.status_code, 400)
+        self.assertFalse(Client.objects.filter(name="Boutique Fantome").exists())
 
     def test_chef_projet_can_create_collaborateur(self):
         self.auth_as(self.chef_projet)
