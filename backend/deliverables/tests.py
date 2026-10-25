@@ -1234,6 +1234,26 @@ class ScheduledPublicationTests(DeliverableSetupMixin, RoleTestCase):
         risky = self.client.get(reverse("dashboard-alerts")).data["publicationsAtRisk"]
         self.assertEqual(len(risky), 1)  # date passée sans publication
 
+    def test_dashboard_lists_publications_of_the_day(self):
+        from datetime import datetime, time, timedelta
+
+        from django.utils import timezone
+
+        self.auth_as(self.admin)
+        start_of_today = timezone.make_aware(datetime.combine(timezone.localdate(), time(0, 1)))
+        # Prévue aujourd'hui et déjà publiée : reste dans la liste du jour.
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            scheduled_at=start_of_today, published_at=start_of_today
+        )
+        today = self.client.get(reverse("dashboard-alerts")).data["publicationsToday"]
+        self.assertEqual([d["id"] for d in today], [str(self.deliverable.id)])
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            scheduled_at=start_of_today + timedelta(days=1)
+        )
+        today = self.client.get(reverse("dashboard-alerts")).data["publicationsToday"]
+        self.assertEqual(today, [])
+
 
 
 class PublicationRemindersTests(DeliverableSetupMixin, RoleTestCase):

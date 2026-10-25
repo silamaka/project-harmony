@@ -327,6 +327,8 @@ export const dashboardService = {
         in48h: Mission[];
         blocked: Mission[];
         pendingDeliverables: Deliverable[];
+        /** Optionnel : absent d'un backend pas encore mis à jour. */
+        publicationsToday?: Deliverable[];
         publicationsAtRisk: Deliverable[];
       }>(`${endpoints.dashboard}alerts/`)
     ).data,

@@ -220,6 +220,11 @@ def alerts(request):
         .filter(~ready | Q(scheduled_at__lt=now))
         .order_by("scheduled_at")
     )
+    # Publications du jour : tout ce qui est prévu aujourd'hui (fuseau local),
+    # publié ou non, pour suivre la journée heure par heure.
+    today_publications_qs = Deliverable.objects.filter(
+        scheduled_at__date=timezone.localdate()
+    ).order_by("scheduled_at")
     # À valider par l'agence (avant envoi au client) : sans lien, rien à revoir.
     pending_qs = Deliverable.objects.filter(status=DeliverableStatus.EN_ATTENTE).exclude(url="")
 
@@ -229,6 +234,7 @@ def alerts(request):
             "in48h": MissionSerializer(in_48h_qs, many=True).data,
             "blocked": MissionSerializer(blocked_qs, many=True).data,
             "pendingDeliverables": DeliverableSerializer(pending_qs, many=True).data,
+            "publicationsToday": DeliverableSerializer(today_publications_qs, many=True).data,
             "publicationsAtRisk": DeliverableSerializer(at_risk_qs, many=True).data,
         }
     )

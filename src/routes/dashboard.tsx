@@ -19,6 +19,7 @@ import { fr } from "date-fns/locale";
 import {
   AlertTriangle,
   Building2,
+  CalendarCheck,
   CalendarClock,
   CalendarDays,
   Clock,
@@ -267,6 +268,21 @@ function DashboardPage() {
               ? (alerts?.blocked ?? [])
               : null;
 
+  const publicationDrill =
+    drill === "publicationsToday"
+      ? {
+          items: alerts?.publicationsToday ?? [],
+          hint: "Toutes les publications prévues aujourd'hui, publiées ou non, par heure.",
+          empty: "Aucune publication prévue aujourd'hui.",
+        }
+      : drill === "publicationsAtRisk"
+        ? {
+            items: alerts?.publicationsAtRisk ?? [],
+            hint: "Prévues dans les 48 h sans être validées par l'agence et le client, ou date de publication dépassée.",
+            empty: "Aucune publication à risque.",
+          }
+        : null;
+
   return (
     <AppShell
       title="Dashboard"
@@ -397,7 +413,7 @@ function DashboardPage() {
           (toujours en temps réel, hors filtre de période)
         </span>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 2xl:grid-cols-6">
         <StatCard
           label="Échéance dans 24 h"
           value={alerts?.in24h.length ?? 0}
@@ -430,13 +446,21 @@ function DashboardPage() {
           delay={0.12}
           onClick={() => setDrill("pendingDeliverables")}
         />
+        <StatCard
+          label="Publications du jour"
+          value={alerts?.publicationsToday?.length ?? 0}
+          icon={CalendarCheck}
+          tone="success"
+          delay={0.16}
+          onClick={() => setDrill("publicationsToday")}
+        />
         {/* Prévues dans les 48 h sans être prêtes, ou date dépassée. */}
         <StatCard
           label="Publications à risque"
           value={alerts?.publicationsAtRisk.length ?? 0}
           icon={CalendarClock}
           tone="danger"
-          delay={0.16}
+          delay={0.2}
           onClick={() => setDrill("publicationsAtRisk")}
         />
       </div>
@@ -560,6 +584,7 @@ function DashboardPage() {
               {drill === "in48h" && "Échéances dans 48 h"}
               {drill === "blocked" && "Missions bloquées (corrections)"}
               {drill === "pendingDeliverables" && "Livrables en attente de validation"}
+              {drill === "publicationsToday" && "Publications du jour"}
               {drill === "publicationsAtRisk" && "Publications à risque"}
             </DialogTitle>
             <DialogDescription>
@@ -655,13 +680,10 @@ function DashboardPage() {
             </div>
           )}
 
-          {drill === "publicationsAtRisk" && (
+          {publicationDrill && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Prévues dans les 48 h sans être validées par l'agence et le client, ou date de
-                publication dépassée.
-              </p>
-              {(alerts?.publicationsAtRisk ?? []).map((d) => (
+              <p className="text-xs text-muted-foreground">{publicationDrill.hint}</p>
+              {publicationDrill.items.map((d) => (
                 <Link
                   key={d.id}
                   to="/missions/$missionId"
@@ -678,9 +700,9 @@ function DashboardPage() {
                   <ScheduledLine deliverable={d} className="w-full" />
                 </Link>
               ))}
-              {(alerts?.publicationsAtRisk ?? []).length === 0 && (
+              {publicationDrill.items.length === 0 && (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                  Aucune publication à risque.
+                  {publicationDrill.empty}
                 </p>
               )}
             </div>
