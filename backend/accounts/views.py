@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.core.mail import send_mail
+from django.db import transaction
 from django.db.models import ProtectedError
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -165,9 +166,10 @@ class ChangePasswordView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """Supprimer un compte "client" ne supprime jamais son entreprise : elle
-    peut avoir d'autres contacts, et surtout tout son historique (projets,
-    missions) en dépend."""
+    """Supprimer un compte "client" garde son entreprise tant qu'elle a
+    d'autres comptes ou un historique (projets, missions). Seule une
+    entreprise devenue vide part avec son dernier compte : sinon chaque
+    entreprise créée à la saisie du compte resterait en coquille orpheline."""
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -181,13 +183,24 @@ class UserViewSet(viewsets.ModelViewSet):
         return queryset
 
     def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        company = user.client
         try:
-            return super().destroy(request, *args, **kwargs)
+            with transaction.atomic():
+                user.delete()
+                if (
+                    company is not None
+                    and not company.users.exists()
+                    and not company.projects.exists()
+                    and not company.missions.exists()
+                ):
+                    company.delete()
         except ProtectedError:
             return Response(
                 {"detail": "Impossible de supprimer : des missions sont encore assignées à cet utilisateur."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
     def toggle_active(self, request, pk=None):

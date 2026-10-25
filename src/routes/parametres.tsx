@@ -10,8 +10,8 @@ import { PillSelect } from "@/components/shared/pill-select";
 import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/auth-context";
-import { userService } from "@/services";
-import { ROLE_LABELS, type Role } from "@/types";
+import { clientService, missionService, projectService, userService } from "@/services";
+import { ROLE_LABELS, type Role, type User } from "@/types";
 import { errorMessage } from "@/lib/api";
 
 const ROLE_FILTERS = ["tous", "admin", "chef_projet", "collaborateur", "client"] as const;
@@ -52,6 +52,9 @@ function SettingsPage() {
   const qc = useQueryClient();
   const { user: currentUser } = useAuth();
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
+  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
+  const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<(typeof ROLE_FILTERS)[number]>("tous");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
@@ -105,6 +108,21 @@ function SettingsPage() {
       return sort === "recent" ? diff : -diff;
     });
   }, [users, query, roleFilter, statusFilter, sort]);
+
+  // Même règle que le serveur (UserViewSet.destroy) : l'entreprise part avec
+  // son dernier compte si elle n'a ni projet ni mission.
+  const deleteDescription = (u: User) => {
+    const base = "Le compte utilisateur sera définitivement supprimé.";
+    const company = u.client_id ? clients?.find((c) => c.id === u.client_id) : undefined;
+    const companyEmpty =
+      company &&
+      !(users ?? []).some((o) => o.id !== u.id && o.client_id === company.id) &&
+      !(projects ?? []).some((p) => p.client_id === company.id) &&
+      !(missions ?? []).some((m) => m.client_id === company.id);
+    return companyEmpty
+      ? `${base} L'entreprise ${company.name}, qui n'a plus aucun compte ni projet, sera aussi supprimée. Cette action est irréversible.`
+      : `${base} Cette action est irréversible.`;
+  };
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -245,7 +263,7 @@ function SettingsPage() {
                         <ConfirmDeleteButton
                           iconOnly
                           title={`Supprimer ${u.first_name} ${u.last_name} ?`}
-                          description="Le compte utilisateur sera définitivement supprimé. Cette action est irréversible."
+                          description={deleteDescription(u)}
                           pending={removeUser.isPending && removeUser.variables === u.id}
                           onConfirm={() => removeUser.mutate(u.id)}
                         />

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -53,7 +53,9 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const { hasRole } = useAuth();
   const canManage = hasRole("admin", "chef_projet");
+  const isAdmin = hasRole("admin");
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
@@ -120,6 +122,21 @@ function ClientDetailPage() {
     onError: (error) => toast.error(errorMessage(error, "Réassignation impossible.")),
   });
 
+  const clientAccounts = (users ?? []).filter(
+    (u) => u.role === "client" && u.client_id === clientId,
+  );
+  const removeClient = useMutation({
+    mutationFn: () => clientService.remove(clientId),
+    onSuccess: () => {
+      for (const key of ["clients", "projects", "missions", "deliverables", "users"]) {
+        void qc.invalidateQueries({ queryKey: [key] });
+      }
+      toast.success("Entreprise supprimée.");
+      void navigate({ to: "/clients" });
+    },
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
+  });
+
   const removeMission = useMutation({
     mutationFn: (id: string) => missionService.remove(id),
     onSuccess: () => {
@@ -161,6 +178,24 @@ function ClientDetailPage() {
           <div className="flex items-center gap-2">
             <EditClientDialog client={client} />
             <CreateMissionDialog clientId={client.id} />
+            {isAdmin && (
+              <ConfirmDeleteButton
+                label="Supprimer l'entreprise"
+                title={`Supprimer l'entreprise ${client.name} ?`}
+                description={[
+                  `Seront aussi supprimés définitivement : ${projects?.length ?? 0} projet(s), ${clientMissions.length} mission(s) avec leurs livrables et commentaires`,
+                  clientAccounts.length > 0
+                    ? `, et ${clientAccounts.length} compte(s) client (${clientAccounts
+                        .map((u) => `${u.first_name} ${u.last_name}`)
+                        .join(", ")}).`
+                    : ".",
+                  " Cette action est irréversible.",
+                ].join("")}
+                confirmText={client.name}
+                pending={removeClient.isPending}
+                onConfirm={() => removeClient.mutate()}
+              />
+            )}
           </div>
         ) : undefined
       }

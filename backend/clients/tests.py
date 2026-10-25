@@ -3,6 +3,9 @@ from django.urls import reverse
 from core.test_utils import RoleTestCase
 
 from accounts.models import User
+from comments.models import Comment
+from missions.models import Mission
+from projects.models import Project
 
 
 def client_list_url():
@@ -81,11 +84,19 @@ class ClientWritePermissionTests(RoleTestCase):
         self.assertEqual(res.status_code, 403)
 
 
-class ClientDeletionDetachesUserTests(RoleTestCase):
-    def test_deleting_client_detaches_linked_user_instead_of_deleting_it(self):
+class ClientDeletionTests(RoleTestCase):
+    def test_deleting_client_removes_its_client_accounts_projects_and_missions(self):
+        Comment.objects.create(mission=self.mission, author=self.client_user, body="Merci")
         self.auth_as(self.admin)
         res = self.client.delete(client_detail_url(self.client_company.id))
         self.assertEqual(res.status_code, 204)
-        self.client_user.refresh_from_db()
-        self.assertIsNone(self.client_user.client_id)
-        self.assertTrue(User.objects.filter(id=self.client_user.id).exists())
+        self.assertFalse(User.objects.filter(id=self.client_user.id).exists())
+        self.assertFalse(Project.objects.filter(id=self.project.id).exists())
+        self.assertFalse(Mission.objects.filter(id=self.mission.id).exists())
+
+    def test_deleting_client_keeps_other_companies_and_staff(self):
+        self.auth_as(self.admin)
+        self.client.delete(client_detail_url(self.client_company.id))
+        self.assertTrue(User.objects.filter(id=self.other_client_user.id).exists())
+        self.assertTrue(User.objects.filter(id=self.chef_projet.id).exists())
+        self.assertTrue(User.objects.filter(id=self.collaborateur.id).exists())

@@ -166,6 +166,7 @@ export function ConfirmDeleteButton({
   iconOnly = false,
   open: controlledOpen,
   onOpenChange: setControlledOpen,
+  confirmText,
 }: {
   label?: string;
   title: string;
@@ -176,11 +177,19 @@ export function ConfirmDeleteButton({
   /** Fournir open/onOpenChange pour piloter le dialog depuis l'extérieur et masquer le bouton déclencheur intégré. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Suppression lourde : ce texte doit être retapé (casse ignorée) pour confirmer. */
+  confirmText?: string;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
+  const [typed, setTyped] = useState("");
   const controlled = controlledOpen !== undefined && setControlledOpen !== undefined;
   const open = controlled ? controlledOpen : internalOpen;
-  const setOpen = controlled ? setControlledOpen : setInternalOpen;
+  const setOpenRaw = controlled ? setControlledOpen : setInternalOpen;
+  const setOpen = (o: boolean) => {
+    if (!o) setTyped("");
+    setOpenRaw(o);
+  };
+  const confirmed = !confirmText || typed.trim().toLowerCase() === confirmText.trim().toLowerCase();
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {!controlled && (
@@ -206,13 +215,26 @@ export function ConfirmDeleteButton({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {confirmText && (
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm-delete-text" className="text-xs">
+              Tapez <span className="font-semibold">{confirmText}</span> pour confirmer
+            </Label>
+            <Input
+              id="confirm-delete-text"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Annuler
           </Button>
           <Button
             variant="destructive"
-            disabled={pending}
+            disabled={pending || !confirmed}
             onClick={() => {
               onConfirm();
               setOpen(false);

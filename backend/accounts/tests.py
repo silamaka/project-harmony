@@ -189,6 +189,29 @@ class UpdateDeleteUserPermissionTests(RoleTestCase):
         self.assertTrue(Client.objects.filter(id=company_id).exists())
         self.assertTrue(Mission.objects.filter(id=self.mission.id).exists())
 
+    def test_deleting_last_account_of_empty_company_removes_company(self):
+        """L'entreprise créée à la saisie du compte ne doit pas rester en
+        coquille vide une fois son unique compte supprimé."""
+        from clients.models import Client
+
+        company_id = self.other_client_user.client_id
+        self.auth_as(self.admin)
+        res = self.client.delete(user_detail_url(self.other_client_user.id))
+        self.assertEqual(res.status_code, 204)
+        self.assertFalse(Client.objects.filter(id=company_id).exists())
+
+    def test_deleting_one_of_several_accounts_keeps_empty_company(self):
+        from clients.models import Client
+
+        company = self.other_client_user.client
+        User.objects.create_user(
+            email="client3@test.local", password="pass1234", first_name="C3",
+            last_name="Test", role="client", client=company,
+        )
+        self.auth_as(self.admin)
+        self.client.delete(user_detail_url(self.other_client_user.id))
+        self.assertTrue(Client.objects.filter(id=company.id).exists())
+
     def test_collaborateur_cannot_update_another_user(self):
         self.auth_as(self.collaborateur)
         res = self.client.patch(user_detail_url(self.other_collaborateur.id), {"job_title": "Piraté"})
