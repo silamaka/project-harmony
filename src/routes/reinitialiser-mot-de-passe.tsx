@@ -73,7 +73,7 @@ function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
-        <img src="/beba-logo.png" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
+        <img src="/beba-logo-256.png" alt="Logo BEBA EMPIRE" className="h-12 w-12 rounded-full" />
         <h1 className="mt-6 text-2xl font-extrabold tracking-tight">Nouveau mot de passe</h1>
 
         {linkMissing || invalid ? (

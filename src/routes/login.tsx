@@ -62,7 +62,7 @@ function LoginPage() {
           className="w-full max-w-sm"
         >
           <img
-            src="/beba-logo.png"
+            src="/beba-logo-256.png"
             alt="Logo BEBA EMPIRE"
             className="h-20 w-20 rounded-full shadow-sm"
           />
