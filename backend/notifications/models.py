@@ -58,3 +58,25 @@ class Notification(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class PushSubscription(models.Model):
+    """Un appareil (navigateur) qui a autorisé les notifications push.
+
+    Un utilisateur peut en avoir plusieurs (ordinateur, téléphone...).
+    `endpoint` est l'adresse fournie par le service push du navigateur
+    (Google, Apple, Mozilla) : unique par appareil, il identifie
+    l'abonnement. `p256dh` et `auth` chiffrent le message pour cet appareil.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="push_subscriptions", on_delete=models.CASCADE
+    )
+    endpoint = models.URLField(max_length=1000, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    user_agent = models.CharField(max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.user} — {self.user_agent[:40]}"

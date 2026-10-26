@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { UserAvatar } from "@/components/shared/avatar";
 import { MissionStatusBadge } from "@/components/shared/badges";
+import { PushNotificationsCard } from "@/components/shared/push-notifications-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -102,6 +103,8 @@ function ProfilePage() {
               </div>
             </div>
           )}
+
+          <PushNotificationsCard />
         </div>
 
         {isClient ? <CompanyCard /> : <MyMissionsCard />}

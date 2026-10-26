@@ -131,6 +131,14 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@bebaempire.local")
 
+# Notifications push (Web Push). Paire de clés propre au serveur, générée
+# une fois par `python manage.py generate_vapid_keys`. Sans clés, le push est
+# simplement désactivé (la cloche fonctionne toujours).
+VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
+# Contact exigé par les services push (Google, Apple...) en cas de problème.
+VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:empirebeba@gmail.com")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",

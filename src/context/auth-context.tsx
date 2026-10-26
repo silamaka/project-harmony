@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { api, endpoints, REFRESH_KEY, TOKEN_KEY } from "@/lib/api";
+import { detachPushDevice, syncPushDevice } from "@/lib/push";
 import type { Role, User } from "@/types";
 
 interface AuthContextValue {
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data } = await api.get<User>(endpoints.auth.me);
         if (!cancelled) setUser(data);
+        void syncPushDevice();
       } catch {
         // Token invalide/expiré et non rafraîchissable (voir lib/api.ts) :
         // l'intercepteur a déjà nettoyé le storage, on reste déconnecté.
@@ -50,10 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(TOKEN_KEY, data.access);
     window.localStorage.setItem(REFRESH_KEY, data.refresh);
     setUser(data.user);
+    void syncPushDevice();
     return data.user;
   }, []);
 
   const logout = useCallback(() => {
+    detachPushDevice();
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(REFRESH_KEY);
     setUser(null);

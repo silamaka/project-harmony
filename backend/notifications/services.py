@@ -1,7 +1,7 @@
 from .models import Notification, NotificationType
 
 # Titre des décisions "corrections" du client : la seule alerte de décision
-# montrée aux collaborateurs (voir NotificationViewSet._scoped).
+# montrée aux collaborateurs (voir notifications_visible_to).
 CORRECTIONS_REQUESTED_TITLE = "Corrections demandées par le client"
 
 

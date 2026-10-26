@@ -3,6 +3,7 @@ from django.dispatch import receiver
 
 from missions.models import Mission
 
+from . import push
 from .models import Notification, NotificationType
 
 
@@ -20,3 +21,11 @@ def notify_mission_created(sender, instance: Mission, created: bool, **kwargs):
         link=f"/missions/{instance.id}",
         mission=instance,
     )
+
+
+@receiver(post_save, sender=Notification)
+def push_new_notification(sender, instance: Notification, created: bool, **kwargs):
+    """Chaque nouvelle notification part aussi sur les appareils abonnés de
+    ceux qui la voient (voir notifications/push.py)."""
+    if created:
+        push.schedule(instance)

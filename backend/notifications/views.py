@@ -1,15 +1,16 @@
-from django.db.models import Exists, OuterRef, Q
-from rest_framework import mixins, viewsets
+from django.conf import settings
+from django.db.models import Exists, OuterRef
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from accounts.models import Role
-from missions.scoping import missions_visible_to
+from . import push
 
-from .models import Notification, NotificationType
+from .models import Notification, PushSubscription
 from .permissions import NotificationPermission
+from .scoping import notifications_visible_to
 from .serializers import NotificationSerializer
-from .services import CORRECTIONS_REQUESTED_TITLE
 
 
 class NotificationViewSet(
@@ -34,35 +35,12 @@ class NotificationViewSet(
     def get_queryset(self):
         user = self.request.user
         # "Lu" calculé pour l'utilisateur connecté, en une seule requête.
-        return self._scoped(user).annotate(
+        return notifications_visible_to(user).annotate(
             is_read=Exists(
                 Notification.read_by.through.objects.filter(
                     notification_id=OuterRef("pk"), user_id=user.id
                 )
             )
-        )
-
-    @staticmethod
-    def _scoped(user):
-        if user.role in (Role.ADMIN, Role.CHEF_PROJET):
-            return Notification.objects.all()
-        if user.role == Role.CLIENT:
-            # Le client ne doit être alerté que quand un livrable lui est
-            # envoyé et attend sa validation — jamais des évènements internes
-            # à l'agence (création de mission, etc.).
-            return Notification.objects.filter(
-                type=NotificationType.VALIDATION, mission__in=missions_visible_to(user)
-            )
-        # Collaborateur : seulement ce qui lui demande d'agir sur ses
-        # missions — une nouvelle mission, des corrections demandées par le
-        # client (version corrigée à préparer), un rappel de publication. Le reste (validations,
-        # envois, alertes écrites pour le client) reste à l'admin et au chef
-        # de projet.
-        return Notification.objects.filter(mission__in=missions_visible_to(user)).filter(
-            Q(type=NotificationType.MISSION_CREEE)
-            | Q(type=NotificationType.DECISION_CLIENT, title=CORRECTIONS_REQUESTED_TITLE)
-            # Rappels de publication : ce sont eux qui publient.
-            | Q(type=NotificationType.PUBLICATION)
         )
 
     @action(detail=False, methods=["post"], url_path="mark-all-read")
@@ -72,10 +50,51 @@ class NotificationViewSet(
         through.objects.bulk_create(
             [
                 through(notification_id=n_id, user_id=request.user.id)
-                for n_id in self._scoped(request.user).values_list("id", flat=True)
+                for n_id in notifications_visible_to(request.user).values_list("id", flat=True)
             ],
             ignore_conflicts=True,
         )
         return Response(
             NotificationSerializer(self.get_queryset(), many=True, context={"request": request}).data
         )
+
+
+class PushSubscriptionView(APIView):
+    """Notifications push de l'appareil courant.
+
+    GET : clé publique VAPID (le navigateur en a besoin pour s'abonner) ;
+    `enabled` faux si le serveur n'a pas de clés configurées.
+    POST : enregistre l'abonnement du navigateur pour l'utilisateur connecté.
+    Le même appareil réutilisé par un autre compte lui est réattribué.
+    DELETE : retire l'abonnement de cet appareil (`endpoint`).
+    """
+
+    def get(self, request):
+        return Response(
+            {"enabled": push.push_enabled(), "public_key": settings.VAPID_PUBLIC_KEY}
+        )
+
+    def post(self, request):
+        endpoint = str(request.data.get("endpoint", "")).strip()
+        keys = request.data.get("keys") or {}
+        p256dh = str(keys.get("p256dh", "")).strip()
+        auth = str(keys.get("auth", "")).strip()
+        if not (endpoint.startswith("https://") and p256dh and auth):
+            return Response(
+                {"detail": "Abonnement push invalide."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        PushSubscription.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={
+                "user": request.user,
+                "p256dh": p256dh,
+                "auth": auth,
+                "user_agent": request.headers.get("User-Agent", "")[:300],
+            },
+        )
+        return Response(status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        endpoint = str(request.data.get("endpoint", "")).strip()
+        PushSubscription.objects.filter(endpoint=endpoint, user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
