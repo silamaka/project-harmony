@@ -108,3 +108,85 @@ def notify_client_decision_cancelled(deliverable, what: str) -> Notification:
         mission=mission,
         deliverable=deliverable,
     )
+
+
+def _name(user) -> str:
+    return f"{user.first_name} {user.last_name}".strip() or user.email
+
+
+def notify_deliverable_to_review(deliverable) -> Notification:
+    """Prévient l'admin et le chef de projet qu'un livrable (ou une nouvelle
+    version) attend leur revue avant l'envoi au client. Type LIVRABLE :
+    jamais montré aux collaborateurs ni au client."""
+    mission = deliverable.mission
+    what = "Nouvelle version" if deliverable.version > 1 else "Nouveau livrable"
+    by = f" par {_name(deliverable.uploaded_by)}" if deliverable.uploaded_by_id else ""
+    return Notification.objects.create(
+        type=NotificationType.LIVRABLE,
+        title=f"{what} à revoir",
+        body=f"{deliverable.label} (mission « {mission.title} ») déposé{by}."[:500],
+        link=deliverable_link(deliverable),
+        mission=mission,
+        deliverable=deliverable,
+    )
+
+
+def notify_assigned(mission, user) -> Notification:
+    """Prévient un collaborateur qu'il vient d'être ajouté à une mission
+    existante (à la création, "Nouvelle mission" le prévient déjà). Seul lui
+    la voit parmi les collaborateurs (recipient)."""
+    return Notification.objects.create(
+        type=NotificationType.MISSION_ASSIGNEE,
+        title="Vous êtes assigné à une mission",
+        body=f"{mission.title} — échéance le {mission.deadline:%d/%m/%Y}."[:500],
+        link=f"/missions/{mission.id}",
+        mission=mission,
+        recipient=user,
+    )
+
+
+def notify_comment(comment) -> Notification:
+    """Nouveau message dans la discussion d'une mission. L'équipe de la
+    mission le voit ; le client seulement s'il lui est visible."""
+    mission = comment.mission
+    excerpt = " ".join(comment.body.split())
+    if len(excerpt) > 160:
+        excerpt = excerpt[:157] + "…"
+    return Notification.objects.create(
+        type=NotificationType.COMMENTAIRE,
+        title=f"Nouveau commentaire — {mission.title}"[:200],
+        body=f"{_name(comment.author)} : {excerpt}"[:500],
+        link=f"/missions/{mission.id}",
+        mission=mission,
+        client_visible=comment.client_visible,
+    )
+
+
+def notify_late_missions(today=None) -> int:
+    """Signale une fois chaque mission dont l'échéance est passée et qui
+    n'est pas terminée. Une nouvelle alerte ne repart que si l'échéance est
+    repoussée puis de nouveau dépassée. Renvoie le nombre d'alertes."""
+    from django.utils import timezone
+
+    from missions.models import DONE_STATUSES, Mission
+
+    today = today or timezone.localdate()
+    sent = 0
+    late = Mission.objects.filter(deadline__lt=today).exclude(status__in=DONE_STATUSES)
+    for mission in late:
+        already = Notification.objects.filter(
+            type=NotificationType.RETARD,
+            mission=mission,
+            created_at__date__gt=mission.deadline,
+        ).exists()
+        if already:
+            continue
+        Notification.objects.create(
+            type=NotificationType.RETARD,
+            title="Mission en retard",
+            body=f"{mission.title} — échéance dépassée depuis le {mission.deadline:%d/%m/%Y}."[:500],
+            link=f"/missions/{mission.id}",
+            mission=mission,
+        )
+        sent += 1
+    return sent

@@ -203,6 +203,10 @@ PUSH_SETTINGS = {
 }
 
 
+# Sans clés, quel que soit le .env local de la machine qui lance les tests.
+NO_PUSH_SETTINGS = {"VAPID_PUBLIC_KEY": "", "VAPID_PRIVATE_KEY": ""}
+
+
 def push_url():
     return reverse("notification-push")
 
@@ -258,7 +262,8 @@ class PushSubscriptionApiTests(RoleTestCase):
         from django.test import override_settings
 
         self.auth_as(self.admin)
-        self.assertFalse(self.client.get(push_url()).data["enabled"])
+        with override_settings(**NO_PUSH_SETTINGS):
+            self.assertFalse(self.client.get(push_url()).data["enabled"])
         with override_settings(**PUSH_SETTINGS):
             data = self.client.get(push_url()).data
         self.assertTrue(data["enabled"])
@@ -337,9 +342,171 @@ class PushDeliveryTests(RoleTestCase):
     def test_nothing_sent_without_server_keys(self):
         from unittest import mock
 
-        with mock.patch("pywebpush.webpush") as webpush:
+        from django.test import override_settings
+
+        with override_settings(**NO_PUSH_SETTINGS), mock.patch("pywebpush.webpush") as webpush:
             with self.captureOnCommitCallbacks(execute=True):
                 Notification.objects.create(
                     mission=self.mission, type=NotificationType.VALIDATION, title="T", body="B"
                 )
         webpush.assert_not_called()
+
+
+class NotificationRoutingTests(RoleTestCase):
+    """Chacun reçoit ce qui le concerne : l'admin et le chef de projet tout,
+    le collaborateur ce qui touche ses missions, le client ce qui l'attend.
+    Jamais sa propre action."""
+
+    def _titles_for(self, user):
+        self.auth_as(user)
+        return [n["title"] for n in self.client.get(notification_list_url()).data]
+
+    def _ids_for(self, user):
+        self.auth_as(user)
+        return [str(n["id"]) for n in self.client.get(notification_list_url()).data]
+
+    def _deposit(self, user, url="https://example.com/v1"):
+        self.auth_as(user)
+        res = self.client.post(
+            reverse("deliverable-list"),
+            {"mission_id": str(self.mission.id), "name": "Visuel", "type": "lien", "url": url},
+        )
+        self.assertEqual(res.status_code, 201)
+        return res.data["id"]
+
+    # --- Livrable à revoir -------------------------------------------------
+
+    def test_deposit_alerts_admin_and_chef_only(self):
+        self._deposit(self.collaborateur)
+        self.assertIn("Nouveau livrable à revoir", self._titles_for(self.admin))
+        self.assertIn("Nouveau livrable à revoir", self._titles_for(self.chef_projet))
+        self.assertNotIn("Nouveau livrable à revoir", self._titles_for(self.collaborateur))
+        self.assertNotIn("Nouveau livrable à revoir", self._titles_for(self.client_user))
+
+    def test_new_version_alerts_again(self):
+        deliverable_id = self._deposit(self.collaborateur)
+        self.client.patch(
+            reverse("deliverable-detail", args=[deliverable_id]), {"url": "https://example.com/v2"}
+        )
+        self.assertIn("Nouvelle version à revoir", self._titles_for(self.admin))
+
+    # --- Assignation -------------------------------------------------------
+
+    def test_added_collaborator_alone_is_told(self):
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            reverse("mission-detail", args=[self.mission.id]),
+            {"collaborators": [str(self.other_collaborateur.id)]},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200)
+        title = "Vous êtes assigné à une mission"
+        self.assertIn(title, self._titles_for(self.other_collaborateur))
+        # Le responsable déjà en place n'a pas à lire l'arrivée d'un autre.
+        self.assertNotIn(title, self._titles_for(self.collaborateur))
+        self.assertNotIn(title, self._titles_for(self.client_user))
+
+    def test_unchanged_team_sends_nothing(self):
+        self.auth_as(self.admin)
+        self.client.patch(
+            reverse("mission-detail", args=[self.mission.id]), {"title": "Renommée"}, format="json"
+        )
+        self.assertFalse(Notification.objects.filter(type=NotificationType.MISSION_ASSIGNEE).exists())
+
+    # --- Commentaires ------------------------------------------------------
+
+    def _comment(self, user, body, **extra):
+        self.auth_as(user)
+        res = self.client.post(
+            reverse("comment-list"), {"mission_id": str(self.mission.id), "body": body, **extra}
+        )
+        self.assertEqual(res.status_code, 201)
+
+    def test_client_question_reaches_team_not_client_itself(self):
+        self._comment(self.client_user, "Une question sur la vidéo")
+        title = f"Nouveau commentaire — {self.mission.title}"
+        for user in [self.admin, self.chef_projet, self.collaborateur]:
+            self.assertIn(title, self._titles_for(user), user.role)
+        self.assertNotIn(title, self._titles_for(self.client_user))
+        self.assertNotIn(title, self._titles_for(self.other_client_user))
+
+    def test_internal_comment_stays_internal(self):
+        self._comment(self.admin, "Note interne")
+        title = f"Nouveau commentaire — {self.mission.title}"
+        self.assertIn(title, self._titles_for(self.collaborateur))
+        self.assertNotIn(title, self._titles_for(self.client_user))
+
+    def test_team_reply_to_client_reaches_client(self):
+        self._comment(self.collaborateur, "Voici la réponse", client_visible=True)
+        self.assertIn(f"Nouveau commentaire — {self.mission.title}", self._titles_for(self.client_user))
+
+    def test_collaborator_of_another_mission_sees_nothing(self):
+        self._comment(self.client_user, "Question")
+        self.assertNotIn(
+            f"Nouveau commentaire — {self.mission.title}", self._titles_for(self.other_collaborateur)
+        )
+
+    # --- Sa propre action ----------------------------------------------------
+
+    def test_own_action_not_in_own_bell(self):
+        self.auth_as(self.admin)
+        res = self.client.post(
+            reverse("mission-list"),
+            {
+                "title": "Créée par l'admin",
+                "project_id": str(self.project.id),
+                "assignee_id": str(self.collaborateur.id),
+                "start_date": "2026-01-01",
+                "deadline": "2026-12-31",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        notification = Notification.objects.get(body="Créée par l'admin")
+        self.assertEqual(notification.actor, self.admin)
+        # Par identifiant : la mission de départ a aussi son "Nouvelle mission".
+        self.assertNotIn(str(notification.id), self._ids_for(self.admin))
+        self.assertIn(str(notification.id), self._ids_for(self.chef_projet))
+        self.assertIn(str(notification.id), self._ids_for(self.collaborateur))
+
+    def test_own_action_never_pushed_to_self(self):
+        from unittest import mock
+
+        from django.test import override_settings
+
+        from .models import PushSubscription
+
+        for user in [self.admin, self.chef_projet]:
+            PushSubscription.objects.create(
+                user=user, endpoint=f"https://push.example.com/{user.pk}", p256dh="k", auth="a"
+            )
+        with override_settings(**PUSH_SETTINGS), mock.patch("pywebpush.webpush") as webpush:
+            with self.captureOnCommitCallbacks(execute=True):
+                self._comment(self.admin, "Je préviens l'équipe")
+        endpoints = {c.kwargs["subscription_info"]["endpoint"] for c in webpush.call_args_list}
+        self.assertEqual(endpoints, {f"https://push.example.com/{self.chef_projet.pk}"})
+
+    # --- Retards -----------------------------------------------------------
+
+    def test_late_mission_flagged_once_for_team(self):
+        import datetime
+
+        from .services import notify_late_missions
+
+        Mission.objects.filter(pk=self.mission.pk).update(deadline=datetime.date(2026, 1, 10))
+        self.assertEqual(notify_late_missions(today=datetime.date(2026, 1, 12)), 1)
+        self.assertEqual(notify_late_missions(today=datetime.date(2026, 1, 13)), 0)
+        self.assertIn("Mission en retard", self._titles_for(self.collaborateur))
+        self.assertIn("Mission en retard", self._titles_for(self.chef_projet))
+        self.assertNotIn("Mission en retard", self._titles_for(self.client_user))
+        self.assertNotIn("Mission en retard", self._titles_for(self.other_collaborateur))
+
+    def test_finished_mission_never_flagged(self):
+        import datetime
+
+        from .services import notify_late_missions
+
+        Mission.objects.filter(pk=self.mission.pk).update(
+            deadline=datetime.date(2026, 1, 10), status=MissionStatus.TERMINE
+        )
+        self.assertEqual(notify_late_missions(today=datetime.date(2026, 1, 12)), 0)

@@ -2,6 +2,8 @@ from django.db import transaction
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework import viewsets
 
+from notifications.services import notify_assigned
+
 from .permissions import MissionPermission
 from .scoping import missions_visible_to
 from .serializers import MissionSerializer
@@ -37,6 +39,18 @@ class MissionViewSet(viewsets.ModelViewSet):
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         return queryset
+
+    def perform_update(self, serializer):
+        mission = serializer.instance
+        before = {mission.assignee_id, *mission.collaborators.values_list("id", flat=True)}
+        mission = serializer.save()
+        after = {mission.assignee_id, *mission.collaborators.values_list("id", flat=True)}
+        # Prévient chaque personne nouvellement ajoutée (responsable ou
+        # contributeur), sauf celle qui fait la modification.
+        from accounts.models import User
+
+        for user in User.objects.filter(id__in=after - before).exclude(id=self.request.user.id):
+            notify_assigned(mission, user)
 
     def update(self, request, *args, **kwargs):
         with transaction.atomic():

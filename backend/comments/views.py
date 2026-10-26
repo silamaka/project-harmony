@@ -2,6 +2,7 @@ from rest_framework import viewsets
 
 from accounts.models import Role
 from missions.scoping import missions_visible_to
+from notifications.services import notify_comment
 
 from .models import Comment
 from .permissions import CommentPermission
@@ -28,7 +29,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         if self.request.user.role == Role.CLIENT:
             # Ce qu'écrit le client s'adresse à l'équipe et reste visible de lui.
             extra["client_visible"] = True
-        serializer.save(author=self.request.user, **extra)
+        comment = serializer.save(author=self.request.user, **extra)
+        notify_comment(comment)
 
     def perform_update(self, serializer):
         # mission/auteur restent ceux d'origine quoi qu'envoie le client :

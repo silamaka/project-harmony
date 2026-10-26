@@ -55,6 +55,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "notifications.actor.ResetActorMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -141,7 +142,8 @@ VAPID_SUBJECT = os.environ.get("VAPID_SUBJECT", "mailto:empirebeba@gmail.com")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # JWT standard qui retient aussi l'auteur de la requête (notifications).
+        "notifications.actor.ActorJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -176,3 +178,6 @@ SIMPLE_JWT = {
 # passe.
 if "test" in sys.argv:
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    # Jamais de vrai envoi push pendant les tests, même si le .env local a
+    # des clés : les tests du push les fournissent eux-mêmes.
+    VAPID_PUBLIC_KEY = VAPID_PRIVATE_KEY = ""

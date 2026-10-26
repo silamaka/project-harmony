@@ -7,6 +7,7 @@ from django.utils import timezone
 from deliverables.models import Deliverable, DeliverableStatus
 from notifications.services import (
     notify_client_validation_reminder,
+    notify_late_missions,
     notify_publication_team,
 )
 
@@ -83,10 +84,13 @@ def send_publication_reminders(now=None) -> int:
 
 class Command(BaseCommand):
     help = (
-        "Envoie les rappels de publication (veille, retard). À lancer toutes les "
-        "heures par le planificateur du serveur (cron)."
+        "Envoie les rappels de publication (veille, retard) et signale les missions "
+        "en retard. À lancer toutes les heures par le planificateur du serveur (cron)."
     )
 
     def handle(self, *args, **options):
         sent = send_publication_reminders()
-        self.stdout.write(f"{sent} rappel(s) de publication envoyé(s).")
+        late = notify_late_missions()
+        self.stdout.write(
+            f"{sent} rappel(s) de publication, {late} mission(s) en retard signalée(s)."
+        )

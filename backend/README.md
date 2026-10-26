@@ -125,9 +125,10 @@ production.
 ### Rappels de publication (cron)
 
 Les rappels de publication (la veille, puis « en retard » une fois la date
-passée) sont envoyés par une commande à lancer **toutes les heures**. Chaque
-rappel ne part qu'une fois par date prévue : relancer la commande ne crée
-pas de doublon. À ajouter avec `crontab -e` sur le serveur :
+passée) sont envoyés par une commande à lancer **toutes les heures**. La
+même commande signale aussi les missions dont l'échéance est dépassée. Chaque
+rappel ne part qu'une fois par date prévue (une fois par échéance pour les
+missions) : relancer la commande ne crée pas de doublon. À ajouter avec `crontab -e` sur le serveur :
 
 ```cron
 0 * * * * cd /chemin/vers/project-harmony/backend && .venv/bin/python manage.py send_publication_reminders >> /var/log/olympe-rappels.log 2>&1

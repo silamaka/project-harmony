@@ -10,6 +10,7 @@ from notifications.services import (
     notify_client_decision,
     notify_client_decision_cancelled,
     notify_deliverable_sent,
+    notify_deliverable_to_review,
 )
 
 from .decisions import sync_mission_status
@@ -57,6 +58,11 @@ def is_sent_to_client(deliverable) -> bool:
     return deliverable.status == DeliverableStatus.VALIDE and bool(deliverable.url)
 
 
+def awaits_agency_review(deliverable) -> bool:
+    """Contenu déposé (lien présent) que l'agence n'a pas encore validé."""
+    return deliverable.status == DeliverableStatus.EN_ATTENTE and bool(deliverable.url)
+
+
 class DeliverableViewSet(viewsets.ModelViewSet):
     serializer_class = DeliverableSerializer
     permission_classes = [DeliverablePermission]
@@ -77,11 +83,15 @@ class DeliverableViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def perform_create(self, serializer):
         deliverable = serializer.save(uploaded_by=self.request.user)
+        if awaits_agency_review(deliverable):
+            notify_deliverable_to_review(deliverable)
         sync_mission_status(deliverable.mission)
 
     @transaction.atomic
     def perform_update(self, serializer):
         was_sent = is_sent_to_client(serializer.instance)
+        was_awaiting_review = awaits_agency_review(serializer.instance)
+        previous_url = serializer.instance.url
         previous_client_status = serializer.instance.client_status
         previous_scheduled_at = serializer.instance.scheduled_at
         # Calculé avant l'enregistrement, qui efface la trace de la décision.
@@ -178,6 +188,12 @@ class DeliverableViewSet(viewsets.ModelViewSet):
                 )
         elif not was_sent and is_sent_to_client(deliverable):
             notify_deliverable_sent(deliverable)
+
+        # Nouveau contenu à revoir : premier lien, ou nouvelle version.
+        if awaits_agency_review(deliverable) and (
+            not was_awaiting_review or deliverable.url != previous_url
+        ):
+            notify_deliverable_to_review(deliverable)
 
         if deliverable.scheduled_at != previous_scheduled_at:
             # Trace du planning dans la discussion ; visible du client dès

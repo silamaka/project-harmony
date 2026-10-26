@@ -51,6 +51,28 @@ class Notification(models.Model):
         related_name="notifications",
         on_delete=models.SET_NULL,
     )
+    # Qui a déclenché la notification (renseigné automatiquement pendant une
+    # requête, voir notifications/actor.py ; vide pour les tâches planifiées).
+    # Elle n'apparaît ni dans sa cloche ni en push (notifications_visible_to).
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        related_name="+",
+        on_delete=models.SET_NULL,
+    )
+    # Notification personnelle (ex. "vous êtes assigné") : seul ce
+    # collaborateur la voit, pas les autres membres de la mission. L'admin et
+    # le chef de projet voient toujours tout.
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        related_name="personal_notifications",
+        on_delete=models.CASCADE,
+    )
+    # Commentaire visible du client : il en est prévenu aussi.
+    client_visible = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -58,6 +80,13 @@ class Notification(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.actor_id is None:
+            from .actor import current_actor
+
+            self.actor = current_actor()
+        super().save(*args, **kwargs)
 
 
 class PushSubscription(models.Model):
