@@ -41,6 +41,8 @@ const FILTER_LABELS: Record<Filter, string> = {
 function DeliverablesPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("tous");
+  // Carte de statistique : filtre la liste, un second clic le retire.
+  const toggleFilter = (f: Filter) => setFilter(filter === f ? "tous" : f);
   const [editing, setEditing] = useState<Deliverable | null>(null);
   const { data: deliverables } = useQuery({
     queryKey: ["deliverables"],
@@ -74,15 +76,30 @@ function DeliverablesPage() {
       allow={["admin", "chef_projet", "collaborateur"]}
     >
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
-        <StatCard label="Livrables" value={stats.total} icon={Package} />
+        <StatCard
+          label="Livrables"
+          value={stats.total}
+          icon={Package}
+          active={filter === "tous"}
+          onClick={() => setFilter("tous")}
+        />
         <StatCard
           label="En revue agence"
           value={stats.enRevue}
           icon={Clock}
           tone="warning"
           delay={0.04}
+          active={filter === "en_attente"}
+          onClick={() => toggleFilter("en_attente")}
         />
-        <StatCard label="Chez le client" value={stats.chezLeClient} icon={Send} delay={0.08} />
+        <StatCard
+          label="Chez le client"
+          value={stats.chezLeClient}
+          icon={Send}
+          delay={0.08}
+          active={filter === "envoye"}
+          onClick={() => toggleFilter("envoye")}
+        />
         {/* Validés par le client : c'est le prochain travail de l'agence. */}
         <StatCard
           label="À publier"
@@ -91,7 +108,7 @@ function DeliverablesPage() {
           tone="success"
           delay={0.1}
           active={filter === "pret"}
-          onClick={() => setFilter(filter === "pret" ? "tous" : "pret")}
+          onClick={() => toggleFilter("pret")}
         />
         <StatCard
           label="Corrections"
@@ -99,6 +116,8 @@ function DeliverablesPage() {
           icon={AlertTriangle}
           tone="danger"
           delay={0.12}
+          active={filter === "corrections"}
+          onClick={() => toggleFilter("corrections")}
         />
       </div>
 

@@ -158,6 +158,9 @@ function SettingsPage() {
     </div>
   );
 
+  // Carte de statistique : filtre la liste par rôle, un second clic le retire.
+  const toggleRole = (r: Role) => updateFilter(setRoleFilter)(roleFilter === r ? "tous" : r);
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -172,10 +175,37 @@ function SettingsPage() {
   return (
     <AppShell title="Paramètres" subtitle="Administration de la plateforme" allow={["admin"]}>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Clients" value={stats.clients} icon={Building2} />
-        <StatCard label="Admins" value={stats.admins} icon={ShieldCheck} tone="info" />
-        <StatCard label="Chefs de projet" value={stats.staff} icon={Briefcase} tone="warning" />
-        <StatCard label="Collaborateurs" value={stats.collaborateurs} icon={Users} tone="success" />
+        <StatCard
+          label="Clients"
+          value={stats.clients}
+          icon={Building2}
+          active={roleFilter === "client"}
+          onClick={() => toggleRole("client")}
+        />
+        <StatCard
+          label="Admins"
+          value={stats.admins}
+          icon={ShieldCheck}
+          tone="info"
+          active={roleFilter === "admin"}
+          onClick={() => toggleRole("admin")}
+        />
+        <StatCard
+          label="Chefs de projet"
+          value={stats.staff}
+          icon={Briefcase}
+          tone="warning"
+          active={roleFilter === "chef_projet"}
+          onClick={() => toggleRole("chef_projet")}
+        />
+        <StatCard
+          label="Collaborateurs"
+          value={stats.collaborateurs}
+          icon={Users}
+          tone="success"
+          active={roleFilter === "collaborateur"}
+          onClick={() => toggleRole("collaborateur")}
+        />
       </div>
 
       <div className="surface-card mt-4 p-5">

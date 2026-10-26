@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Gauge, ListChecks, Mail, Phone, Search, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -40,6 +40,9 @@ function CollaboratorsPage() {
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof STATUS)[number]>("tous");
+  // Carte "Charge moyenne" : classe l'équipe des plus chargés aux moins chargés.
+  const [byWorkload, setByWorkload] = useState(false);
+  const navigate = useNavigate();
 
   const removeCollaborator = useMutation({
     mutationFn: (id: string) => userService.remove(id),
@@ -51,17 +54,16 @@ function CollaboratorsPage() {
     onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
   });
 
-  const filtered = useMemo(
-    () =>
-      (collaborators ?? []).filter(
-        (u) =>
-          (status === "tous" || (status === "actif" ? u.is_active : !u.is_active)) &&
-          `${u.first_name} ${u.last_name} ${u.job_title ?? ""}`
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-      ),
-    [collaborators, query, status],
-  );
+  const filtered = useMemo(() => {
+    const list = (collaborators ?? []).filter(
+      (u) =>
+        (status === "tous" || (status === "actif" ? u.is_active : !u.is_active)) &&
+        `${u.first_name} ${u.last_name} ${u.job_title ?? ""}`
+          .toLowerCase()
+          .includes(query.toLowerCase()),
+    );
+    return byWorkload ? [...list].sort((a, b) => (b.workload ?? 0) - (a.workload ?? 0)) : list;
+  }, [collaborators, query, status, byWorkload]);
 
   const allCollaborators = collaborators ?? [];
   const stats = {
@@ -85,13 +87,21 @@ function CollaboratorsPage() {
       }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Collaborateurs" value={stats.total} icon={Users} />
+        <StatCard
+          label="Collaborateurs"
+          value={stats.total}
+          icon={Users}
+          active={status === "tous"}
+          onClick={() => setStatus("tous")}
+        />
         <StatCard
           label="Actifs"
           value={stats.actifs}
           icon={CheckCircle2}
           tone="success"
           delay={0.04}
+          active={status === "actif"}
+          onClick={() => setStatus(status === "actif" ? "tous" : "actif")}
         />
         <StatCard
           label="Charge moyenne"
@@ -99,12 +109,16 @@ function CollaboratorsPage() {
           icon={Gauge}
           tone="info"
           delay={0.08}
+          {...(byWorkload ? { hint: "Classés par charge" } : {})}
+          active={byWorkload}
+          onClick={() => setByWorkload(!byWorkload)}
         />
         <StatCard
           label="Missions assignées"
           value={stats.missionsAssignees}
           icon={ListChecks}
           delay={0.12}
+          onClick={() => void navigate({ to: "/missions" })}
         />
       </div>
 

@@ -44,6 +44,8 @@ function ProjectsPage() {
   const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof FILTERS)[number]>("tous");
+  // Carte de statistique : filtre la liste, un second clic le retire.
+  const toggleStatus = (s: ProjectStatus) => setStatus(status === s ? "tous" : s);
 
   const filtered = useMemo(
     () =>
@@ -93,14 +95,30 @@ function ProjectsPage() {
       actions={<CreateProjectDialog />}
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Projets" value={stats.total} icon={FolderKanban} />
-        <StatCard label="En cours" value={stats.enCours} icon={Clock} tone="info" delay={0.04} />
+        <StatCard
+          label="Projets"
+          value={stats.total}
+          icon={FolderKanban}
+          active={status === "tous"}
+          onClick={() => setStatus("tous")}
+        />
+        <StatCard
+          label="En cours"
+          value={stats.enCours}
+          icon={Clock}
+          tone="info"
+          delay={0.04}
+          active={status === "en_cours"}
+          onClick={() => toggleStatus("en_cours")}
+        />
         <StatCard
           label="En attente"
           value={stats.enAttente}
           icon={Hourglass}
           tone="warning"
           delay={0.08}
+          active={status === "en_attente"}
+          onClick={() => toggleStatus("en_attente")}
         />
         <StatCard
           label="Terminés"
@@ -108,6 +126,8 @@ function ProjectsPage() {
           icon={CheckCircle2}
           tone="success"
           delay={0.12}
+          active={status === "termine"}
+          onClick={() => toggleStatus("termine")}
         />
       </div>
 
