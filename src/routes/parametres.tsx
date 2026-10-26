@@ -23,6 +23,8 @@ const SORT_LABELS: Record<(typeof SORTS)[number], string> = {
   nom: "Nom A-Z",
 };
 const PAGE_SIZES = [10, 20, 50] as const;
+const SELECT_CLASS =
+  "h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:px-3";
 
 const ACTIVE_OPTIONS: Record<"1" | "0", string> = { "1": "Actif", "0": "Inactif" };
 const ACTIVE_TONE: Record<"1" | "0", string> = {
@@ -124,6 +126,38 @@ function SettingsPage() {
       : `${base} Cette action est irréversible.`;
   };
 
+  // Partagés par le tableau (desktop) et les cartes (mobile).
+  const statusControl = (u: User) =>
+    u.id === currentUser?.id ? (
+      <span
+        title="Vous ne pouvez pas désactiver votre propre compte."
+        className="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success"
+      >
+        Actif
+      </span>
+    ) : (
+      <PillSelect
+        value={u.is_active ? "1" : "0"}
+        options={ACTIVE_OPTIONS}
+        tone={ACTIVE_TONE}
+        onChange={(v) => updateActive.mutate({ id: u.id, is_active: v === "1" })}
+      />
+    );
+  const rowActions = (u: User) => (
+    <div className="flex items-center justify-end gap-2">
+      <EditUserDialog user={u} />
+      {u.id !== currentUser?.id && (
+        <ConfirmDeleteButton
+          iconOnly
+          title={`Supprimer ${u.first_name} ${u.last_name} ?`}
+          description={deleteDescription(u)}
+          pending={removeUser.isPending && removeUser.variables === u.id}
+          onConfirm={() => removeUser.mutate(u.id)}
+        />
+      )}
+    </div>
+  );
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageItems = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -145,22 +179,26 @@ function SettingsPage() {
       </div>
 
       <div className="surface-card mt-4 p-5">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold">Gestion des utilisateurs</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Filtrez, modifiez les rôles et gérez la sécurité des comptes de tous les utilisateurs.
             </p>
           </div>
-          <CreateUserDialog
-            triggerLabel="Inviter un utilisateur"
-            role="chef_projet"
-            excludeRoles={["collaborateur"]}
-          />
+          {/* Le Dialog ne rend aucun élément : le bouton déclencheur est l'enfant direct. */}
+          <div className="[&>button]:w-full sm:[&>button]:w-auto">
+            <CreateUserDialog
+              triggerLabel="Inviter un utilisateur"
+              role="chef_projet"
+              excludeRoles={["collaborateur"]}
+            />
+          </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-48 flex-1">
+        {/* Mobile : recherche pleine largeur puis rôle / statut / tri sur une ligne. */}
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="relative col-span-3 sm:min-w-48 sm:flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Rechercher utilisateur..."
@@ -170,7 +208,7 @@ function SettingsPage() {
             />
           </div>
           <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={SELECT_CLASS}
             value={roleFilter}
             onChange={(e) =>
               updateFilter(setRoleFilter)(e.target.value as (typeof ROLE_FILTERS)[number])
@@ -184,7 +222,7 @@ function SettingsPage() {
             ))}
           </select>
           <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={SELECT_CLASS}
             value={statusFilter}
             onChange={(e) =>
               updateFilter(setStatusFilter)(e.target.value as (typeof STATUS_FILTERS)[number])
@@ -195,7 +233,7 @@ function SettingsPage() {
             <option value="inactif">Inactif</option>
           </select>
           <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={SELECT_CLASS}
             value={sort}
             onChange={(e) => setSort(e.target.value as (typeof SORTS)[number])}
           >
@@ -205,8 +243,9 @@ function SettingsPage() {
               </option>
             ))}
           </select>
+          {/* Masqué sur mobile : la pagination suffit. */}
           <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={`${SELECT_CLASS} hidden sm:block`}
             value={pageSize}
             onChange={(e) =>
               updateFilter(setPageSize)(Number(e.target.value) as (typeof PAGE_SIZES)[number])
@@ -220,7 +259,31 @@ function SettingsPage() {
           </select>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
+        {/* Mobile : une carte par utilisateur, toutes les actions visibles. */}
+        <div className="mt-4 space-y-2 md:hidden">
+          {pageItems.map((u) => (
+            <div key={u.id} className="rounded-lg border border-border p-3">
+              <p className="font-medium">
+                {u.first_name} {u.last_name}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
+                  {ROLE_LABELS[u.role]}
+                </span>
+                {statusControl(u)}
+                <div className="ml-auto">{rowActions(u)}</div>
+              </div>
+            </div>
+          ))}
+          {pageItems.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Aucun utilisateur ne correspond à ces filtres.
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <table className="w-full min-w-[560px] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
@@ -239,37 +302,8 @@ function SettingsPage() {
                   </td>
                   <td className="py-2.5 text-muted-foreground">{u.email}</td>
                   <td className="py-2.5">{ROLE_LABELS[u.role]}</td>
-                  <td className="py-2.5">
-                    {u.id === currentUser?.id ? (
-                      <span
-                        title="Vous ne pouvez pas désactiver votre propre compte."
-                        className="rounded-full bg-success/15 px-2.5 py-0.5 text-xs font-semibold text-success"
-                      >
-                        Actif
-                      </span>
-                    ) : (
-                      <PillSelect
-                        value={u.is_active ? "1" : "0"}
-                        options={ACTIVE_OPTIONS}
-                        tone={ACTIVE_TONE}
-                        onChange={(v) => updateActive.mutate({ id: u.id, is_active: v === "1" })}
-                      />
-                    )}
-                  </td>
-                  <td className="py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <EditUserDialog user={u} />
-                      {u.id !== currentUser?.id && (
-                        <ConfirmDeleteButton
-                          iconOnly
-                          title={`Supprimer ${u.first_name} ${u.last_name} ?`}
-                          description={deleteDescription(u)}
-                          pending={removeUser.isPending && removeUser.variables === u.id}
-                          onConfirm={() => removeUser.mutate(u.id)}
-                        />
-                      )}
-                    </div>
-                  </td>
+                  <td className="py-2.5">{statusControl(u)}</td>
+                  <td className="py-2.5 text-right">{rowActions(u)}</td>
                 </tr>
               ))}
               {pageItems.length === 0 && (
