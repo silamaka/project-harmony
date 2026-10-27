@@ -106,21 +106,58 @@ propre `.env` (voir `../.env.example`).
 
 ## Mise à jour en production (VPS)
 
-Sur le serveur, une seule commande met l'API à jour :
+Sur le serveur, une seule commande met à jour **toute** la plateforme (API
+et frontend) :
 
 ```bash
-RESTART_CMD="sudo systemctl restart olympe-api" bash backend/deploy.sh
+bash ~/project-harmony/deploy.sh
 ```
 
-Le script récupère le code, installe les dépendances, **applique les
-migrations puis vérifie qu'il n'en reste aucune**, contrôle la
-configuration (`check --deploy`) et redémarre l'API. Il s'arrête à la
-première erreur : rien n'est redémarré sur une base à moitié à jour.
-Adapter `RESTART_CMD` à la façon dont l'API tourne sur le serveur
-(systemd, supervisor, pm2...) ; sans elle, le script rappelle de
-redémarrer à la main. Les avertissements de `check --deploy` (DEBUG actif,
-clé secrète faible, cookies non sécurisés...) sont à corriger en
-production.
+Le script récupère le code, regarde ce qui a changé et ne fait que le
+nécessaire :
+
+- **backend** : dépendances Python si `requirements.txt` a changé ;
+  **sauvegarde de la base puis migrations** s'il y en a de nouvelles, et
+  vérification qu'il n'en reste aucune ; clés des notifications push créées
+  la première fois ; contrôle de la configuration (`check --deploy`) ;
+  redémarrage de l'API ;
+- **frontend** : dépendances npm si `package.json` a changé, build,
+  redémarrage ;
+- pour finir, vérifie que les deux services tournent, et affiche leurs
+  dernières lignes de journal sinon.
+
+Il s'arrête à la première erreur : rien n'est redémarré sur un code ou une
+base à moitié à jour. `FULL=1 bash deploy.sh` refait tout même sans
+changement (après une intervention à la main). Les services par défaut sont
+`project-harmony` (API) et `project-harmony-frontend` ; sinon, les indiquer
+par `API_SERVICE=...` et `FRONTEND_SERVICE=...`. Les avertissements de
+`check --deploy` (DEBUG actif, clé secrète faible, cookies non
+sécurisés...) sont à corriger en production.
+
+### Sauvegardes de la base
+
+`backend/backup.sh` copie toute la base dans `~/olympe-backups/`, vérifie
+que la copie est lisible et garde les 14 derniers jours. Le déploiement la
+lance de lui-même avant chaque migration ; pour une copie **chaque nuit**,
+l'ajouter avec `crontab -e` :
+
+```cron
+30 3 * * * bash /home/UTILISATEUR/project-harmony/backend/backup.sh >> /home/UTILISATEUR/olympe-backups/backup.log 2>&1
+```
+
+Ces copies restent sur le même serveur : elles protègent d'une erreur
+(suppression, migration ratée), pas de la perte du serveur. Pour cela,
+copier régulièrement `~/olympe-backups/` ailleurs (ordinateur, Google
+Drive...).
+
+**Restaurer** une sauvegarde (remplace tout le contenu actuel de la base) :
+
+```bash
+sudo systemctl stop project-harmony
+bash backend/backup.sh   # copie de l'état actuel, au cas où
+pg_restore --clean --if-exists --no-owner -h localhost -U project_harmony   -d project_harmony ~/olympe-backups/olympe-AAAAMMJJ-HHMMSS.dump
+sudo systemctl start project-harmony
+```
 
 ### Rappels de publication (cron)
 

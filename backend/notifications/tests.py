@@ -510,3 +510,32 @@ class NotificationRoutingTests(RoleTestCase):
             deadline=datetime.date(2026, 1, 10), status=MissionStatus.TERMINE
         )
         self.assertEqual(notify_late_missions(today=datetime.date(2026, 1, 12)), 0)
+
+
+class NotificationListLimitTests(RoleTestCase):
+    def test_bell_returns_only_most_recent(self):
+        from .views import NotificationViewSet
+
+        Notification.objects.bulk_create(
+            [
+                Notification(type=NotificationType.MISSION_CREEE, title=f"N{i}", body="", mission=self.mission)
+                for i in range(NotificationViewSet.LIST_LIMIT + 20)
+            ]
+        )
+        self.auth_as(self.admin)
+        data = self.client.get(notification_list_url()).data
+        self.assertEqual(len(data), NotificationViewSet.LIST_LIMIT)
+        newest = Notification.objects.order_by("-created_at", "-id").first()
+        self.assertIn(str(newest.id), [str(n["id"]) for n in data])
+
+    def test_api_responses_are_compressed(self):
+        # Django ne compresse pas les toutes petites réponses : il en faut une vraie.
+        Notification.objects.bulk_create(
+            [
+                Notification(type=NotificationType.MISSION_CREEE, title=f"N{i}", body="x" * 50)
+                for i in range(20)
+            ]
+        )
+        self.auth_as(self.admin)
+        res = self.client.get(notification_list_url(), HTTP_ACCEPT_ENCODING="gzip")
+        self.assertEqual(res.get("Content-Encoding"), "gzip")

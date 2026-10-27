@@ -32,6 +32,14 @@ class NotificationViewSet(
     serializer_class = NotificationSerializer
     permission_classes = [NotificationPermission]
 
+    # La cloche n'affiche que les plus récentes : la liste complète grossit
+    # sans fin (chaque évènement en crée une) et était rechargée à chaque page.
+    LIST_LIMIT = 100
+
+    def list(self, request, *args, **kwargs):
+        notifications = self.get_queryset()[: self.LIST_LIMIT]
+        return Response(self.get_serializer(notifications, many=True).data)
+
     def get_queryset(self):
         user = self.request.user
         # "Lu" calculé pour l'utilisateur connecté, en une seule requête.
@@ -55,7 +63,9 @@ class NotificationViewSet(
             ignore_conflicts=True,
         )
         return Response(
-            NotificationSerializer(self.get_queryset(), many=True, context={"request": request}).data
+            NotificationSerializer(
+                self.get_queryset()[: self.LIST_LIMIT], many=True, context={"request": request}
+            ).data
         )
 
 
