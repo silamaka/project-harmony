@@ -48,21 +48,92 @@ class CalendarEventsTests(RoleTestCase):
         mission_event_ids = {e["mission_id"] for e in res.data if e["type"] == "mission"}
         self.assertEqual(mission_event_ids, {str(self.mission.id), str(self.foreign_mission.id)})
 
-    def test_client_sees_only_own_company_mission_events(self):
+    def test_client_never_sees_internal_mission_deadlines(self):
         self.auth_as(self.client_user)
         res = self.client.get(reverse("calendar"))
-        self.assertEqual(res.status_code, 200)
-        mission_event_ids = {e["mission_id"] for e in res.data if e["type"] == "mission"}
-        self.assertEqual(mission_event_ids, {str(self.mission.id)})
+        self.assertEqual([e for e in res.data if e["type"] == "mission"], [])
 
-    def test_client_sees_only_own_company_deliverable_events(self):
-        # Validé par l'agence = envoyé au client.
-        Deliverable.objects.filter(mission=self.mission).update(status=DeliverableStatus.VALIDE)
+    def test_client_sees_descentes_of_own_company_only(self):
+        Mission.objects.filter(pk__in=[self.mission.pk, self.foreign_mission.pk]).update(
+            task_type="descente"
+        )
         self.auth_as(self.client_user)
         res = self.client.get(reverse("calendar"))
-        livrable_events = [e for e in res.data if e["type"] == "livrable"]
-        self.assertEqual(len(livrable_events), 1)
-        self.assertEqual(livrable_events[0]["mission_id"], str(self.mission.id))
+        descentes = {e["mission_id"] for e in res.data if e["type"] == "descente"}
+        self.assertEqual(descentes, {str(self.mission.id)})
+
+    def _send_to_client(self):
+        """L'agence valide le livrable (sa validation vaut envoi au client)."""
+        deliverable = Deliverable.objects.get(mission=self.mission)
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            reverse("deliverable-detail", args=[deliverable.id]), {"status": "valide"}
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        deliverable.refresh_from_db()
+        return deliverable
+
+    def test_client_does_not_see_deliverable_still_in_review(self):
+        self.auth_as(self.client_user)
+        res = self.client.get(reverse("calendar"))
+        self.assertEqual([e for e in res.data if e["type"] == "livrable"], [])
+
+    def test_client_sees_available_deliverable_on_its_sending_date(self):
+        from django.utils import timezone
+
+        # Déposé il y a dix jours, envoyé aujourd'hui : c'est aujourd'hui qu'il
+        # devient disponible pour le client, pas le jour du dépôt.
+        Deliverable.objects.filter(mission=self.mission).update(
+            created_at=timezone.now() - timezone.timedelta(days=10)
+        )
+        deliverable = self._send_to_client()
+        self.assertIsNotNone(deliverable.sent_at)
+        self.auth_as(self.client_user)
+        [event] = [e for e in self.client.get(reverse("calendar")).data if e["type"] == "livrable"]
+        self.assertEqual(event["date"], timezone.localtime(deliverable.sent_at).date().isoformat())
+        self.assertEqual(event["deliverable_id"], str(deliverable.id))
+        self.assertTrue(event["awaiting_client"])
+        self.assertEqual(event["description"], "Disponible : il attend votre validation.")
+
+    def test_available_deliverable_reflects_client_decision(self):
+        deliverable = self._send_to_client()
+        Deliverable.objects.filter(pk=deliverable.pk).update(client_status=DeliverableStatus.VALIDE)
+        self.auth_as(self.client_user)
+        [event] = [e for e in self.client.get(reverse("calendar")).data if e["type"] == "livrable"]
+        self.assertFalse(event["awaiting_client"])
+        self.assertEqual(event["description"], "Vous l'avez validé.")
+
+    def test_team_still_sees_deposit_dates(self):
+        self.auth_as(self.admin)
+        res = self.client.get(reverse("calendar"))
+        self.assertEqual(len([e for e in res.data if e["type"] == "livrable"]), 1)
+
+    def test_client_sees_publication_awaiting_his_validation(self):
+        from django.utils import timezone
+
+        Deliverable.objects.filter(mission=self.mission).update(
+            status=DeliverableStatus.VALIDE, scheduled_at=timezone.now()
+        )
+        self.auth_as(self.client_user)
+        res = self.client.get(reverse("calendar"))
+        [publication] = [e for e in res.data if e["type"] == "publication"]
+        self.assertTrue(publication["awaiting_client"])
+        self.assertEqual(publication["description"], "En attente de votre validation.")
+
+        Deliverable.objects.filter(mission=self.mission).update(
+            client_status=DeliverableStatus.VALIDE
+        )
+        [publication] = [e for e in self.client.get(reverse("calendar")).data if e["type"] == "publication"]
+        self.assertFalse(publication["awaiting_client"])
+
+    def test_client_does_not_see_unsent_publication(self):
+        from django.utils import timezone
+
+        # En revue chez l'agence (pas encore envoyé) : rien côté client.
+        Deliverable.objects.filter(mission=self.mission).update(scheduled_at=timezone.now())
+        self.auth_as(self.client_user)
+        res = self.client.get(reverse("calendar"))
+        self.assertEqual([e for e in res.data if e["type"] == "publication"], [])
 
     def test_client_does_not_see_draft_deliverable_events(self):
         """Livrable pas encore validé par l'agence : il reste interne, y

@@ -69,6 +69,8 @@ const NAV: NavItem[] = [
     roles: ["admin", "chef_projet", "collaborateur"],
   },
   { to: "/portail", label: "Portail client", icon: UserCircle, roles: ["client"] },
+  // Même page, placée après le portail (page d'accueil du client).
+  { to: "/calendrier", label: "Calendrier", icon: CalendarDays, roles: ["client"] },
   {
     to: "/statistiques",
     label: "Statistiques",

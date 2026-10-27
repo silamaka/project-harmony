@@ -246,6 +246,10 @@ export interface CalendarEvent {
   scheduled_at?: string;
   /** Publication effectuée (ISO), null tant qu'elle ne l'est pas. */
   published_at?: string | null;
+  /** Publication dont le livrable attend encore la validation du client. */
+  awaiting_client?: boolean;
+  /** Livrable disponible pour le client : quand l'agence le lui a envoyé (ISO). */
+  available_at?: string;
   /** Statut de la mission, présent sur les échéances de mission uniquement. */
   status?: MissionStatus;
   color?: string;

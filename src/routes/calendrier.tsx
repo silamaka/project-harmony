@@ -17,7 +17,7 @@ import {
   subWeeks,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
@@ -117,19 +117,20 @@ const formatShort = (iso: string) => format(parseISO(iso), "dd/MM", { locale: fr
  * Terminée, ni Validée, ni Publiée) reste à traiter. Elle garde sa date
  * d'origine (marquée en retard) et une copie est reportée sur aujourd'hui,
  * jusqu'à ce qu'elle soit finie — comme Google Tasks / Todoist. */
+/** Publication prévue ou livrable disponible : date et heure dans le
+ * fuseau du navigateur (le serveur les calcule dans le sien). */
+const inLocalTime = (raw: ApiCalendarEvent): ApiCalendarEvent => {
+  const at = raw.scheduled_at ?? raw.available_at;
+  return at
+    ? { ...raw, date: format(parseISO(at), "yyyy-MM-dd"), time: format(parseISO(at), "HH:mm") }
+    : raw;
+};
+
 function withOverdueRollover(events: ApiCalendarEvent[]): CalendarEvent[] {
   const today = format(new Date(), "yyyy-MM-dd");
   const result: CalendarEvent[] = [];
   for (const raw of events) {
-    // Publication prévue : date et heure dans le fuseau du navigateur (le
-    // serveur les calcule dans le sien).
-    const e = raw.scheduled_at
-      ? {
-          ...raw,
-          date: format(parseISO(raw.scheduled_at), "yyyy-MM-dd"),
-          time: format(parseISO(raw.scheduled_at), "HH:mm"),
-        }
-      : raw;
+    const e = inLocalTime(raw);
     const late = isMissionEvent(e) && !!e.status && isLate({ deadline: e.date, status: e.status });
     result.push(late ? { ...e, late } : e);
     if (late) {
@@ -149,16 +150,19 @@ const byDayOrder = (a: CalendarEvent, b: CalendarEvent) =>
  * seulement prévue (vert clair). */
 /** Avancement d'une publication programmée : publiée, date dépassée sans
  * publication, ou prévue. */
-function publicationProgress(e: CalendarEvent): "done" | "late" | "ongoing" | null {
+function publicationProgress(e: CalendarEvent): "done" | "late" | "awaiting" | "ongoing" | null {
   if (e.type !== "publication" || !e.scheduled_at) return null;
   if (e.published_at) return "done";
-  return new Date(e.scheduled_at).getTime() < Date.now() ? "late" : "ongoing";
+  if (new Date(e.scheduled_at).getTime() < Date.now()) return "late";
+  // Le client n'a pas encore validé le livrable : à mettre en avant.
+  return e.awaiting_client ? "awaiting" : "ongoing";
 }
 
 /** Publication : toute l'étiquette prend la couleur de son avancement. */
 const PUBLICATION_TONE = {
   done: "bg-success/15 text-success border-success/30",
   late: LATE_TONE,
+  awaiting: "bg-warning/25 text-warning border-warning/60 font-semibold",
   ongoing: "bg-warning/20 text-warning border-warning/30",
 } as const;
 
@@ -186,6 +190,7 @@ const labelOf = (e: CalendarEvent) => (e.published_at ? "Publiée" : TYPE_LABEL[
 const PROGRESS_DOT = {
   late: "bg-destructive",
   done: "bg-success",
+  awaiting: "bg-warning",
   ongoing: "bg-warning",
 } as const;
 
@@ -201,8 +206,18 @@ function useMissionStatus() {
     // Publication : mêmes trois couleurs — publiée, prévue, date dépassée.
     const progress = publicationProgress(e);
     if (progress) {
-      const label = { done: "Publiée", late: "Date dépassée", ongoing: "Prévue" }[progress];
+      const label = {
+        done: "Publiée",
+        late: "Date dépassée",
+        awaiting: isClient ? "À valider" : "Attente du client",
+        ongoing: "Prévue",
+      }[progress];
       return { label, dot: PROGRESS_DOT[progress], done: progress === "done" };
+    }
+    if (isClient && e.type === "livrable" && e.available_at) {
+      return e.awaiting_client
+        ? { label: "À valider", dot: PROGRESS_DOT.awaiting, done: false }
+        : { label: "Disponible", dot: PROGRESS_DOT.done, done: true };
     }
     if (!isMissionEvent(e) || !e.status) return null;
     const done = isMissionDone(e.status);
@@ -234,8 +249,30 @@ const isMissionEvent = (e: ApiCalendarEvent) => e.id.startsWith("ev-");
 
 function CalendarPage() {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  // Le client a le même calendrier, sans les outils de l'équipe : pas de
+  // déplacement d'échéance, pas de filtre client, pas de report des retards
+  // (le serveur ne lui envoie que ses publications et ses descentes).
+  const isClient = user?.role === "client";
   const { data: rawEvents } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
-  const events = useMemo(() => withOverdueRollover(rawEvents ?? []), [rawEvents]);
+  const events = useMemo(
+    () => (isClient ? (rawEvents ?? []).map(inLocalTime) : withOverdueRollover(rawEvents ?? [])),
+    [rawEvents, isClient],
+  );
+  // Livrables qui attendent la validation du client, une fois chacun (un
+  // livrable disponible peut aussi avoir une publication prévue) : la
+  // publication d'abord, qui porte l'échéance la plus parlante.
+  const awaitingClient = useMemo(() => {
+    const byDeliverable = new Map<string, CalendarEvent>();
+    for (const e of events) {
+      if (!e.awaiting_client || e.published_at || !e.deliverable_id) continue;
+      const known = byDeliverable.get(e.deliverable_id);
+      if (!known || e.type === "publication") byDeliverable.set(e.deliverable_id, e);
+    }
+    return [...byDeliverable.values()].sort((a, b) =>
+      (a.date + (a.time ?? "")).localeCompare(b.date + (b.time ?? "")),
+    );
+  }, [events]);
   const [view, setView] = useState<ViewMode>("mois");
   // Sur téléphone, 7 colonnes réduisent les événements à "e…" : la vue
   // Agenda (liste) s'ouvre par défaut. Après montage seulement, pour ne pas
@@ -265,7 +302,10 @@ function CalendarPage() {
     void navigate({ search: client ? { client } : {}, replace: true });
   const setProjectFilter = (projet: string) =>
     void navigate({
-      search: { ...(clientFilter ? { client: clientFilter } : {}), ...(projet ? { projet } : {}) },
+      search: {
+        ...(clientFilter && !isClient ? { client: clientFilter } : {}),
+        ...(projet ? { projet } : {}),
+      },
       replace: true,
     });
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
@@ -276,15 +316,22 @@ function CalendarPage() {
     () => [...(clients ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
     [clients],
   );
+  // Projets du client choisi ; pour un client, les siens.
+  const projectsOf = isClient ? user?.client_id : clientFilter;
   const projectOptions = useMemo(
     () =>
-      clientFilter
+      projectsOf
         ? (projects ?? [])
-            .filter((p) => p.client_id === clientFilter)
+            .filter((p) => p.client_id === projectsOf)
             .sort((a, b) => a.name.localeCompare(b.name))
         : [],
-    [projects, clientFilter],
+    [projects, projectsOf],
   );
+  const typeOptions = (Object.keys(TYPE_LABEL) as EventType[]).filter(
+    (t) => !isClient || t === "publication" || t === "descente" || t === "livrable",
+  );
+  const typeLabel = (t: EventType) =>
+    isClient && t === "livrable" ? "Livrable disponible" : TYPE_LABEL[t];
 
   /** Le backend ne renvoie déjà que les événements de mission/livrable visibles pour le rôle courant. */
   const visibleEvents = useMemo(
@@ -308,6 +355,7 @@ function CalendarPage() {
     events.filter((e) => isSameDay(parseISO(e.date), date)).sort(byDayOrder);
 
   const handleDrop = (date: Date, eventId: string) => {
+    if (isClient) return;
     const ev = visibleEvents.find((e) => e.id === eventId);
     if (!ev) return;
     const iso = format(date, "yyyy-MM-dd");
@@ -387,22 +435,24 @@ function CalendarPage() {
           />
         </div>
 
-        <select
-          aria-label="Filtrer par client"
-          value={clientFilter ?? ""}
-          onChange={(e) => setClientFilter(e.target.value)}
-          className={cn(
-            "h-9 rounded-md border border-input bg-background px-3 text-sm",
-            clientFilter && "border-primary text-primary",
-          )}
-        >
-          <option value="">Tous les clients</option>
-          {clientOptions.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        {!isClient && (
+          <select
+            aria-label="Filtrer par client"
+            value={clientFilter ?? ""}
+            onChange={(e) => setClientFilter(e.target.value)}
+            className={cn(
+              "h-9 rounded-md border border-input bg-background px-3 text-sm",
+              clientFilter && "border-primary text-primary",
+            )}
+          >
+            <option value="">Tous les clients</option>
+            {clientOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         {/* Projet : seulement pour un client qui en a plusieurs. */}
         {projectOptions.length >= 2 && (
           <select
@@ -435,7 +485,7 @@ function CalendarPage() {
           >
             Tous
           </button>
-          {(Object.keys(TYPE_LABEL) as EventType[]).map((t) => (
+          {typeOptions.map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
@@ -447,11 +497,32 @@ function CalendarPage() {
               )}
             >
               <span className={cn("h-2 w-2 rounded-full", TYPE_DOT[t])} />
-              {TYPE_LABEL[t]}
+              {typeLabel(t)}
             </button>
           ))}
         </div>
       </div>
+
+      {isClient && awaitingClient.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setSelected(awaitingClient[0]!)}
+          className="mt-3 flex w-full items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-left text-sm transition hover:border-warning/70"
+        >
+          <AlertCircle className="h-5 w-5 shrink-0 text-warning" />
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold">
+              {awaitingClient.length} livrable
+              {awaitingClient.length > 1 ? "s attendent" : " attend"} votre validation.
+            </span>{" "}
+            <span className="text-muted-foreground">
+              {awaitingClient[0]!.type === "publication"
+                ? `Publication la plus proche : ${awaitingClient[0]!.title}, le ${format(parseISO(awaitingClient[0]!.date), "d MMMM", { locale: fr })}.`
+                : `Le plus ancien : ${awaitingClient[0]!.title}, disponible depuis le ${format(parseISO(awaitingClient[0]!.date), "d MMMM", { locale: fr })}.`}
+            </span>
+          </span>
+        </button>
+      )}
 
       {selectedClientName && (
         <p className="mt-3 text-xs text-muted-foreground">
@@ -773,7 +844,8 @@ function EventChip({
   full?: boolean;
 }) {
   const status = useMissionStatus()(event);
-  const draggable = isMissionEvent(event);
+  const { user } = useAuth();
+  const draggable = isMissionEvent(event) && user?.role !== "client";
   return (
     <p
       draggable={draggable}
@@ -835,6 +907,9 @@ function EventDetailDialog({
   event: CalendarEvent | null;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
+  const label = (e: CalendarEvent) =>
+    user?.role === "client" && e.available_at ? "Livrable disponible" : labelOf(e);
   return (
     <Dialog open={event !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -844,7 +919,7 @@ function EventDetailDialog({
               <div className="flex items-center gap-2">
                 <span className={cn("h-2.5 w-2.5 rounded-full", dotOf(event))} />
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {labelOf(event)}
+                  {label(event)}
                 </span>
               </div>
               <DialogTitle>{event.title}</DialogTitle>
