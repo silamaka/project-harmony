@@ -48,10 +48,19 @@ class CalendarEventsTests(RoleTestCase):
         mission_event_ids = {e["mission_id"] for e in res.data if e["type"] == "mission"}
         self.assertEqual(mission_event_ids, {str(self.mission.id), str(self.foreign_mission.id)})
 
-    def test_client_never_sees_internal_mission_deadlines(self):
+    def test_client_sees_own_missions_only(self):
         self.auth_as(self.client_user)
         res = self.client.get(reverse("calendar"))
-        self.assertEqual([e for e in res.data if e["type"] == "mission"], [])
+        missions = {e["mission_id"] for e in res.data if e["type"] == "mission"}
+        self.assertEqual(missions, {str(self.mission.id)})
+
+    def test_client_mission_tagged_livrable_stays_a_mission(self):
+        # Chez le client, "livrable" désigne un livrable disponible.
+        Mission.objects.filter(pk=self.mission.pk).update(task_type="livrable")
+        self.auth_as(self.client_user)
+        res = self.client.get(reverse("calendar"))
+        [event] = [e for e in res.data if e["id"] == f"ev-{self.mission.id}"]
+        self.assertEqual(event["type"], "mission")
 
     def test_client_sees_descentes_of_own_company_only(self):
         Mission.objects.filter(pk__in=[self.mission.pk, self.foreign_mission.pk]).update(

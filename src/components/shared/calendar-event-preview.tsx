@@ -158,8 +158,19 @@ function MissionPreview({
         )}
         {!isClient && <PriorityBadge priority={mission.priority} />}
         <span className="text-xs text-muted-foreground">
-          Échéance {new Date(mission.deadline).toLocaleDateString("fr-FR")} (
-          {deadlineHint(mission.deadline)})
+          {isClient ? (
+            // Pour le client, une date prévue, jamais un retard affiché.
+            <>
+              Livraison prévue le {new Date(mission.deadline).toLocaleDateString("fr-FR")}
+              {differenceInCalendarDays(parseISO(mission.deadline), new Date()) >= 0 &&
+                ` (${deadlineHint(mission.deadline)})`}
+            </>
+          ) : (
+            <>
+              Échéance {new Date(mission.deadline).toLocaleDateString("fr-FR")} (
+              {deadlineHint(mission.deadline)})
+            </>
+          )}
         </span>
       </div>
       {(clientName || projectName) && (

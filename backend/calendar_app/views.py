@@ -34,7 +34,11 @@ def calendar_events(request):
             "id": f"ev-{m.id}",
             "title": m.title,
             "date": m.deadline.isoformat(),
-            "type": m.task_type,
+            # Client : "mission" ou "descente" seulement — "livrable" désigne
+            # chez lui les livrables disponibles, pas une mission taguée ainsi.
+            "type": (m.task_type if m.task_type == TaskType.DESCENTE else "mission")
+            if is_client
+            else m.task_type,
             "mission_id": str(m.id),
             # Client et projet : filtres du calendrier.
             "client_id": str(m.client_id),
@@ -43,9 +47,9 @@ def calendar_events(request):
             # échue et pas encore finie (même règle que le dashboard).
             "status": m.status,
         }
-        # Le client ne voit que les descentes (tournage, visite chez lui) :
-        # les échéances internes sont les délais de l'équipe, pas les siens.
-        for m in (missions.filter(task_type=TaskType.DESCENTE) if is_client else missions)
+        # Le client voit ses missions comme des livraisons prévues (le
+        # calendrier les présente pour lui, sans retard ni étape interne).
+        for m in missions
     ]
 
     deliverables = Deliverable.objects.filter(mission__in=missions).select_related("mission")

@@ -327,9 +327,9 @@ function CalendarPage() {
         : [],
     [projects, projectsOf],
   );
-  const typeOptions = (Object.keys(TYPE_LABEL) as EventType[]).filter(
-    (t) => !isClient || t === "publication" || t === "descente" || t === "livrable",
-  );
+  // Le client a tous les types : ses missions, livrables disponibles,
+  // publications et descentes (le serveur ne lui envoie que les siens).
+  const typeOptions = Object.keys(TYPE_LABEL) as EventType[];
   const typeLabel = (t: EventType) =>
     isClient && t === "livrable" ? "Livrable disponible" : TYPE_LABEL[t];
 
@@ -908,8 +908,13 @@ function EventDetailDialog({
   onClose: () => void;
 }) {
   const { user } = useAuth();
+  const isClient = user?.role === "client";
   const label = (e: CalendarEvent) =>
-    user?.role === "client" && e.available_at ? "Livrable disponible" : labelOf(e);
+    isClient && e.available_at
+      ? "Livrable disponible"
+      : isClient && e.type === "mission"
+        ? "Livraison prévue"
+        : labelOf(e);
   return (
     <Dialog open={event !== null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
