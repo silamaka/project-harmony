@@ -19,8 +19,12 @@ def notifications_visible_to(user):
 
 
 def _by_role(user):
+    # Une mention est personnelle : seule la personne mentionnée la voit.
+    my_mentions = Q(type=NotificationType.MENTION, recipient=user)
     if user.role in (Role.ADMIN, Role.CHEF_PROJET):
-        return Notification.objects.all()
+        return Notification.objects.exclude(
+            Q(type=NotificationType.MENTION) & ~Q(recipient=user)
+        )
     if user.role == Role.CLIENT:
         # Le client n'est alerté que de ce qui l'attend : un livrable à
         # valider, ou un message de l'équipe qui lui est adressé — jamais des
@@ -28,6 +32,7 @@ def _by_role(user):
         return Notification.objects.filter(mission__in=missions_visible_to(user)).filter(
             Q(type=NotificationType.VALIDATION)
             | Q(type=NotificationType.COMMENTAIRE, client_visible=True)
+            | my_mentions
         )
     # Collaborateur : seulement ce qui le concerne sur ses missions — une
     # nouvelle mission, une assignation qui le vise lui, des corrections
@@ -42,4 +47,5 @@ def _by_role(user):
         | Q(type=NotificationType.PUBLICATION)
         | Q(type=NotificationType.COMMENTAIRE)
         | Q(type=NotificationType.RETARD)
+        | my_mentions
     )

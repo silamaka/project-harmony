@@ -1,10 +1,6 @@
-import re
-
 from rest_framework import serializers
 
 from .models import Comment
-
-MENTION_RE = re.compile(r"@[\w.-]+")
 
 
 class MissionPKField(serializers.PrimaryKeyRelatedField):
@@ -32,11 +28,12 @@ class CommentSerializer(serializers.ModelSerializer):
     # Toujours l'utilisateur connecté (voir CommentViewSet.perform_create).
     author_id = serializers.PrimaryKeyRelatedField(source="author", read_only=True)
     parent_id = ParentPKField(source="parent", required=False, allow_null=True)
-    # Extraites côté serveur depuis `body`, jamais depuis une valeur envoyée
-    # par le client (voir la note dans services/index.ts, commentService.create) :
-    # un client malveillant pourrait sinon déclencher de fausses notifications
-    # de mention.
+    # Personnes mentionnées (ids). En écriture, `mention_ids` : le serveur ne
+    # garde que celles qui peuvent lire le message (comments.mentions).
     mentions = serializers.SerializerMethodField()
+    mention_ids = serializers.ListField(
+        child=serializers.CharField(), write_only=True, required=False
+    )
 
     class Meta:
         model = Comment
@@ -49,12 +46,13 @@ class CommentSerializer(serializers.ModelSerializer):
             "attachment_url",
             "client_visible",
             "mentions",
+            "mention_ids",
             "created_at",
         ]
         read_only_fields = ["created_at"]
 
     def get_mentions(self, obj: Comment) -> list[str]:
-        return MENTION_RE.findall(obj.body)
+        return [str(user_id) for user_id in obj.mentioned_users.values_list("id", flat=True)]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

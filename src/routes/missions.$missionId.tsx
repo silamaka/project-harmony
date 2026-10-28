@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { MentionText, MentionTextarea } from "@/components/shared/mention-textarea";
+import { mentionedIds } from "@/lib/mentions";
 import { useAuth } from "@/context/auth-context";
 import { WEB_URL_HINT, cn, isWebUrl, searchText } from "@/lib/utils";
 import { commentService, deliverableService, missionService, userService } from "@/services";
@@ -130,6 +132,7 @@ function MissionDetailPage() {
         // Interne par défaut pour l'équipe ; le serveur force "visible"
         // pour un commentaire du client.
         client_visible: isClient || draftToClient,
+        mention_ids: mentionedIds(body, mentionCandidates),
       }),
     onSuccess: () => {
       refresh([["comments", missionId]]);
@@ -140,7 +143,15 @@ function MissionDetailPage() {
   });
 
   const editCommentMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: string }) => commentService.update(id, body),
+    mutationFn: ({
+      id,
+      body,
+      clientVisible,
+    }: {
+      id: string;
+      body: string;
+      clientVisible: boolean;
+    }) => commentService.update(id, body, mentionedIds(body, candidatesFor(clientVisible))),
     onSuccess: () => {
       refresh([["comments", missionId]]);
       setEditingCommentId(null);
@@ -215,6 +226,20 @@ function MissionDetailPage() {
   /** Le client décide sur chaque livrable (Validé / Corrections) ; le statut
    * de la mission en découle côté serveur, il n'y touche jamais. */
   const isClient = user?.role === "client";
+  // Mentionnables : qui peut lire le message (même règle que le serveur,
+  // comments/mentions.py) — le client seulement si le message lui est visible.
+  const candidatesFor = (clientVisible: boolean) =>
+    (users ?? []).filter(
+      (u) =>
+        u.is_active &&
+        u.id !== user?.id &&
+        (u.role === "admin" ||
+          u.role === "chef_projet" ||
+          u.id === mission?.assignee_id ||
+          (mission?.collaborators ?? []).includes(u.id) ||
+          (clientVisible && u.role === "client" && u.client_id === mission?.client_id)),
+    );
+  const mentionCandidates = candidatesFor(isClient || draftToClient);
   const newLinkInvalid = newLink.trim() !== "" && !isWebUrl(newLink);
   const submitDeliverable = () => {
     if (!newName.trim() || newLinkInvalid || deliverableMutation.isPending) return;
@@ -601,9 +626,10 @@ function MissionDetailPage() {
                   </div>
                   {isEditing ? (
                     <div className="mt-1.5 space-y-1.5">
-                      <Textarea
+                      <MentionTextarea
                         value={editDraft}
-                        onChange={(e) => setEditDraft(e.target.value)}
+                        onChange={setEditDraft}
+                        candidates={candidatesFor(!!c.client_visible)}
                         maxLength={1000}
                         className="min-h-16 text-sm"
                       />
@@ -612,7 +638,11 @@ function MissionDetailPage() {
                           size="sm"
                           disabled={!editDraft.trim() || editCommentMutation.isPending}
                           onClick={() =>
-                            editCommentMutation.mutate({ id: c.id, body: editDraft.trim() })
+                            editCommentMutation.mutate({
+                              id: c.id,
+                              body: editDraft.trim(),
+                              clientVisible: !!c.client_visible,
+                            })
                           }
                         >
                           Enregistrer
@@ -627,7 +657,12 @@ function MissionDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm">{c.body}</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+                      <MentionText
+                        body={c.body}
+                        mentioned={(users ?? []).filter((u) => c.mentions.includes(u.id))}
+                      />
+                    </p>
                   )}
                 </div>
               </li>
@@ -640,16 +675,17 @@ function MissionDetailPage() {
 
         <div className="mt-4">
           <div className="flex items-end gap-2">
-            <Textarea
+            <MentionTextarea
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={setDraft}
+              candidates={mentionCandidates}
               maxLength={1000}
               placeholder={
                 isClient
-                  ? "Écrire un message à l'équipe…"
+                  ? "Écrire un message à l'équipe… (@ pour mentionner)"
                   : draftToClient
-                    ? `Message au client, en tant que ${user?.first_name}…`
-                    : `Note interne à l'équipe, en tant que ${user?.first_name}… (@mention possible)`
+                    ? `Message au client, en tant que ${user?.first_name}… (@ pour mentionner)`
+                    : `Note interne à l'équipe, en tant que ${user?.first_name}… (@ pour mentionner)`
               }
               className={cn("min-h-20", !isClient && draftToClient && "border-primary/50")}
             />

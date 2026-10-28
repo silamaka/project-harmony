@@ -19,6 +19,12 @@ class Comment(models.Model):
     # être lu par le client. Seuls les commentaires marqués visibles (et tous
     # ceux écrits par le client lui-même) apparaissent dans son portail.
     client_visible = models.BooleanField(default=False)
+    # Personnes mentionnées (@Prénom Nom), choisies dans les suggestions et
+    # vérifiées par le serveur : seulement celles qui peuvent lire ce message
+    # (voir comments.mentions.mentionable_users).
+    mentioned_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, blank=True, related_name="mentioned_in_comments"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

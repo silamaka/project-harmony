@@ -25,7 +25,12 @@ def push_enabled() -> bool:
 
 def recipients_of(notification: Notification):
     """Abonnements des utilisateurs actifs qui voient cette notification."""
-    subscriptions = PushSubscription.objects.filter(user__is_active=True).select_related("user")
+    # Déjà lue (ex. remplacée par une mention personnelle) : pas d'alerte.
+    subscriptions = (
+        PushSubscription.objects.filter(user__is_active=True)
+        .exclude(user__in=notification.read_by.all())
+        .select_related("user")
+    )
     by_user = {}
     for sub in subscriptions:
         by_user.setdefault(sub.user, []).append(sub)

@@ -224,6 +224,7 @@ export interface Comment {
   /** Interne par défaut ; visible du client seulement si coché (toujours
    * vrai pour un commentaire écrit par le client). */
   client_visible?: boolean;
+  /** Personnes mentionnées (ids), retenues par le serveur. */
   mentions: string[];
   created_at: string;
 }
@@ -266,7 +267,8 @@ export interface Notification {
     | "correction"
     | "retard"
     | "decision_client"
-    | "publication";
+    | "publication"
+    | "mention";
   title: string;
   body: string;
   read: boolean;

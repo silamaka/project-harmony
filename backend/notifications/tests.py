@@ -317,6 +317,21 @@ class PushDeliveryTests(RoleTestCase):
         self.assertEqual(payload["body"], "B")
         self.assertEqual(payload["url"], "/missions/42")
 
+    def test_already_read_is_not_pushed(self):
+        from unittest import mock
+
+        from django.test import override_settings
+
+        with override_settings(**PUSH_SETTINGS), mock.patch("pywebpush.webpush") as webpush:
+            with self.captureOnCommitCallbacks(execute=True):
+                n = Notification.objects.create(
+                    mission=self.mission, type=NotificationType.VALIDATION, title="T", body="B"
+                )
+                n.read_by.add(self.client_user)
+        endpoints = {c.kwargs["subscription_info"]["endpoint"] for c in webpush.call_args_list}
+        self.assertNotIn(f"https://push.example.com/{self.client_user.pk}", endpoints)
+        self.assertIn(f"https://push.example.com/{self.admin.pk}", endpoints)
+
     def test_inactive_user_gets_nothing(self):
         self.client_user.is_active = False
         self.client_user.save()

@@ -123,18 +123,95 @@ class CommentCreateTests(CommentSetupMixin, RoleTestCase):
         self.assertEqual(res.status_code, 201)
         self.assertEqual(res.data["author_id"], str(self.client_user.id))
 
-    def test_mentions_are_reextracted_from_body_not_trusted_from_payload(self):
+    def test_injected_mentions_field_is_ignored(self):
         self.auth_as(self.collaborateur)
+        res = self.client.post(
+            comment_list_url(),
+            {"mission_id": str(self.mission.id), "body": "Salut", "mentions": [str(self.admin.id)]},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data["mentions"], [])
+
+
+class CommentMentionTests(CommentSetupMixin, RoleTestCase):
+    """Une mention n'atteint que quelqu'un qui peut lire le message."""
+
+    def _post(self, author, mention_ids, **extra):
+        self.auth_as(author)
         res = self.client.post(
             comment_list_url(),
             {
                 "mission_id": str(self.mission.id),
-                "body": "Salut @admin, tu peux valider ?",
-                "mentions": ["@fake-injected"],
+                "body": "Peux-tu regarder ?",
+                "mention_ids": [str(i) for i in mention_ids],
+                **extra,
             },
+            format="json",
         )
-        self.assertEqual(res.status_code, 201)
-        self.assertEqual(res.data["mentions"], ["@admin"])
+        self.assertEqual(res.status_code, 201, res.data)
+        return res.data
+
+    def _mentions_for(self, user):
+        from notifications.models import Notification, NotificationType
+        from notifications.scoping import notifications_visible_to
+
+        return notifications_visible_to(user).filter(type=NotificationType.MENTION)
+
+    def test_mentioned_teammate_gets_personal_notification(self):
+        data = self._post(self.admin, [self.collaborateur.id])
+        self.assertEqual(data["mentions"], [str(self.collaborateur.id)])
+        [notification] = self._mentions_for(self.collaborateur)
+        self.assertTrue(notification.title.startswith("Admin Test vous a mentionné"))
+
+    def test_mention_is_private_to_the_mentioned_person(self):
+        self._post(self.admin, [self.collaborateur.id])
+        self.assertFalse(self._mentions_for(self.chef_projet).exists())
+        self.assertFalse(self._mentions_for(self.other_collaborateur).exists())
+
+    def test_client_cannot_be_mentioned_in_internal_note(self):
+        data = self._post(self.admin, [self.client_user.id])
+        self.assertEqual(data["mentions"], [])
+        self.assertFalse(self._mentions_for(self.client_user).exists())
+
+    def test_client_mentioned_in_message_visible_to_him(self):
+        data = self._post(self.admin, [self.client_user.id], client_visible=True)
+        self.assertEqual(data["mentions"], [str(self.client_user.id)])
+        self.assertTrue(self._mentions_for(self.client_user).exists())
+
+    def test_other_company_and_outsider_collaborator_are_dropped(self):
+        data = self._post(
+            self.admin, [self.other_client_user.id, self.other_collaborateur.id], client_visible=True
+        )
+        self.assertEqual(data["mentions"], [])
+
+    def test_author_cannot_mention_himself(self):
+        data = self._post(self.admin, [self.admin.id])
+        self.assertEqual(data["mentions"], [])
+
+    def test_mention_replaces_the_general_comment_alert(self):
+        from notifications.models import Notification, NotificationType
+        from notifications.scoping import notifications_visible_to
+
+        self._post(self.admin, [self.collaborateur.id])
+        general = Notification.objects.get(type=NotificationType.COMMENTAIRE)
+        self.assertIn(self.collaborateur, general.read_by.all())
+        # Les autres membres gardent la notification générale non lue.
+        self.assertNotIn(self.chef_projet, general.read_by.all())
+        self.assertTrue(notifications_visible_to(self.chef_projet).filter(pk=general.pk).exists())
+
+    def test_edit_notifies_only_newly_mentioned(self):
+        from notifications.models import Notification, NotificationType
+
+        data = self._post(self.admin, [self.collaborateur.id])
+        self.client.patch(
+            comment_detail_url(data["id"]),
+            {"body": "Et toi aussi", "mention_ids": [str(self.collaborateur.id), str(self.chef_projet.id)]},
+            format="json",
+        )
+        mentions = Notification.objects.filter(type=NotificationType.MENTION)
+        self.assertEqual(mentions.filter(recipient=self.collaborateur).count(), 1)
+        self.assertEqual(mentions.filter(recipient=self.chef_projet).count(), 1)
 
 
 class CommentEditTests(CommentSetupMixin, RoleTestCase):

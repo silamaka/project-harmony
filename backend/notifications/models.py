@@ -16,6 +16,8 @@ class NotificationType(models.TextChoices):
     # Rappel de publication programmée (veille, retard) : destiné à l'équipe
     # de la mission, collaborateurs compris (ce sont eux qui publient).
     PUBLICATION = "publication", "Publication"
+    # Quelqu'un vous a mentionné dans une discussion : personnelle (recipient).
+    MENTION = "mention", "Mention"
 
 
 class Notification(models.Model):

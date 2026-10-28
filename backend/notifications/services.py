@@ -190,3 +190,21 @@ def notify_late_missions(today=None) -> int:
         )
         sent += 1
     return sent
+
+
+def notify_mention(comment, user) -> Notification:
+    """Prévient une personne mentionnée (@Prénom Nom) dans une discussion.
+    Personnelle : seule elle la voit (recipient)."""
+    mission = comment.mission
+    excerpt = " ".join(comment.body.split())
+    if len(excerpt) > 160:
+        excerpt = excerpt[:157] + "…"
+    return Notification.objects.create(
+        type=NotificationType.MENTION,
+        title=f"{_name(comment.author)} vous a mentionné — {mission.title}"[:200],
+        body=excerpt[:500],
+        link=f"/missions/{mission.id}",
+        mission=mission,
+        recipient=user,
+        client_visible=comment.client_visible,
+    )
