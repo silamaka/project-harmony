@@ -13,6 +13,8 @@ import {
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientLogo } from "@/components/shared/avatar";
+import { CreateUserDialog } from "@/components/shared/create-dialogs";
+import { useAuth } from "@/context/auth-context";
 import { StatCard } from "@/components/shared/stat-card";
 import { Input } from "@/components/ui/input";
 import { clientService, missionService, projectService, userService } from "@/services";
@@ -33,6 +35,8 @@ export const Route = createFileRoute("/clients/")({
 const STATUS = ["tous", "actif", "prospect", "inactif"] as const;
 
 function ClientsPage() {
+  const { hasRole } = useAuth();
+  const canManage = hasRole("admin", "chef_projet");
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
@@ -64,6 +68,12 @@ function ClientsPage() {
       title="Clients"
       subtitle={`${filtered.length} client(s)`}
       allow={["admin", "chef_projet", "collaborateur"]}
+      actions={
+        canManage ? (
+          // Crée l'entreprise et son premier compte en une fois.
+          <CreateUserDialog role="client" lockRole triggerLabel="Nouveau client" />
+        ) : undefined
+      }
     >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

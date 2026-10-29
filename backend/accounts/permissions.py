@@ -2,6 +2,9 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 from .models import Role
 
+# Comptes que le chef de projet gère comme l'admin.
+CHEF_MANAGED_ROLES = (Role.COLLABORATEUR.value, Role.CLIENT.value)
+
 
 class IsAdmin(BasePermission):
     def has_permission(self, request, view) -> bool:
@@ -12,10 +15,10 @@ class UserWritePermission(BasePermission):
     """Miroir des règles déjà établies côté frontend cette session :
     - Lecture : tout utilisateur authentifié (résolution de noms partout
       dans l'app — assigné, auteur de commentaire...).
-    - Écriture sur un compte "collaborateur" : admin OU chef_projet
-      (page Collaborateurs, gérée par les deux rôles).
-    - Écriture sur tout autre rôle (admin/chef_projet/client) : admin
-      uniquement (Paramètres > Inviter un utilisateur, admin-only).
+    - Écriture sur un compte "collaborateur" ou "client" : admin OU
+      chef_projet (page Collaborateurs, équipe du client sur la fiche
+      entreprise) — le chef de projet gère les clients comme l'admin.
+    - Écriture sur un compte admin ou chef_projet : admin uniquement.
     """
 
     def has_permission(self, request, view) -> bool:
@@ -28,7 +31,7 @@ class UserWritePermission(BasePermission):
         if request.user.role != Role.CHEF_PROJET:
             return False
         if view.action == "create":
-            return request.data.get("role") == Role.COLLABORATEUR.value
+            return request.data.get("role") in CHEF_MANAGED_ROLES
         # update/partial_update/destroy/toggle_active sur un objet précis :
         # tranché par has_object_permission. Le contrôle POST-avec-rôle
         # ci-dessus ne doit s'appliquer qu'à la création — toggle_active est
@@ -41,10 +44,10 @@ class UserWritePermission(BasePermission):
         if request.user.role == Role.ADMIN:
             return True
         if request.user.role == Role.CHEF_PROJET:
-            # Un collaborateur uniquement, et sans jamais lui donner un autre
-            # rôle : sinon un chef de projet pourrait promouvoir n'importe qui
-            # admin en modifiant simplement le champ `role`.
-            return obj.role == Role.COLLABORATEUR and request.data.get(
-                "role", Role.COLLABORATEUR.value
-            ) == Role.COLLABORATEUR.value
+            # Un collaborateur ou un client uniquement, et sans jamais changer
+            # son rôle : sinon un chef de projet pourrait promouvoir n'importe
+            # qui admin en modifiant simplement le champ `role`.
+            return obj.role in CHEF_MANAGED_ROLES and request.data.get(
+                "role", obj.role
+            ) == obj.role
         return False

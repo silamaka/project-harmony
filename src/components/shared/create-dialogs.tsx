@@ -616,7 +616,7 @@ export function CreateUserDialog({
           <Plus className="mr-1 h-4 w-4" /> {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onEscapeKeyDown={keepOpenForOpenList}>
         <DialogHeader>
           <DialogTitle>{triggerLabel}</DialogTitle>
           <DialogDescription>Créez un accès à la plateforme.</DialogDescription>
@@ -797,7 +797,7 @@ export function EditUserDialog({ user }: { user: User }) {
           Modifier
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent onEscapeKeyDown={keepOpenForOpenList}>
         <DialogHeader>
           <DialogTitle>Modifier l'utilisateur</DialogTitle>
           <DialogDescription>
@@ -849,6 +849,12 @@ export function EditUserDialog({ user }: { user: User }) {
             <select
               className={selectClass}
               value={form.role}
+              disabled={currentUser?.role !== "admin"}
+              title={
+                currentUser?.role !== "admin"
+                  ? "Seul un administrateur peut changer un rôle."
+                  : undefined
+              }
               onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
             >
               {Object.entries(ROLE_OPTIONS).map(([v, l]) => (
@@ -903,6 +909,14 @@ export function EditUserDialog({ user }: { user: User }) {
       </DialogContent>
     </Dialog>
   );
+}
+
+/** Échap dans une liste ouverte (champ Entreprise) la ferme, pas tout le
+ * formulaire : la fenêtre écoute Échap avant le champ. */
+function keepOpenForOpenList(e: KeyboardEvent) {
+  if ((e.target as HTMLElement | null)?.getAttribute?.("aria-expanded") === "true") {
+    e.preventDefault();
+  }
 }
 
 /** Comparaison sans accents ni majuscules ("atlas" trouve "Atlas Retail"). */
@@ -985,7 +999,7 @@ function CompanyNameField({
           name="olympe-company"
           autoComplete="off"
           role="combobox"
-          aria-expanded={open}
+          aria-expanded={open && !disabled && options.length > 0}
           placeholder="Rechercher ou créer une entreprise"
           value={value}
           disabled={disabled}

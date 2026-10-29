@@ -130,10 +130,21 @@ class CreateUserPermissionTests(RoleTestCase):
         )
         self.assertEqual(res.status_code, 403)
 
-    def test_chef_projet_cannot_create_client(self):
+    def test_chef_projet_can_create_client_with_new_company(self):
+        from clients.models import Client
+
         self.auth_as(self.chef_projet)
-        res = self.client.post(user_list_url(), self._payload(role="client", email="newclient@test.local"))
-        self.assertEqual(res.status_code, 403)
+        payload = self._payload(role="client", email="newclient@test.local")
+        payload["company_name"] = "Nouvelle Boutique"
+        res = self.client.post(user_list_url(), payload)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertTrue(Client.objects.filter(name="Nouvelle Boutique").exists())
+
+    def test_chef_projet_cannot_create_admin_or_chef(self):
+        self.auth_as(self.chef_projet)
+        for role in ["admin", "chef_projet"]:
+            res = self.client.post(user_list_url(), self._payload(role=role, email=f"x-{role}@test.local"))
+            self.assertEqual(res.status_code, 403, role)
 
     def test_collaborateur_cannot_create_user(self):
         self.auth_as(self.collaborateur)
@@ -163,10 +174,37 @@ class UpdateDeleteUserPermissionTests(RoleTestCase):
         res = self.client.patch(user_detail_url(self.admin.id), {"job_title": "Piraté"})
         self.assertEqual(res.status_code, 403)
 
-    def test_chef_projet_cannot_update_client(self):
+    def test_chef_projet_can_update_client(self):
         self.auth_as(self.chef_projet)
-        res = self.client.patch(user_detail_url(self.client_user.id), {"job_title": "Piraté"})
-        self.assertEqual(res.status_code, 403)
+        res = self.client.patch(user_detail_url(self.client_user.id), {"job_title": "Gérant"})
+        self.assertEqual(res.status_code, 200)
+
+    def test_chef_projet_can_reset_client_password_and_deactivate(self):
+        self.auth_as(self.chef_projet)
+        res = self.client.patch(user_detail_url(self.client_user.id), {"password": "nouveau123"})
+        self.assertEqual(res.status_code, 200)
+        self.client_user.refresh_from_db()
+        self.assertTrue(self.client_user.check_password("nouveau123"))
+        res = self.client.post(user_toggle_active_url(self.client_user.id))
+        self.assertEqual(res.status_code, 200)
+
+    def test_chef_projet_can_delete_client_account(self):
+        self.auth_as(self.chef_projet)
+        res = self.client.delete(user_detail_url(self.other_client_user.id))
+        self.assertEqual(res.status_code, 204)
+
+    def test_chef_projet_cannot_change_a_client_role(self):
+        self.auth_as(self.chef_projet)
+        for role in ["admin", "chef_projet", "collaborateur"]:
+            res = self.client.patch(user_detail_url(self.client_user.id), {"role": role})
+            self.assertEqual(res.status_code, 403, role)
+        self.client_user.refresh_from_db()
+        self.assertEqual(self.client_user.role, "client")
+
+    def test_chef_projet_still_cannot_touch_admin_or_chef(self):
+        self.auth_as(self.chef_projet)
+        self.assertEqual(self.client.patch(user_detail_url(self.admin.id), {"job_title": "x"}).status_code, 403)
+        self.assertEqual(self.client.delete(user_detail_url(self.admin.id)).status_code, 403)
 
     def test_chef_projet_cannot_promote_collaborateur(self):
         self.auth_as(self.chef_projet)

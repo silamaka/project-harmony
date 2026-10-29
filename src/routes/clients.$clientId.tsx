@@ -59,7 +59,6 @@ function ClientDetailPage() {
   const { clientId } = Route.useParams();
   const { hasRole } = useAuth();
   const canManage = hasRole("admin", "chef_projet");
-  const isAdmin = hasRole("admin");
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -184,7 +183,7 @@ function ClientDetailPage() {
           <div className="flex items-center gap-2">
             <EditClientDialog client={client} />
             <CreateMissionDialog clientId={client.id} />
-            {isAdmin && (
+            {canManage && (
               <ConfirmDeleteButton
                 label="Supprimer l'entreprise"
                 title={`Supprimer l'entreprise ${client.name} ?`}
@@ -238,7 +237,7 @@ function ClientDetailPage() {
       </div>
 
       {tab === "equipe" ? (
-        <ClientTeam clientId={clientId} accounts={clientAccounts} canManage={isAdmin} />
+        <ClientTeam clientId={clientId} accounts={clientAccounts} canManage={canManage} />
       ) : tab === "livrables" ? (
         <div className="mt-4">
           <ClientDeliverables
@@ -331,6 +330,15 @@ function ClientTeam({
   accounts: User[];
   canManage: boolean;
 }) {
+  const qc = useQueryClient();
+  const removeAccount = useMutation({
+    mutationFn: (id: string) => userService.remove(id),
+    onSuccess: () => {
+      for (const key of ["users", "clients"]) void qc.invalidateQueries({ queryKey: [key] });
+      toast.success("Compte supprimé.");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Suppression impossible.")),
+  });
   const sorted = [...accounts].sort((a, b) =>
     `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
   );
@@ -393,6 +401,15 @@ function ClientTeam({
                   {u.is_active ? "Actif" : "Inactif"}
                 </span>
                 {canManage && <EditUserDialog user={u} />}
+                {canManage && (
+                  <ConfirmDeleteButton
+                    iconOnly
+                    title={`Supprimer ${u.first_name} ${u.last_name} ?`}
+                    description="Le compte sera définitivement supprimé : cette personne n'aura plus accès au portail. Si c'était le dernier compte d'une entreprise sans projet ni mission, l'entreprise est aussi supprimée."
+                    pending={removeAccount.isPending && removeAccount.variables === u.id}
+                    onConfirm={() => removeAccount.mutate(u.id)}
+                  />
+                )}
               </div>
             </li>
           ))}

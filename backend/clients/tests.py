@@ -38,10 +38,10 @@ class ClientWritePermissionTests(RoleTestCase):
         res = self.client.post(client_list_url(), {"name": "Nouveau client"})
         self.assertEqual(res.status_code, 201)
 
-    def test_chef_projet_cannot_create_client(self):
+    def test_chef_projet_can_create_client(self):
         self.auth_as(self.chef_projet)
         res = self.client.post(client_list_url(), {"name": "Nouveau client"})
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 201)
 
     def test_collaborateur_cannot_create_client(self):
         self.auth_as(self.collaborateur)
@@ -78,8 +78,13 @@ class ClientWritePermissionTests(RoleTestCase):
         res = self.client.delete(client_detail_url(self.client_company.id))
         self.assertEqual(res.status_code, 204)
 
-    def test_chef_projet_cannot_delete_client(self):
+    def test_chef_projet_can_delete_client(self):
         self.auth_as(self.chef_projet)
+        res = self.client.delete(client_detail_url(self.client_company.id))
+        self.assertEqual(res.status_code, 204)
+
+    def test_collaborateur_cannot_delete_client(self):
+        self.auth_as(self.collaborateur)
         res = self.client.delete(client_detail_url(self.client_company.id))
         self.assertEqual(res.status_code, 403)
 
