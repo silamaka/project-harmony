@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Plus, X } from "lucide-react";
-import { useId, useState } from "react";
+import { Building2, Link2, Plus, X } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 import { Children, cloneElement, isValidElement } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ import {
   type User,
 } from "@/types";
 import { errorMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -904,10 +905,37 @@ export function EditUserDialog({ user }: { user: User }) {
   );
 }
 
-/** Entreprise d'un compte "client", saisie par son nom : le serveur la
- * rattache si elle existe déjà (même nom, sans tenir compte de la casse), la
- * crée sinon. Champ texte simple : ni suggestions, ni saisie automatique du
- * navigateur. */
+/** Comparaison sans accents ni majuscules ("atlas" trouve "Atlas Retail"). */
+const foldName = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+/** Distance d'édition (fautes de frappe) entre deux noms, bornée à 3. */
+function typoDistance(a: string, b: string) {
+  if (Math.abs(a.length - b.length) > 3) return 4;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j]! + 1,
+        cur[j - 1]! + 1,
+        prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev = cur;
+  }
+  return prev[b.length]!;
+}
+
+/** Entreprise d'un compte "client" : recherche dans les entreprises
+ * enregistrées, ou création volontaire d'une nouvelle (« ＋ Créer »). La
+ * valeur reste le nom : le serveur rattache l'entreprise de même nom (sans
+ * tenir compte de la casse) ou la crée. Un nom proche d'une entreprise
+ * existante (faute de frappe) est signalé avant de créer un doublon. */
 function CompanyNameField({
   value,
   onChange,
@@ -917,16 +945,138 @@ function CompanyNameField({
   onChange: (name: string) => void;
   disabled?: boolean;
 }) {
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
+  const { data: users } = useQuery({ queryKey: ["users"], queryFn: userService.list });
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+
+  const companies = useMemo(
+    () => [...(clients ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
+    [clients],
+  );
+  const accounts = (id: string) =>
+    (users ?? []).filter((u) => u.role === "client" && u.client_id === id).length;
+  const typed = foldName(value);
+  const exact = companies.find((c) => foldName(c.name) === typed);
+  const matches = typed ? companies.filter((c) => foldName(c.name).includes(typed)) : companies;
+  // Nom proche d'une entreprise existante, sans en être une : faute probable.
+  const similar =
+    typed && !exact ? companies.find((c) => typoDistance(foldName(c.name), typed) <= 2) : undefined;
+  const canCreate = typed.length > 0 && !exact;
+  // Le nom proche passe en tête, avant « Créer » : l'option la plus visible ne
+  // doit jamais être celle qui crée un doublon par faute de frappe.
+  const options = [
+    ...(similar && !matches.includes(similar)
+      ? [{ kind: "similar" as const, name: similar.name, id: similar.id }]
+      : []),
+    ...matches.map((c) => ({ kind: "existing" as const, name: c.name, id: c.id })),
+    ...(canCreate ? [{ kind: "create" as const, name: value.trim(), id: "" }] : []),
+  ];
+
+  const choose = (name: string) => {
+    onChange(name);
+    setOpen(false);
+  };
+
   return (
     <Field label="Entreprise">
-      <Input
-        name="olympe-company"
-        autoComplete="off"
-        placeholder="Nom de l'entreprise"
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <div className="relative">
+        <Input
+          name="olympe-company"
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={open}
+          placeholder="Rechercher ou créer une entreprise"
+          value={value}
+          disabled={disabled}
+          onFocus={() => setOpen(true)}
+          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+            setActive(0);
+          }}
+          onKeyDown={(e) => {
+            if (!open || options.length === 0) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActive((i) => (i + 1) % options.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActive((i) => (i - 1 + options.length) % options.length);
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              choose(options[active]!.name);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+        />
+        {open && !disabled && options.length > 0 && (
+          <ul
+            role="listbox"
+            className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg"
+          >
+            {options.map((o, i) => (
+              <li key={o.kind + o.id + o.name} role="option" aria-selected={i === active}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => choose(o.name)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
+                    i === active ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
+                    o.kind === "create" && "border-t border-border font-medium text-primary",
+                  )}
+                >
+                  {o.kind !== "create" ? (
+                    <>
+                      <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{o.name}</span>
+                      {o.kind === "similar" && (
+                        <span className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">
+                          nom proche
+                        </span>
+                      )}
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {accounts(o.id)} compte{accounts(o.id) > 1 ? "s" : ""}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">Créer « {o.name} »</span>
+                    </>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {!disabled && typed && (
+        <p className="mt-1 text-xs">
+          {exact ? (
+            <span className="text-success">Entreprise existante : le compte y sera rattaché.</span>
+          ) : similar ? (
+            <span className="text-warning">
+              Nouvelle entreprise. Vouliez-vous dire{" "}
+              <button
+                type="button"
+                className="font-semibold underline"
+                onClick={() => choose(similar.name)}
+              >
+                {similar.name}
+              </button>{" "}
+              ?
+            </span>
+          ) : (
+            <span className="text-muted-foreground">
+              Nouvelle entreprise : elle sera créée avec ce compte.
+            </span>
+          )}
+        </p>
+      )}
     </Field>
   );
 }
