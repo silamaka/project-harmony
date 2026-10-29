@@ -108,6 +108,11 @@ class DeliverableViewSet(viewsets.ModelViewSet):
         on_behalf = user.role != Role.CLIENT
         if user.role == Role.CLIENT or "client_status" in serializer.validated_data:
             deliverable.client_decided_by = user if on_behalf else None
+            deliverable.client_decision_author = (
+                user
+                if not on_behalf and deliverable.client_status != DeliverableStatus.EN_ATTENTE
+                else None
+            )
             if deliverable.client_status == DeliverableStatus.EN_ATTENTE:
                 # Décision annulée : le livrable attend de nouveau la réponse
                 # du client, sans trace restante. Si c'était la décision du
@@ -172,6 +177,7 @@ class DeliverableViewSet(viewsets.ModelViewSet):
                     "client_feedback_link",
                     "client_validated_at",
                     "client_decided_by",
+                    "client_decision_author",
                 ]
             )
             if (

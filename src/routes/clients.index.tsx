@@ -137,6 +137,9 @@ function ClientsPage() {
           const missionCount = (missions ?? []).filter(
             (m) => m.client_id === c.id || projectIds.has(m.project_id),
           ).length;
+          const accountCount = (users ?? []).filter(
+            (u) => u.role === "client" && u.client_id === c.id,
+          ).length;
           const ownerNames = [...new Set(clientProjects.map((p) => p.owner_id))]
             .map((id) => (users ?? []).find((u) => u.id === id))
             .filter((u): u is NonNullable<typeof u> => u !== undefined)
@@ -183,9 +186,10 @@ function ClientsPage() {
                   </span>
                 </div>
               </div>
-              <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
+              <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
                 <span>{count} projet(s)</span>
                 <span>{missionCount} mission(s)</span>
+                <span>{accountCount} compte(s)</span>
                 <span>{c.contacts.length} contact(s)</span>
               </div>
             </Link>

@@ -327,8 +327,8 @@ export function DeliverableDecision({
               « {deliverable.name} » v{deliverable.version}{" "}
               {clientsOwnDecision
                 ? validated
-                  ? "a été validé par le client lui-même."
-                  : "fait l'objet d'une demande de corrections du client lui-même."
+                  ? `a été validé par le client lui-même${deliverable.client_decision_author_name ? ` (${deliverable.client_decision_author_name})` : ""}.`
+                  : `fait l'objet d'une demande de corrections du client lui-même${deliverable.client_decision_author_name ? ` (${deliverable.client_decision_author_name})` : ""}.`
                 : deliverable.client_decided_by_name
                   ? `${validated ? "a été validé" : "a une demande de corrections enregistrée"} pour le client par ${deliverable.client_decided_by_name}.`
                   : validated

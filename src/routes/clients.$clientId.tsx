@@ -5,7 +5,12 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ClientDeliverables } from "@/components/shared/client-deliverables";
-import { CreateMissionDialog } from "@/components/shared/create-dialogs";
+import { UserAvatar } from "@/components/shared/avatar";
+import {
+  CreateMissionDialog,
+  CreateUserDialog,
+  EditUserDialog,
+} from "@/components/shared/create-dialogs";
 import {
   ConfirmDeleteButton,
   EditClientDialog,
@@ -29,6 +34,7 @@ import {
   type Mission,
   type MissionStatus,
   type Priority,
+  type User,
 } from "@/types";
 import { errorMessage } from "@/lib/api";
 
@@ -60,7 +66,7 @@ function ClientDetailPage() {
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   const [deletingMission, setDeletingMission] = useState<Mission | null>(null);
-  const [tab, setTab] = useState<"missions" | "livrables">("missions");
+  const [tab, setTab] = useState<"missions" | "livrables" | "equipe">("missions");
 
   const { data: client } = useQuery({
     queryKey: ["clients", clientId],
@@ -212,6 +218,7 @@ function ClientDetailPage() {
           [
             ["missions", "Missions", clientMissions.length],
             ["livrables", "Livrables", clientDeliverables.length],
+            ["equipe", "Équipe du client", clientAccounts.length],
           ] as const
         ).map(([value, label, count]) => (
           <button
@@ -230,7 +237,9 @@ function ClientDetailPage() {
         ))}
       </div>
 
-      {tab === "livrables" ? (
+      {tab === "equipe" ? (
+        <ClientTeam clientId={clientId} accounts={clientAccounts} canManage={isAdmin} />
+      ) : tab === "livrables" ? (
         <div className="mt-4">
           <ClientDeliverables
             deliverables={clientDeliverables}
@@ -308,5 +317,87 @@ function ClientDetailPage() {
         onConfirm={() => deletingMission && removeMission.mutate(deletingMission.id)}
       />
     </AppShell>
+  );
+}
+
+/** Comptes de l'équipe du client : tous voient le portail et peuvent
+ * valider ; « qui a validé » est tracé sur chaque livrable. */
+function ClientTeam({
+  clientId,
+  accounts,
+  canManage,
+}: {
+  clientId: string;
+  accounts: User[];
+  canManage: boolean;
+}) {
+  const sorted = [...accounts].sort((a, b) =>
+    `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
+  );
+  return (
+    <div className="surface-card mt-4 p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold">Équipe du client ({accounts.length})</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Chaque personne voit le portail de l'entreprise et peut valider les livrables. Le nom de
+            celle qui décide est indiqué sur chaque livrable.
+          </p>
+        </div>
+        {canManage && (
+          <CreateUserDialog
+            role="client"
+            lockRole
+            clientId={clientId}
+            triggerLabel="Ajouter une personne"
+          />
+        )}
+      </div>
+      {sorted.length === 0 ? (
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          Aucun compte pour cette entreprise : elle n'a pas encore accès au portail.
+        </p>
+      ) : (
+        <ul className="mt-4 divide-y divide-border">
+          {sorted.map((u) => (
+            <li
+              key={u.id}
+              className={cn("flex flex-wrap items-center gap-3 py-3", !u.is_active && "opacity-60")}
+            >
+              <UserAvatar user={u} className="h-9 w-9 text-xs" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">
+                  {u.first_name} {u.last_name}
+                  {u.job_title && (
+                    <span className="font-normal text-muted-foreground"> · {u.job_title}</span>
+                  )}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {[u.email, u.phone].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-right text-[11px] text-muted-foreground">
+                  {u.last_login
+                    ? `Dernière connexion le ${new Date(u.last_login).toLocaleDateString("fr-FR")}`
+                    : u.last_login === null
+                      ? "Jamais connecté"
+                      : ""}
+                </span>
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    u.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {u.is_active ? "Actif" : "Inactif"}
+                </span>
+                {canManage && <EditUserDialog user={u} />}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

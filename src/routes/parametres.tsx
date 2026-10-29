@@ -59,6 +59,7 @@ function SettingsPage() {
   const { data: missions } = useQuery({ queryKey: ["missions"], queryFn: missionService.list });
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<(typeof ROLE_FILTERS)[number]>("tous");
+  const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>("tous");
   const [sort, setSort] = useState<(typeof SORTS)[number]>("recent");
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(20);
@@ -100,6 +101,7 @@ function SettingsPage() {
     const list = (users ?? []).filter(
       (u) =>
         (roleFilter === "tous" || u.role === roleFilter) &&
+        (!companyFilter || u.client_id === companyFilter) &&
         (statusFilter === "tous" || (statusFilter === "actif" ? u.is_active : !u.is_active)) &&
         `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(query.toLowerCase()),
     );
@@ -109,7 +111,7 @@ function SettingsPage() {
       const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       return sort === "recent" ? diff : -diff;
     });
-  }, [users, query, roleFilter, statusFilter, sort]);
+  }, [users, query, roleFilter, companyFilter, statusFilter, sort]);
 
   // Même règle que le serveur (UserViewSet.destroy) : l'entreprise part avec
   // son dernier compte si elle n'a ni projet ni mission.
@@ -125,6 +127,9 @@ function SettingsPage() {
       ? `${base} L'entreprise ${company.name}, qui n'a plus aucun compte ni projet, sera aussi supprimée. Cette action est irréversible.`
       : `${base} Cette action est irréversible.`;
   };
+
+  const companyName = (u: User) =>
+    u.client_id ? clients?.find((c) => c.id === u.client_id)?.name : undefined;
 
   // Partagés par le tableau (desktop) et les cartes (mobile).
   const statusControl = (u: User) =>
@@ -251,6 +256,22 @@ function SettingsPage() {
               </option>
             ))}
           </select>
+          {/* Entreprise : les comptes clients d'une même entreprise. */}
+          <select
+            aria-label="Filtrer par entreprise"
+            className={`${SELECT_CLASS} col-span-3 sm:col-span-1`}
+            value={companyFilter}
+            onChange={(e) => updateFilter(setCompanyFilter)(e.target.value)}
+          >
+            <option value="">Toutes les entreprises</option>
+            {[...(clients ?? [])]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+          </select>
           <select
             className={SELECT_CLASS}
             value={statusFilter}
@@ -296,7 +317,9 @@ function SettingsPage() {
               <p className="font-medium">
                 {u.first_name} {u.last_name}
               </p>
-              <p className="truncate text-xs text-muted-foreground">{u.email}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {[u.email, companyName(u)].filter(Boolean).join(" · ")}
+              </p>
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-medium text-accent-foreground">
                   {ROLE_LABELS[u.role]}
@@ -320,6 +343,7 @@ function SettingsPage() {
                 <th className="py-2 font-medium">Nom</th>
                 <th className="py-2 font-medium">Email</th>
                 <th className="py-2 font-medium">Rôle</th>
+                <th className="py-2 font-medium">Entreprise</th>
                 <th className="py-2 font-medium">Statut</th>
                 <th className="py-2 font-medium text-right">Actions</th>
               </tr>
@@ -332,13 +356,14 @@ function SettingsPage() {
                   </td>
                   <td className="py-2.5 text-muted-foreground">{u.email}</td>
                   <td className="py-2.5">{ROLE_LABELS[u.role]}</td>
+                  <td className="py-2.5 text-muted-foreground">{companyName(u) ?? "—"}</td>
                   <td className="py-2.5">{statusControl(u)}</td>
                   <td className="py-2.5 text-right">{rowActions(u)}</td>
                 </tr>
               ))}
               {pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                     Aucun utilisateur ne correspond à ces filtres.
                   </td>
                 </tr>

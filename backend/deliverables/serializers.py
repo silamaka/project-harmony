@@ -57,6 +57,8 @@ class DeliverableSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.PrimaryKeyRelatedField(read_only=True)
     # Qui a enregistré la décision pour le client (vide s'il a décidé lui-même).
     client_decided_by_name = serializers.SerializerMethodField()
+    # Qui, dans l'équipe du client, a décidé lui-même (vide sinon).
+    client_decision_author_name = serializers.SerializerMethodField()
     # Publier / dépublier s'écrit via `published` ; la date est toujours
     # posée par le serveur, jamais envoyée par le client.
     published = serializers.BooleanField(write_only=True, required=False)
@@ -97,6 +99,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "client_feedback_link",
             "client_validated_at",
             "client_decided_by_name",
+            "client_decision_author_name",
             "published",
             "scheduled_at",
             "comment",
@@ -180,6 +183,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
                 validated_data["client_feedback_link"] = ""
                 validated_data["client_validated_at"] = None
                 validated_data["client_decided_by"] = None
+                validated_data["client_decision_author"] = None
             if not url:
                 # Lien retiré : le livrable redevient "à venir", ce qui
                 # annule une publication devenue sans objet.
@@ -223,6 +227,12 @@ class DeliverableSerializer(serializers.ModelSerializer):
 
     def get_client_decided_by_name(self, obj) -> str:
         user = obj.client_decided_by
+        if not user:
+            return ""
+        return f"{user.first_name} {user.last_name}".strip() or user.email
+
+    def get_client_decision_author_name(self, obj) -> str:
+        user = obj.client_decision_author
         if not user:
             return ""
         return f"{user.first_name} {user.last_name}".strip() or user.email

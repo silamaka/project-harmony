@@ -43,14 +43,21 @@ class UserSerializer(serializers.ModelSerializer):
             "workload",
             "client_id",
             "is_active",
+            "last_login",
             "created_at",
             "password",
             "company_name",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["created_at", "last_login"]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        # Dernière connexion : utile à l'agence pour repérer les comptes
+        # oubliés, sans intérêt (ni à divulguer) pour les autres.
+        request = self.context.get("request")
+        viewer = getattr(request, "user", None)
+        if getattr(viewer, "role", None) not in (Role.ADMIN, Role.CHEF_PROJET):
+            data.pop("last_login", None)
         if data.get("client_id") is not None:
             data["client_id"] = str(data["client_id"])
         else:

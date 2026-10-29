@@ -74,6 +74,7 @@ type DeliverableStateFields = Pick<
   | "url"
   | "client_validated_at"
   | "client_decided_by_name"
+  | "client_decision_author_name"
 >;
 
 export function deliverableState(d: DeliverableStateFields): DeliverableState {
@@ -200,7 +201,9 @@ export function DeliverableStateBadge({
           <span className="text-[11px] text-success/70">
             {deliverable.client_decided_by_name
               ? `Validé pour le client par ${deliverable.client_decided_by_name} le `
-              : "Validé par le client le "}
+              : deliverable.client_decision_author_name
+                ? `Validé par ${deliverable.client_decision_author_name} le `
+                : "Validé par le client le "}
             {new Date(deliverable.client_validated_at).toLocaleDateString("fr-FR")}
           </span>
         )}

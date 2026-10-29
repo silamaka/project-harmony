@@ -1344,3 +1344,63 @@ class PublicationRemindersTests(DeliverableSetupMixin, RoleTestCase):
         self._schedule(hours=-5)
         Deliverable.objects.filter(pk=self.deliverable.pk).update(published_at=self.now)
         self.assertEqual(self._run(), 0)
+
+
+class ClientTeamDecisionAuthorTests(DeliverableSetupMixin, RoleTestCase):
+    """Une entreprise peut avoir plusieurs comptes : on sait lequel a décidé."""
+
+    def setUp(self):
+        super().setUp()
+        from accounts.models import User
+
+        self.colleague = User.objects.create_user(
+            email="collegue@test.local", password="pass1234", first_name="Fatou",
+            last_name="Sall", role="client", client=self.client_company,
+        )
+
+    def _patch(self, user, data):
+        self.auth_as(user)
+        res = self.client.patch(deliverable_detail_url(self.deliverable.id), data, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        return res.data
+
+    def test_client_decision_records_which_account_decided(self):
+        data = self._patch(self.colleague, {"client_status": "valide"})
+        self.assertEqual(data["client_decision_author_name"], "Fatou Sall")
+        self.assertEqual(data["client_decided_by_name"], "")
+        # Ses collègues le voient aussi.
+        self.auth_as(self.client_user)
+        res = self.client.get(deliverable_detail_url(self.deliverable.id))
+        self.assertEqual(res.data["client_decision_author_name"], "Fatou Sall")
+
+    def test_corrections_also_record_the_author(self):
+        data = self._patch(
+            self.colleague, {"client_status": "corrections", "comment": "Changer la couleur"}
+        )
+        self.assertEqual(data["client_decision_author_name"], "Fatou Sall")
+
+    def test_agency_on_behalf_leaves_no_client_author(self):
+        self._patch(self.colleague, {"client_status": "valide"})
+        data = self._patch(self.admin, {"client_status": "corrections", "comment": "Au téléphone"})
+        self.assertEqual(data["client_decision_author_name"], "")
+        self.assertNotEqual(data["client_decided_by_name"], "")
+
+    def test_cancelled_or_new_version_clears_the_author(self):
+        self._patch(self.colleague, {"client_status": "valide"})
+        data = self._patch(self.admin, {"client_status": "en_attente"})
+        self.assertEqual(data["client_decision_author_name"], "")
+        self._patch(self.colleague, {"client_status": "valide"})
+        data = self._patch(self.admin, {"url": "https://example.com/v2"})
+        self.assertEqual(data["client_decision_author_name"], "")
+
+
+class LastLoginVisibilityTests(RoleTestCase):
+    def test_staff_sees_last_login_client_does_not(self):
+        from django.urls import reverse
+
+        self.auth_as(self.admin)
+        row = next(u for u in self.client.get(reverse("user-list")).data if u["id"] == str(self.client_user.id))
+        self.assertIn("last_login", row)
+        self.auth_as(self.client_user)
+        row = next(u for u in self.client.get(reverse("user-list")).data if u["id"] == str(self.admin.id))
+        self.assertNotIn("last_login", row)

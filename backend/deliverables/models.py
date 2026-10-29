@@ -81,6 +81,16 @@ class Deliverable(models.Model):
         related_name="+",
         on_delete=models.SET_NULL,
     )
+    # Décision prise par le client lui-même : quel compte de son équipe
+    # (une entreprise peut en avoir plusieurs). Vide quand l'agence a décidé
+    # pour lui (client_decided_by) ou qu'aucune décision n'est en cours.
+    client_decision_author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        related_name="+",
+        on_delete=models.SET_NULL,
+    )
     # Indépendant de `status` : un livrable validé n'est pas forcément déjà
     # publié, et une mission à plusieurs livrables les publie un par un.
     published_at = models.DateTimeField(null=True, blank=True)

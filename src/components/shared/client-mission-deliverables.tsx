@@ -36,6 +36,11 @@ function metaLine(d: Deliverable) {
   if (state === "envoye") parts.push("Validé par l'agence");
   if (state === "pret" && d.client_decided_by_name && d.client_validated_at)
     parts.push(`Validé en votre nom par l'agence le ${formatDate(d.client_validated_at)}`);
+  // Plusieurs comptes dans l'équipe du client : qui a validé.
+  else if (state === "pret" && d.client_decision_author_name && d.client_validated_at)
+    parts.push(
+      `Validé par ${d.client_decision_author_name} le ${formatDate(d.client_validated_at)}`,
+    );
   if (state === "publie" && d.published_at) parts.push(`Publié le ${formatDate(d.published_at)}`);
   parts.push(`${parts.length ? "envoyé" : "Envoyé"} le ${formatDate(d.created_at)}`);
   if (d.version > 1) parts.push(`version corrigée (v${d.version})`);

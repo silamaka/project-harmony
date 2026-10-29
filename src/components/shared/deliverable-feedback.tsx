@@ -96,8 +96,12 @@ function FeedbackBox({
                 ? "enregistrées par l'agence"
                 : `enregistré par ${deliverable.client_decided_by_name} pour le client`
               : audience === "client"
-                ? "envoyées"
-                : "demandé par le client"}{" "}
+                ? deliverable.client_decision_author_name
+                  ? `envoyées par ${deliverable.client_decision_author_name}`
+                  : "envoyées"
+                : deliverable.client_decision_author_name
+                  ? `demandé par ${deliverable.client_decision_author_name}`
+                  : "demandé par le client"}{" "}
             le {date}
           </span>
         )}
