@@ -20,6 +20,7 @@ const SORT_ORDER: DeliverableState[] = [
   "corrections",
   "pret",
   "publie",
+  "transmis",
   "en_attente",
   "a_venir",
 ];

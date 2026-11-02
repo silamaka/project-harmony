@@ -71,7 +71,7 @@ const REVIEW_REMINDER_DAYS = 5;
 const awaitsDecision = (d: Deliverable, userId: string | undefined) =>
   d.uploaded_by !== userId && deliverableState(d) === "envoye";
 
-type DeliverableFilter = "tous" | "a_valider" | "corrections" | "valides" | "publies";
+type DeliverableFilter = "tous" | "a_valider" | "corrections" | "valides" | "publies" | "documents";
 
 function ClientPortalPage() {
   const { user } = useAuth();
@@ -163,6 +163,7 @@ function ClientPortalPage() {
     corrections: (d) => deliverableState(d) === "corrections",
     valides: (d) => deliverableState(d) === "pret",
     publies: (d) => deliverableState(d) === "publie",
+    documents: (d) => deliverableState(d) === "transmis",
   };
   const deliverableFilters: { key: DeliverableFilter; label: string; count: number }[] = (
     [
@@ -171,6 +172,7 @@ function ClientPortalPage() {
       ["corrections", "Corrections demandées"],
       ["valides", "Validés"],
       ["publies", "Publiés"],
+      ["documents", "Documents"],
     ] as const
   )
     .map(([key, label]) => ({

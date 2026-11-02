@@ -8,7 +8,7 @@ from rest_framework.response import Response
 
 from accounts.models import Role, User
 from clients.models import Client, ClientStatus
-from deliverables.models import Deliverable, DeliverableStatus
+from deliverables.models import Deliverable, DeliverableNature, DeliverableStatus
 from deliverables.serializers import DeliverableSerializer
 from missions.models import DONE_STATUSES, Mission, MissionStatus
 from missions.scoping import missions_visible_to
@@ -134,7 +134,10 @@ def content_quota(request):
     # cases de la jauge), puis par date de dépôt.
     by_client = {}
     month_deliverables = (
-        Deliverable.objects.filter(created_at__gte=start, created_at__lt=end)
+        # Le forfait compte des contenus : les documents transmis n'y entrent pas.
+        Deliverable.objects.filter(
+            created_at__gte=start, created_at__lt=end, nature=DeliverableNature.CONTENU
+        )
         .select_related("mission")
         .order_by("created_at")
     )

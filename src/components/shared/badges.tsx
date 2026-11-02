@@ -52,7 +52,14 @@ export function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
  * "en_attente".
  */
 export type DeliverableState =
-  "a_venir" | "en_attente" | "corrections" | "envoye" | "pret" | "publie";
+  | "a_venir"
+  | "en_attente"
+  | "corrections"
+  | "envoye"
+  | "pret"
+  | "publie"
+  /** Document validé par l'agence : transmis au client, rien à décider. */
+  | "transmis";
 
 export const DELIVERABLE_STATES: DeliverableState[] = [
   "a_venir",
@@ -61,6 +68,7 @@ export const DELIVERABLE_STATES: DeliverableState[] = [
   "envoye",
   "pret",
   "publie",
+  "transmis",
 ];
 
 /** Le livrable a-t-il déjà un lien (sinon il est seulement annoncé) ? */
@@ -75,12 +83,13 @@ type DeliverableStateFields = Pick<
   | "client_validated_at"
   | "client_decided_by_name"
   | "client_decision_author_name"
->;
+> & { nature?: Deliverable["nature"] };
 
 export function deliverableState(d: DeliverableStateFields): DeliverableState {
   if (!hasDeliverableLink(d)) return "a_venir";
   if (d.published_at) return "publie";
   if (d.status !== "valide") return d.status === "corrections" ? "corrections" : "en_attente";
+  if (d.nature === "document") return "transmis";
   if (d.client_status === "corrections") return "corrections";
   if (d.client_status === "valide") return "pret";
   return "envoye";
@@ -96,7 +105,7 @@ export const canTogglePublication = (d: DeliverableStateFields) =>
  * (réponse reçue hors du portail), qu'il attende, soit en corrections ou
  * déjà validé (le client a changé d'avis). */
 export const isSentToClient = (d: DeliverableStateFields) =>
-  hasDeliverableLink(d) && !d.published_at && d.status === "valide";
+  hasDeliverableLink(d) && !d.published_at && d.status === "valide" && d.nature !== "document";
 
 /** Le client a demandé des corrections sur un livrable envoyé : la seule
  * suite possible côté agence est une version corrigée (nouveau lien), qui
@@ -114,6 +123,7 @@ export const DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> = {
   envoye: "Chez le client",
   pret: "Prêt à publier",
   publie: "Publié",
+  transmis: "Transmis au client",
 };
 
 /** Pastille (fond + texte) — mêmes teintes que les statuts de mission. */
@@ -124,6 +134,7 @@ export const deliverableTone: Record<DeliverableState, string> = {
   envoye: "bg-info/15 text-info",
   pret: "bg-primary/10 text-primary",
   publie: "bg-success/15 text-success",
+  transmis: "bg-success/15 text-success",
 };
 
 /** Fond de ligne (tableau) et liseré gauche (cartes) pour le même état. */
@@ -134,6 +145,7 @@ export const deliverableRowTone: Record<DeliverableState, string> = {
   envoye: "bg-info/8",
   pret: "bg-primary/8",
   publie: "bg-success/10",
+  transmis: "bg-success/10",
 };
 
 export const deliverableBorderTone: Record<DeliverableState, string> = {
@@ -143,6 +155,7 @@ export const deliverableBorderTone: Record<DeliverableState, string> = {
   envoye: "border-l-info",
   pret: "border-l-primary",
   publie: "border-l-success",
+  transmis: "border-l-success",
 };
 
 /** Côté client, "À valider" est une action attendue de lui : même jaune que
@@ -166,6 +179,7 @@ export const CLIENT_DELIVERABLE_STATE_LABELS: Record<DeliverableState, string> =
   envoye: "À valider",
   pret: "Validé",
   publie: "Publié",
+  transmis: "Document transmis",
 };
 
 export function DeliverableStateBadge({

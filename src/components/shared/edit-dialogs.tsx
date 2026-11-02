@@ -767,6 +767,7 @@ function EditDeliverableForm({
   const fixing = awaitsCorrectedVersion(deliverable);
   const [name, setName] = useState(deliverable.name);
   const [url, setUrl] = useState(fixing ? "" : deliverable.url);
+  const [nature, setNature] = useState(deliverable.nature);
   // Un nouveau lien remet le livrable en revue : la mission peut bouger.
   const done = useSaved(
     [
@@ -780,7 +781,11 @@ function EditDeliverableForm({
   const urlInvalid = url.trim() !== "" && !isWebUrl(url);
   const mutation = useMutation({
     mutationFn: () =>
-      deliverableService.update(deliverable.id, { name: name.trim(), url: url.trim() }),
+      deliverableService.update(deliverable.id, {
+        name: name.trim(),
+        url: url.trim(),
+        ...(nature !== deliverable.nature ? { nature } : {}),
+      }),
     onSuccess: () =>
       done(
         fixing
@@ -819,6 +824,30 @@ function EditDeliverableForm({
         <Field label="Nom">
           <Input value={name} maxLength={140} onChange={(e) => setName(e.target.value)} />
         </Field>
+        {!fixing && (
+          <Field label="Type">
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={nature}
+              onChange={(e) => setNature(e.target.value as Deliverable["nature"])}
+            >
+              <option value="contenu">Contenu (validé par le client, publié)</option>
+              <option value="document" disabled={!!deliverable.published_at}>
+                Document (transmis au client)
+              </option>
+            </select>
+            {deliverable.published_at && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Déjà publié : ce contenu ne peut pas devenir un document.
+              </p>
+            )}
+            {nature === "document" && deliverable.nature !== "document" && (
+              <p className="mt-1 text-xs text-warning">
+                Devenu document : sa date de publication et la décision du client sont retirées.
+              </p>
+            )}
+          </Field>
+        )}
         <Field
           label={
             fixing

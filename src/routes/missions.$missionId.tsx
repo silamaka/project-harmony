@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Check, Clock, Eye, LinkIcon, Lock, Pencil, Send, Trash2 } from "lucide-react";
+import {
+  Check,
+  Clapperboard,
+  Clock,
+  Eye,
+  FileText,
+  LinkIcon,
+  Lock,
+  Pencil,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
@@ -38,9 +49,28 @@ import {
   MISSION_WORKFLOW,
   MISSION_STATUS_LABELS,
   type Deliverable,
+  type DeliverableNature,
   type MissionStatus,
 } from "@/types";
 import { errorMessage } from "@/lib/api";
+
+/** Choix du type au dépôt : libellé court, phrase d'aide dessous, exemples au survol. */
+const NATURE_OPTIONS = [
+  {
+    value: "contenu",
+    label: "Contenu",
+    Icon: Clapperboard,
+    hint: "Validé par le client, puis publié.",
+    examples: "Post, Reel, vidéo… Compte dans le forfait du mois.",
+  },
+  {
+    value: "document",
+    label: "Document",
+    Icon: FileText,
+    hint: "Transmis au client, sans validation.",
+    examples: "Charte, présentation, brief… Hors forfait, sans publication.",
+  },
+] as const;
 
 export const Route = createFileRoute("/missions/$missionId")({
   // ?livrable=<id> (lien d'une notification) : la fiche s'ouvre sur ce
@@ -70,6 +100,7 @@ function MissionDetailPage() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [newName, setNewName] = useState("");
+  const [newNature, setNewNature] = useState<DeliverableNature>("contenu");
   const [newLink, setNewLink] = useState("");
   const [editingDeliverable, setEditingDeliverable] = useState<Deliverable | null>(null);
   const [pendingStatus, setPendingStatus] = useState<MissionStatus | null>(null);
@@ -173,7 +204,7 @@ function MissionDetailPage() {
   // dépôt peut faire bouger la mission (ex. Validé → Validation interne).
   const deliverableMutation = useMutation({
     mutationFn: (payload: { name: string; url: string }) =>
-      deliverableService.create({ mission_id: missionId, ...payload }),
+      deliverableService.create({ mission_id: missionId, nature: newNature, ...payload }),
     onSuccess: (_d, { url }) => {
       refresh([
         ["deliverables", missionId],
@@ -298,7 +329,10 @@ function MissionDetailPage() {
                 {mission?.status === "valide" ||
                 mission?.status === "publie" ||
                 mission?.status === "termine"
-                  ? "Vous avez validé les livrables de cette mission."
+                  ? // Que des documents transmis : le client n'a rien eu à valider.
+                    (deliverables ?? []).some((d) => d.nature === "contenu")
+                    ? "Vous avez validé les livrables de cette mission."
+                    : "Les documents de cette mission vous ont été transmis."
                   : mission?.status === "corrections"
                     ? "Vous avez demandé des corrections — l'agence y travaille."
                     : "En cours de traitement par l'agence. Vous serez notifié dès qu'un livrable sera prêt à valider."}
@@ -494,12 +528,66 @@ function MissionDetailPage() {
           <div className="surface-card min-w-0 p-5">
             <h2 className="text-sm font-semibold">Livrables</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Donne un nom clair au livrable, colle son lien (Drive, Figma, S3...), puis clique sur
-              Déposer. Lien pas encore prêt ? Dépose-le sans lien : il apparaîtra « Lien à venir »
-              et tu pourras l'ajouter plus tard.
+              Nomme le livrable et colle son lien. Pas encore prêt ? Dépose-le sans lien, tu
+              l'ajouteras plus tard.
             </p>
 
             <div className="mt-3 space-y-2">
+              {/* Contenu : validé par le client puis publié, compté dans le
+                  forfait. Document : simplement transmis au client. */}
+              <div>
+                <p id="nature-label" className="mb-1.5 text-xs font-medium text-muted-foreground">
+                  Type de livrable
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-labelledby="nature-label"
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {NATURE_OPTIONS.map(({ value, label, Icon, examples }) => {
+                    const selected = newNature === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setNewNature(value)}
+                        title={examples}
+                        onKeyDown={(e) => {
+                          // Flèches : passer d'un choix à l'autre, comme un groupe radio.
+                          if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+                            e.preventDefault();
+                            setNewNature(value === "contenu" ? "document" : "contenu");
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border px-2.5 py-2.5 text-left text-sm font-medium transition-all",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                          selected
+                            ? "border-primary bg-primary/5 text-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors",
+                            selected
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {NATURE_OPTIONS.find((o) => o.value === newNature)?.hint}
+                </p>
+              </div>
               <Input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}

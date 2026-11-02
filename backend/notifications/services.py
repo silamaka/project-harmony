@@ -208,3 +208,17 @@ def notify_mention(comment, user) -> Notification:
         recipient=user,
         client_visible=comment.client_visible,
     )
+
+
+def notify_document_sent(deliverable) -> Notification:
+    """Prévient le client qu'un document lui est transmis (rien à valider).
+    Type VALIDATION : celui que le client voit (notifications_visible_to)."""
+    mission = deliverable.mission
+    return Notification.objects.create(
+        type=NotificationType.VALIDATION,
+        title="Nouveau document disponible",
+        body=f"{deliverable.label} (mission « {mission.title} ») vous a été transmis."[:500],
+        link=deliverable_link(deliverable),
+        mission=mission,
+        deliverable=deliverable,
+    )

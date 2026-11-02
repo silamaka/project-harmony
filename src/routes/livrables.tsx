@@ -32,7 +32,20 @@ export const Route = createFileRoute("/livrables")({
 });
 
 type Filter = "tous" | Exclude<DeliverableState, "a_venir">;
-const FILTERS: Filter[] = ["tous", "en_attente", "envoye", "corrections", "pret", "publie"];
+const FILTERS: Filter[] = [
+  "tous",
+  "en_attente",
+  "envoye",
+  "corrections",
+  "pret",
+  "publie",
+  "transmis",
+];
+const NATURES = [
+  ["tous", "Tous"],
+  ["contenu", "Contenus"],
+  ["document", "Documents"],
+] as const;
 const FILTER_LABELS: Record<Filter, string> = {
   tous: "Tous",
   ...DELIVERABLE_STATE_LABELS,
@@ -41,6 +54,7 @@ const FILTER_LABELS: Record<Filter, string> = {
 function DeliverablesPage() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("tous");
+  const [natureFilter, setNatureFilter] = useState<(typeof NATURES)[number][0]>("tous");
   // Carte de statistique : filtre la liste, un second clic le retire.
   const toggleFilter = (f: Filter) => setFilter(filter === f ? "tous" : f);
   const [editing, setEditing] = useState<Deliverable | null>(null);
@@ -56,7 +70,8 @@ function DeliverablesPage() {
   const list = visible.filter(
     (d) =>
       d.name.toLowerCase().includes(q.trim().toLowerCase()) &&
-      (filter === "tous" || deliverableState(d) === filter),
+      (filter === "tous" || deliverableState(d) === filter) &&
+      (natureFilter === "tous" || d.nature === natureFilter),
   );
 
   const countState = (state: DeliverableState) =>
@@ -141,6 +156,22 @@ function DeliverablesPage() {
               )}
             >
               {FILTER_LABELS[f]}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1 rounded-lg border border-border p-1">
+          {NATURES.map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setNatureFilter(value)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                natureFilter === value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent",
+              )}
+            >
+              {label}
             </button>
           ))}
         </div>

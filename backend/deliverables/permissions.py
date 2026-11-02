@@ -2,7 +2,7 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 from accounts.models import Role
 
-from .models import DeliverableStatus
+from .models import DeliverableNature, DeliverableStatus
 
 # Décisions ouvertes au client : il valide ou demande des corrections, mais
 # ne remet jamais un livrable "En attente" (c'est l'agence qui le fait, en
@@ -60,6 +60,8 @@ class DeliverablePermission(BasePermission):
             return (
                 obj.mission.client_id == request.user.client_id
                 and obj.status == DeliverableStatus.VALIDE
+                # Un document est transmis : rien à décider.
+                and obj.nature == DeliverableNature.CONTENU
                 and fields_sent <= CLIENT_DECISION_FIELDS
                 and request.data.get("client_status") in CLIENT_DECISIONS
             )
@@ -69,6 +71,7 @@ class DeliverablePermission(BasePermission):
             if not (
                 request.user.role in (Role.ADMIN, Role.CHEF_PROJET)
                 and obj.status == DeliverableStatus.VALIDE
+                and obj.nature == DeliverableNature.CONTENU
                 and fields_sent <= CLIENT_DECISION_FIELDS
             ):
                 return False
@@ -97,5 +100,5 @@ class DeliverablePermission(BasePermission):
                 return True
             # Modifier le nom / le lien : seulement son propre dépôt, comme
             # pour la suppression (ex. ajouter le lien d'un livrable annoncé).
-            return obj.uploaded_by_id == request.user.id and fields_sent <= {"name", "url"}
+            return obj.uploaded_by_id == request.user.id and fields_sent <= {"name", "url", "nature"}
         return False

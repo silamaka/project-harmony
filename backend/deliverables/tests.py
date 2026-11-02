@@ -1404,3 +1404,94 @@ class LastLoginVisibilityTests(RoleTestCase):
         self.auth_as(self.client_user)
         row = next(u for u in self.client.get(reverse("user-list")).data if u["id"] == str(self.admin.id))
         self.assertNotIn("last_login", row)
+
+
+class DocumentDeliverableTests(DeliverableSetupMixin, RoleTestCase):
+    """Un document est transmis au client : ni décision, ni publication, ni
+    forfait ; il ne bloque pas l'avancement de la mission."""
+
+    def setUp(self):
+        super().setUp()
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(nature="document")
+        self.deliverable.refresh_from_db()
+
+    def _patch(self, user, data):
+        self.auth_as(user)
+        return self.client.patch(deliverable_detail_url(self.deliverable.id), data, format="json")
+
+    def test_deposit_as_document(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.post(
+            reverse("deliverable-list"),
+            {"mission_id": str(self.mission.id), "name": "Charte", "url": "https://example.com/c.pdf", "nature": "document"},
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data["nature"], "document")
+
+    def test_existing_deliverables_default_to_content(self):
+        self.auth_as(self.collaborateur)
+        res = self.client.post(
+            reverse("deliverable-list"),
+            {"mission_id": str(self.mission.id), "name": "Post", "url": "https://example.com/p"},
+        )
+        self.assertEqual(res.data["nature"], "contenu")
+
+    def test_client_cannot_decide_on_a_document(self):
+        self.assertIn(self._patch(self.client_user, {"client_status": "valide"}).status_code, (400, 403))
+        self.assertIn(
+            self._patch(self.admin, {"client_status": "corrections", "comment": "x"}).status_code, (400, 403)
+        )
+
+    def test_document_cannot_be_scheduled_or_published(self):
+        from django.utils import timezone
+
+        self.assertEqual(self._patch(self.admin, {"scheduled_at": timezone.now().isoformat()}).status_code, 400)
+        self.assertEqual(self._patch(self.admin, {"published": True}).status_code, 400)
+
+    def test_sending_a_document_notifies_client_and_completes_the_mission(self):
+        from missions.models import MissionStatus
+        from notifications.models import Notification
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(status="en_attente")
+        res = self._patch(self.admin, {"status": "valide"})
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(Notification.objects.filter(title="Nouveau document disponible").exists())
+        self.assertFalse(Notification.objects.filter(title="Nouveau livrable à valider").exists())
+        self.mission.refresh_from_db()
+        # Rien n'attend le client : la mission n'est pas bloquée "Envoyé au client".
+        self.assertEqual(self.mission.status, MissionStatus.VALIDE)
+
+    def test_switching_to_document_clears_schedule_and_decision(self):
+        from django.utils import timezone
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            nature="contenu", scheduled_at=timezone.now(), client_status="valide"
+        )
+        res = self._patch(self.admin, {"nature": "document"})
+        self.assertEqual(res.status_code, 200, res.data)
+        self.deliverable.refresh_from_db()
+        self.assertIsNone(self.deliverable.scheduled_at)
+        self.assertEqual(self.deliverable.client_status, "en_attente")
+
+    def test_documents_do_not_count_in_the_monthly_quota(self):
+        self.auth_as(self.admin)
+        data = self.client.get(reverse("dashboard-content-quota")).data
+        row = next(r for r in data["clients"] if r["client_id"] == str(self.client_company.id))
+        self.assertNotIn(str(self.deliverable.id), [d["id"] for d in row["deliverables"]])
+
+
+class PublishedContentNatureTests(DeliverableSetupMixin, RoleTestCase):
+    def test_published_content_cannot_become_a_document(self):
+        from django.utils import timezone
+
+        Deliverable.objects.filter(pk=self.deliverable.pk).update(
+            client_status="valide", published_at=timezone.now()
+        )
+        self.auth_as(self.admin)
+        res = self.client.patch(
+            deliverable_detail_url(self.deliverable.id), {"nature": "document"}, format="json"
+        )
+        self.assertEqual(res.status_code, 400)
+        self.deliverable.refresh_from_db()
+        self.assertEqual(self.deliverable.nature, "contenu")
+        self.assertIsNotNone(self.deliverable.published_at)

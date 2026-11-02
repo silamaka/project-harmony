@@ -182,6 +182,10 @@ export interface Mission {
 
 export type DeliverableType = "pdf" | "image" | "zip" | "video" | "lien";
 
+/** Contenu : validé, programmé, publié, compté dans le forfait. Document :
+ * simplement transmis au client. */
+export type DeliverableNature = "contenu" | "document";
+
 export interface Deliverable {
   id: string;
   mission_id: string;
@@ -211,6 +215,7 @@ export interface Deliverable {
   client_decided_by_name: string;
   /** Qui, dans l'équipe du client, a décidé lui-même (vide sinon). */
   client_decision_author_name?: string;
+  nature: DeliverableNature;
   /** Date de publication (posée par le serveur), null tant que non publié. */
   published_at?: string | null;
   /** Date de publication prévue, programmée par l'équipe (null sinon). */

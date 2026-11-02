@@ -10,6 +10,14 @@ class DeliverableType(models.TextChoices):
     LIEN = "lien", "Lien"
 
 
+class DeliverableNature(models.TextChoices):
+    # Contenu : validé par le client, programmé, publié, compté dans le
+    # forfait du mois. Document (charte, présentation, brief...) : simplement
+    # transmis au client, sans décision, publication ni forfait.
+    CONTENU = "contenu", "Contenu"
+    DOCUMENT = "document", "Document"
+
+
 class DeliverableStatus(models.TextChoices):
     EN_ATTENTE = "en_attente", "En attente"
     VALIDE = "valide", "Validé"
@@ -35,6 +43,9 @@ class Deliverable(models.Model):
     mission = models.ForeignKey("missions.Mission", related_name="deliverables", on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     type = models.CharField(max_length=10, choices=DeliverableType.choices)
+    nature = models.CharField(
+        max_length=10, choices=DeliverableNature.choices, default=DeliverableNature.CONTENU
+    )
     # TextField (pas URLField) : les liens Drive/Figma/S3 réels dépassent
     # souvent les 200 caractères par défaut d'un URLField (paramètres de
     # partage, node-id...), comme constaté pour User.avatar_url.

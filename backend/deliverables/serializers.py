@@ -8,6 +8,7 @@ from rest_framework import serializers
 from .models import (
     CorrectionCategory,
     Deliverable,
+    DeliverableNature,
     DeliverableStatus,
     DeliverableType,
 )
@@ -87,6 +88,7 @@ class DeliverableSerializer(serializers.ModelSerializer):
             "mission_id",
             "name",
             "type",
+            "nature",
             "url",
             "version",
             "size_kb",
@@ -142,6 +144,27 @@ class DeliverableSerializer(serializers.ModelSerializer):
         if "categories" in attrs:
             chosen = set(attrs["categories"])
             attrs["categories"] = [c for c in CorrectionCategory.values if c in chosen]
+        # Un document est transmis, pas validé ni publié par le client.
+        nature = attrs.get("nature", self.instance.nature if self.instance else DeliverableNature.CONTENU)
+        if (
+            nature == DeliverableNature.DOCUMENT
+            and self.instance is not None
+            and self.instance.published_at is not None
+        ):
+            # Publié : c'est forcément un contenu, et en faire un document
+            # effacerait la trace de sa publication.
+            raise serializers.ValidationError(
+                {"nature": "Ce contenu est déjà publié : il ne peut pas devenir un document."}
+            )
+        if nature == DeliverableNature.DOCUMENT:
+            if attrs.get("scheduled_at") or attrs.get("published"):
+                raise serializers.ValidationError(
+                    "Un document est transmis au client : il ne se programme ni ne se publie."
+                )
+            if attrs.get("client_status") in (DeliverableStatus.VALIDE, DeliverableStatus.CORRECTIONS):
+                raise serializers.ValidationError(
+                    "Un document est transmis au client : il ne demande pas sa validation."
+                )
         return attrs
 
     def create(self, validated_data):
@@ -188,6 +211,26 @@ class DeliverableSerializer(serializers.ModelSerializer):
                 # Lien retiré : le livrable redevient "à venir", ce qui
                 # annule une publication devenue sans objet.
                 validated_data["published_at"] = None
+
+        # Devenu document : plus de date de publication ni de décision du
+        # client en cours, qui n'ont pas de sens pour lui.
+        if (
+            validated_data.get("nature") == DeliverableNature.DOCUMENT
+            and instance.nature != DeliverableNature.DOCUMENT
+        ):
+            validated_data.update(
+                scheduled_at=None,
+                published_at=None,
+                publication_reminders=[],
+                client_status=DeliverableStatus.EN_ATTENTE,
+                client_feedback="",
+                client_feedback_at=None,
+                client_feedback_categories=[],
+                client_feedback_link="",
+                client_validated_at=None,
+                client_decided_by=None,
+                client_decision_author=None,
+            )
 
         if not url and (
             validated_data.get("published")

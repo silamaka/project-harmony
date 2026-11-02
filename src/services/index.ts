@@ -166,7 +166,8 @@ export const deliverableService = {
       | "client_decided_by_name"
       | "version"
       | "type"
-    >,
+      | "nature"
+    > & { nature?: Deliverable["nature"] },
   ) => (await api.post<Deliverable>(endpoints.deliverables, payload)).data,
   /** PATCH /api/v1/deliverables/:id/ (validation agence : "valide" = envoyé au client) */
   updateStatus: async (id: string, status: Deliverable["status"]) =>
@@ -196,8 +197,10 @@ export const deliverableService = {
       })
     ).data,
   /** PATCH /api/v1/deliverables/:id/ (nom / lien ; lien vide = "Lien à venir") */
-  update: async (id: string, patch: Pick<Deliverable, "name" | "url">) =>
-    (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, patch)).data,
+  update: async (
+    id: string,
+    patch: Pick<Deliverable, "name" | "url"> & { nature?: Deliverable["nature"] },
+  ) => (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, patch)).data,
   /** PATCH /api/v1/deliverables/:id/ (publier / dépublier, date posée par le serveur) */
   setPublished: async (id: string, published: boolean) =>
     (await api.patch<Deliverable>(`${endpoints.deliverables}${id}/`, { published })).data,

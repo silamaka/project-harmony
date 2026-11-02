@@ -1,7 +1,7 @@
 from accounts.models import Role
 from missions.models import MissionStatus
 
-from .models import DeliverableStatus
+from .models import DeliverableNature, DeliverableStatus
 
 # Une mission publiée ou terminée est close : plus aucun évènement sur ses
 # livrables ne la fait reculer.
@@ -28,7 +28,10 @@ def sync_mission_status(mission) -> None:
         return
     agency = list(mission.deliverables.exclude(url="").exclude(uploaded_by__role=Role.CLIENT))
     sent = [d for d in agency if d.status == DeliverableStatus.VALIDE]
-    awaiting = [d for d in sent if d.published_at is None]
+    # Un document transmis n'attend rien du client : il compte comme traité.
+    awaiting = [
+        d for d in sent if d.published_at is None and d.nature == DeliverableNature.CONTENU
+    ]
 
     if not sent:
         if not agency or mission.status not in CLIENT_SIDE_MISSION_STATUSES:

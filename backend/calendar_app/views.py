@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import Role
-from deliverables.models import Deliverable, DeliverableStatus
+from deliverables.models import Deliverable, DeliverableNature, DeliverableStatus
 from deliverables.views import client_visible_q
 from missions.models import TaskType
 from missions.scoping import missions_visible_to
@@ -127,7 +127,8 @@ def calendar_events(request):
 def available_event(deliverable) -> dict:
     """Livrable disponible pour le client, à la date où l'agence l'a envoyé."""
     when = timezone.localtime(deliverable.sent_at)
-    awaiting = deliverable.client_status == DeliverableStatus.EN_ATTENTE
+    is_document = deliverable.nature == DeliverableNature.DOCUMENT
+    awaiting = not is_document and deliverable.client_status == DeliverableStatus.EN_ATTENTE
     return {
         "id": f"liv-{deliverable.id}",
         "title": deliverable.name,
@@ -142,7 +143,9 @@ def available_event(deliverable) -> dict:
         "deliverable_id": str(deliverable.id),
         "awaiting_client": awaiting,
         "description": (
-            "Disponible : il attend votre validation."
+            "Document transmis."
+            if is_document
+            else "Disponible : il attend votre validation."
             if awaiting
             else "Vous l'avez validé."
             if deliverable.client_status == DeliverableStatus.VALIDE

@@ -31,6 +31,7 @@ const FILTER_LABELS: Record<Filter, string> = {
   envoye: "Chez le client",
   pret: "Prêt à publier",
   publie: "Publiés",
+  transmis: "Documents transmis",
 };
 
 /** Ordre d'affichage : un livrable validé des deux côtés mais pas encore
@@ -44,6 +45,7 @@ const SORT_ORDER: DeliverableState[] = [
   "envoye",
   "a_venir",
   "publie",
+  "transmis",
 ];
 
 const matchesFilter = (d: Deliverable, filter: Filter) =>

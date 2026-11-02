@@ -163,7 +163,9 @@ export function DeliverableActions({
       {canValidate && isSentToClient(d) && (
         <DeliverableDecision deliverable={d} onBehalf variant="icons" />
       )}
-      {canPublish && !d.published_at && <ScheduleButton deliverable={d} />}
+      {canPublish && !d.published_at && d.nature !== "document" && (
+        <ScheduleButton deliverable={d} />
+      )}
       {canPublish && canTogglePublication(d) && (
         <button
           type="button"
@@ -237,6 +239,11 @@ export function DeliverableTitle({ deliverable: d }: { deliverable: Deliverable 
     <>
       <p className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]">{d.name}</p>
       <p className="text-[11px] text-muted-foreground">
+        {d.nature === "document" && (
+          <span className="mr-1 inline-flex items-center gap-0.5 font-medium text-foreground/70">
+            <FileText className="h-3 w-3" /> Document ·
+          </span>
+        )}
         {hasDeliverableLink(d) ? `v${d.version}` : "Lien pas encore disponible"}
       </p>
     </>

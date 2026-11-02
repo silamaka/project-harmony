@@ -11,10 +11,11 @@ from notifications.services import (
     notify_client_decision_cancelled,
     notify_deliverable_sent,
     notify_deliverable_to_review,
+    notify_document_sent,
 )
 
 from .decisions import sync_mission_status
-from .models import CorrectionCategory, Deliverable, DeliverableStatus
+from .models import CorrectionCategory, Deliverable, DeliverableNature, DeliverableStatus
 from .permissions import DeliverablePermission, is_clients_own_decision
 from .serializers import DeliverableSerializer
 
@@ -195,7 +196,10 @@ class DeliverableViewSet(viewsets.ModelViewSet):
         elif not was_sent and is_sent_to_client(deliverable):
             deliverable.sent_at = timezone.now()
             deliverable.save(update_fields=["sent_at"])
-            notify_deliverable_sent(deliverable)
+            if deliverable.nature == DeliverableNature.DOCUMENT:
+                notify_document_sent(deliverable)
+            else:
+                notify_deliverable_sent(deliverable)
 
         # Nouveau contenu à revoir : premier lien, ou nouvelle version.
         if awaits_agency_review(deliverable) and (
