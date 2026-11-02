@@ -318,9 +318,13 @@ function QuotaColumn({
               style={{ height: CELL_PX }}
               className={cn(
                 "w-full rounded-[2px]",
-                // Au-delà du forfait : contenus en plus, en orange.
+                // Au-delà du forfait : orange s'il a son lien ; sinon gris
+                // « sans lien », cerclé d'orange pour rester hors forfait.
+                // (Les contenus avec lien viennent en premier.)
                 i >= quota
-                  ? "bg-warning"
+                  ? i < row.with_link
+                    ? "bg-warning"
+                    : "bg-muted-foreground/35 ring-2 ring-inset ring-warning"
                   : i < row.with_link
                     ? "bg-success"
                     : i < total
