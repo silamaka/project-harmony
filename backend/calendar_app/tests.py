@@ -254,3 +254,20 @@ class CalendarTeamTests(RoleTestCase):
         for event in self.client.get(reverse("calendar")).data:
             self.assertNotIn("assignee_id", event)
             self.assertNotIn("collaborators", event)
+
+
+class CalendarDeliverableNatureTests(RoleTestCase):
+    def test_deliverable_events_carry_their_nature(self):
+        from django.utils import timezone
+
+        Deliverable.objects.create(
+            mission=self.mission, name="Charte", type="lien", url="https://example.com/c",
+            uploaded_by=self.collaborateur, nature="document", status=DeliverableStatus.VALIDE,
+            sent_at=timezone.now(),
+        )
+        self.auth_as(self.admin)
+        [team_event] = [e for e in self.client.get(reverse("calendar")).data if e["type"] == "livrable"]
+        self.assertEqual(team_event["nature"], "document")
+        self.auth_as(self.client_user)
+        [client_event] = [e for e in self.client.get(reverse("calendar")).data if e["type"] == "livrable"]
+        self.assertEqual(client_event["nature"], "document")

@@ -69,6 +69,8 @@ def calendar_events(request):
                 "title": d.name,
                 "date": d.created_at.date().isoformat(),
                 "type": "livrable",
+                # Contenu ou document : sous-filtre du calendrier.
+                "nature": d.nature,
                 "mission_id": str(d.mission_id),
                 "client_id": str(d.mission.client_id),
                 "project_id": str(d.mission.project_id),
@@ -135,6 +137,7 @@ def available_event(deliverable) -> dict:
         "date": when.date().isoformat(),
         "time": f"{when:%H:%M}",
         "type": "livrable",
+        "nature": deliverable.nature,
         # Date et heure complètes : affichées dans le fuseau du navigateur.
         "available_at": deliverable.sent_at.isoformat(),
         "mission_id": str(deliverable.mission_id),

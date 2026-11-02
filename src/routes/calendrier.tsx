@@ -47,6 +47,7 @@ import {
   MISSION_STATUS_LABELS,
   TASK_TYPE_LABELS,
   type CalendarEvent as ApiCalendarEvent,
+  type DeliverableNature,
 } from "@/types";
 import { errorMessage } from "@/lib/api";
 
@@ -190,7 +191,14 @@ const showsDot = (e: CalendarEvent) => e.type !== "publication";
 const dotOf = (e: CalendarEvent) =>
   e.late ? "bg-destructive" : e.published_at ? "bg-success" : TYPE_DOT[e.type];
 
-const labelOf = (e: CalendarEvent) => (e.published_at ? "Publiée" : TYPE_LABEL[e.type]);
+const labelOf = (e: CalendarEvent) =>
+  e.published_at
+    ? "Publiée"
+    : e.type === "livrable" && e.nature
+      ? e.nature === "document"
+        ? "Document"
+        : "Contenu"
+      : TYPE_LABEL[e.type];
 
 /** Pastille d'une échéance de mission ou d'une publication : trois couleurs
  * seulement, pour lire le calendrier d'un coup d'œil — rouge en retard
@@ -313,7 +321,13 @@ function CalendarPage() {
   }, []);
   const [cursor, setCursor] = useState(() => new Date());
   const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"tous" | EventType>("tous");
+  const [typeFilter, setTypeFilterRaw] = useState<"tous" | EventType>("tous");
+  // Sous-filtre du type "Livrable" : contenus ou documents.
+  const [natureFilter, setNatureFilter] = useState<"tous" | DeliverableNature>("tous");
+  const setTypeFilter = (t: "tous" | EventType) => {
+    setTypeFilterRaw(t);
+    setNatureFilter("tous");
+  };
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [dayView, setDayView] = useState<Date | null>(null);
   const updateMissionDeadline = useMutation({
@@ -387,6 +401,8 @@ function CalendarPage() {
       events.filter(
         (e) =>
           (typeFilter === "tous" || e.type === typeFilter) &&
+          // Une mission taguée "Livrable" n'a pas de nature : hors sous-filtre.
+          (natureFilter === "tous" || e.nature === natureFilter) &&
           e.title.toLowerCase().includes(query.toLowerCase()) &&
           (!clientFilter || e.client_id === clientFilter) &&
           (!projectFilter || e.project_id === projectFilter) &&
@@ -395,7 +411,7 @@ function CalendarPage() {
             e.assignee_id === collabFilter ||
             (e.collaborators ?? []).includes(collabFilter)),
       ),
-    [events, typeFilter, query, clientFilter, projectFilter, collabFilter],
+    [events, typeFilter, natureFilter, query, clientFilter, projectFilter, collabFilter],
   );
   const selectedClientName = clientOptions.find((c) => c.id === clientFilter)?.name;
   const selectedCollab = collabOptions.find((u) => u.id === collabFilter);
@@ -574,6 +590,37 @@ function CalendarPage() {
               {typeLabel(t)}
             </button>
           ))}
+          {typeFilter === "livrable" && (
+            <div
+              role="radiogroup"
+              aria-label="Type de livrable"
+              className="flex items-center gap-0.5 rounded-full border border-border bg-muted/40 p-0.5"
+            >
+              {(
+                [
+                  ["tous", "Tous"],
+                  ["contenu", "Contenus"],
+                  ["document", "Documents"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={natureFilter === value}
+                  onClick={() => setNatureFilter(value)}
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+                    natureFilter === value
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

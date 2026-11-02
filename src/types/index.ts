@@ -260,6 +260,8 @@ export interface CalendarEvent {
   awaiting_client?: boolean;
   /** Livrable disponible pour le client : quand l'agence le lui a envoyé (ISO). */
   available_at?: string;
+  /** Livrable : contenu ou document (sous-filtre du calendrier). */
+  nature?: DeliverableNature;
   /** Équipe de la mission (calendrier de l'agence seulement, jamais au client). */
   assignee_id?: string;
   collaborators?: string[];
