@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   CheckCircle2,
+  Clapperboard,
   Eye,
   FileArchive,
   FileText,
@@ -239,11 +240,17 @@ export function DeliverableTitle({ deliverable: d }: { deliverable: Deliverable 
     <>
       <p className="line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]">{d.name}</p>
       <p className="text-[11px] text-muted-foreground">
-        {d.nature === "document" && (
-          <span className="mr-1 inline-flex items-center gap-0.5 font-medium text-foreground/70">
-            <FileText className="h-3 w-3" /> Document ·
-          </span>
-        )}
+        <span className="mr-1 inline-flex items-center gap-0.5 font-medium text-foreground/70">
+          {d.nature === "document" ? (
+            <>
+              <FileText className="h-3 w-3" /> Document ·
+            </>
+          ) : (
+            <>
+              <Clapperboard className="h-3 w-3" /> Contenu ·
+            </>
+          )}
+        </span>
         {hasDeliverableLink(d) ? `v${d.version}` : "Lien pas encore disponible"}
       </p>
     </>
