@@ -448,10 +448,12 @@ function MissionDetailPage() {
         />
       )}
 
-      <div className={cn("mt-4 grid gap-4", !isClient && "lg:grid-cols-3")}>
+      {/* Deux colonnes seulement sur grand écran : sur tablette, le tiers
+          réservé aux livrables est trop étroit pour leurs champs. */}
+      <div className={cn("mt-4 grid gap-4", !isClient && "xl:grid-cols-3")}>
         {/* min-w-0 : une colonne de grille prend sinon la largeur de son plus
             long mot (ex. une description faite d'URL collées) et casse la page. */}
-        <div className={cn("surface-card min-w-0 p-5", !isClient && "lg:col-span-2")}>
+        <div className={cn("surface-card min-w-0 p-5", !isClient && "xl:col-span-2")}>
           <div className="flex flex-wrap items-center gap-2">
             {/* Priorité interne de l'agence : jamais montrée au client. */}
             {mission && !isClient && <PriorityBadge priority={mission.priority} />}
@@ -542,7 +544,9 @@ function MissionDetailPage() {
                 <div
                   role="radiogroup"
                   aria-labelledby="nature-label"
-                  className="grid grid-cols-2 gap-2"
+                  // Place étroite : l'icône passe au-dessus du mot au lieu de le
+                  // pousser hors du bouton.
+                  className="@container grid grid-cols-2 gap-2"
                 >
                   {NATURE_OPTIONS.map(({ value, label, Icon, examples }) => {
                     const selected = newNature === value;
@@ -562,7 +566,7 @@ function MissionDetailPage() {
                           }
                         }}
                         className={cn(
-                          "flex items-center gap-2 rounded-lg border px-2.5 py-2.5 text-left text-sm font-medium transition-all",
+                          "flex min-w-0 flex-col items-center gap-1.5 rounded-lg border px-2 py-2.5 text-center text-sm font-medium transition-all @[17rem]:flex-row @[17rem]:gap-2 @[17rem]:px-2.5 @[17rem]:text-left",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                           selected
                             ? "border-primary bg-primary/5 text-foreground shadow-sm"
