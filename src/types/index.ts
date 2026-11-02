@@ -255,6 +255,9 @@ export interface CalendarEvent {
   awaiting_client?: boolean;
   /** Livrable disponible pour le client : quand l'agence le lui a envoyé (ISO). */
   available_at?: string;
+  /** Équipe de la mission (calendrier de l'agence seulement, jamais au client). */
+  assignee_id?: string;
+  collaborators?: string[];
   /** Statut de la mission, présent sur les échéances de mission uniquement. */
   status?: MissionStatus;
   color?: string;

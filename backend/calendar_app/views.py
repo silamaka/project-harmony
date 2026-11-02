@@ -108,7 +108,20 @@ def calendar_events(request):
 
     # Les réunions (modèle Meeting) ne sont plus affichées au calendrier :
     # les déplacements passent par les missions de type "Descente".
-    return Response([*mission_events, *deliverable_events, *publication_events])
+    events = [*mission_events, *deliverable_events, *publication_events]
+    if not is_client:
+        # Équipe de la mission (responsable et contributeurs) : filtre par
+        # collaborateur et initiales sur le calendrier de l'agence. Jamais
+        # envoyée au client.
+        team = {
+            str(m.id): (str(m.assignee_id), [str(c.id) for c in m.collaborators.all()])
+            for m in missions.prefetch_related("collaborators")
+        }
+        for event in events:
+            assignee_id, collaborators = team.get(event["mission_id"], ("", []))
+            event["assignee_id"] = assignee_id
+            event["collaborators"] = collaborators
+    return Response(events)
 
 
 def available_event(deliverable) -> dict:

@@ -40,6 +40,7 @@ import {
   isMissionDone,
   missionService,
   projectService,
+  userService,
 } from "@/services";
 import { useAuth } from "@/context/auth-context";
 import {
@@ -52,17 +53,27 @@ import { errorMessage } from "@/lib/api";
 /** Événement tel qu'affiché : `late` marque une échéance de mission dépassée
  * et pas finie ; `overdueSince` marque sa copie reportée sur aujourd'hui
  * (date d'échéance d'origine). Champs purement d'affichage. */
-type CalendarEvent = ApiCalendarEvent & { late?: boolean; overdueSince?: string };
+type CalendarEvent = ApiCalendarEvent & {
+  late?: boolean;
+  overdueSince?: string;
+  /** Initiales du responsable, affichées sur l'étiquette (agence seulement). */
+  assigneeInitials?: string;
+};
 
-type CalendarSearch = { client?: string; projet?: string };
+type CalendarSearch = { client?: string; projet?: string; collab?: string };
 
 export const Route = createFileRoute("/calendrier")({
-  // Filtres client / projet dans l'adresse : un lien partagé ou un
-  // rechargement garde la sélection. Paramètres facultatifs.
+  // Filtres client / projet / collaborateur dans l'adresse : un lien partagé
+  // ou un rechargement garde la sélection. Paramètres facultatifs.
   validateSearch: (search: Record<string, unknown>): CalendarSearch => {
     const client = searchText(search["client"]);
     const projet = searchText(search["projet"]);
-    return { ...(client ? { client } : {}), ...(projet ? { projet } : {}) };
+    const collab = searchText(search["collab"]);
+    return {
+      ...(client ? { client } : {}),
+      ...(projet ? { projet } : {}),
+      ...(collab ? { collab } : {}),
+    };
   },
   head: () => ({
     meta: [
@@ -254,11 +265,31 @@ function CalendarPage() {
   // déplacement d'échéance, pas de filtre client, pas de report des retards
   // (le serveur ne lui envoie que ses publications et ses descentes).
   const isClient = user?.role === "client";
+  // Filtre par collaborateur et initiales : pilotage de l'équipe, réservé à
+  // l'admin et au chef de projet.
+  const canFilterTeam = user?.role === "admin" || user?.role === "chef_projet";
   const { data: rawEvents } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
-  const events = useMemo(
-    () => (isClient ? (rawEvents ?? []).map(inLocalTime) : withOverdueRollover(rawEvents ?? [])),
-    [rawEvents, isClient],
-  );
+  const { data: users } = useQuery({
+    queryKey: ["users"],
+    queryFn: userService.list,
+    enabled: canFilterTeam,
+  });
+  const events = useMemo(() => {
+    const base = isClient
+      ? (rawEvents ?? []).map(inLocalTime)
+      : withOverdueRollover(rawEvents ?? []);
+    if (!canFilterTeam) return base;
+    const initials = new Map(
+      (users ?? []).map((u) => [
+        u.id,
+        `${u.first_name.charAt(0)}${u.last_name.charAt(0)}`.toUpperCase(),
+      ]),
+    );
+    return base.map((e) => {
+      const assigneeInitials = e.assignee_id ? initials.get(e.assignee_id) : undefined;
+      return assigneeInitials ? { ...e, assigneeInitials } : e;
+    });
+  }, [rawEvents, isClient, canFilterTeam, users]);
   // Livrables qui attendent la validation du client, une fois chacun (un
   // livrable disponible peut aussi avoir une publication prévue) : la
   // publication d'abord, qui porte l'échéance la plus parlante.
@@ -295,19 +326,25 @@ function CalendarPage() {
     onError: (error) => toast.error(errorMessage(error, "Déplacement impossible.")),
   });
 
-  // Filtres client / projet (dans l'adresse).
-  const { client: clientFilter, projet: projectFilter } = Route.useSearch();
+  // Filtres client / projet / collaborateur (dans l'adresse).
+  const { client: clientFilter, projet: projectFilter, collab: collabFilter } = Route.useSearch();
   const navigate = useNavigate({ from: "/calendrier" });
-  const setClientFilter = (client: string) =>
-    void navigate({ search: client ? { client } : {}, replace: true });
-  const setProjectFilter = (projet: string) =>
+  // Valeur vide = filtre retiré de l'adresse.
+  const setSearch = (next: { [K in keyof CalendarSearch]?: string | undefined }) =>
     void navigate({
-      search: {
-        ...(clientFilter && !isClient ? { client: clientFilter } : {}),
-        ...(projet ? { projet } : {}),
-      },
+      search: Object.fromEntries(Object.entries(next).filter(([, v]) => v)) as CalendarSearch,
       replace: true,
     });
+  // Changer de client remet le projet à zéro (il appartient au client).
+  const setClientFilter = (client: string) => setSearch({ client, collab: collabFilter });
+  const setProjectFilter = (projet: string) =>
+    setSearch({
+      client: isClient ? undefined : clientFilter,
+      projet,
+      collab: collabFilter,
+    });
+  const setCollabFilter = (collab: string) =>
+    setSearch({ client: clientFilter, projet: projectFilter, collab });
   const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   // Tous les clients (même sans mission : le calendrier est alors vide), et
@@ -333,6 +370,17 @@ function CalendarPage() {
   const typeLabel = (t: EventType) =>
     isClient && t === "livrable" ? "Livrable disponible" : TYPE_LABEL[t];
 
+  // Personnes présentes sur au moins une mission du calendrier (responsable
+  // ou contributeur), par ordre alphabétique.
+  const collabOptions = useMemo(() => {
+    const ids = new Set(events.flatMap((e) => [e.assignee_id ?? "", ...(e.collaborators ?? [])]));
+    return (users ?? [])
+      .filter((u) => ids.has(u.id))
+      .sort((a, b) =>
+        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`),
+      );
+  }, [events, users]);
+
   /** Le backend ne renvoie déjà que les événements de mission/livrable visibles pour le rôle courant. */
   const visibleEvents = useMemo(
     () =>
@@ -341,11 +389,19 @@ function CalendarPage() {
           (typeFilter === "tous" || e.type === typeFilter) &&
           e.title.toLowerCase().includes(query.toLowerCase()) &&
           (!clientFilter || e.client_id === clientFilter) &&
-          (!projectFilter || e.project_id === projectFilter),
+          (!projectFilter || e.project_id === projectFilter) &&
+          // Responsable ou contributeur de la mission.
+          (!collabFilter ||
+            e.assignee_id === collabFilter ||
+            (e.collaborators ?? []).includes(collabFilter)),
       ),
-    [events, typeFilter, query, clientFilter, projectFilter],
+    [events, typeFilter, query, clientFilter, projectFilter, collabFilter],
   );
   const selectedClientName = clientOptions.find((c) => c.id === clientFilter)?.name;
+  const selectedCollab = collabOptions.find((u) => u.id === collabFilter);
+  const selectedCollabName = selectedCollab
+    ? `${selectedCollab.first_name} ${selectedCollab.last_name}`
+    : undefined;
   const clientEventCount = visibleEvents.length;
 
   const eventsOn = (date: Date) =>
@@ -453,6 +509,24 @@ function CalendarPage() {
             ))}
           </select>
         )}
+        {canFilterTeam && (
+          <select
+            aria-label="Filtrer par collaborateur"
+            value={collabFilter ?? ""}
+            onChange={(e) => setCollabFilter(e.target.value)}
+            className={cn(
+              "h-9 rounded-md border border-input bg-background px-3 text-sm",
+              collabFilter && "border-primary text-primary",
+            )}
+          >
+            <option value="">Tous les collaborateurs</option>
+            {collabOptions.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.first_name} {u.last_name}
+              </option>
+            ))}
+          </select>
+        )}
         {/* Projet : seulement pour un client qui en a plusieurs. */}
         {projectOptions.length >= 2 && (
           <select
@@ -524,20 +598,42 @@ function CalendarPage() {
         </button>
       )}
 
-      {selectedClientName && (
+      {(selectedClientName || selectedCollabName) && (
         <p className="mt-3 text-xs text-muted-foreground">
           {clientEventCount} événement{clientEventCount > 1 ? "s" : ""} pour{" "}
-          <span className="font-medium text-foreground">{selectedClientName}</span>
+          {selectedCollabName && (
+            <span className="font-medium text-foreground">{selectedCollabName}</span>
+          )}
+          {selectedCollabName && selectedClientName && " chez "}
+          {selectedClientName && (
+            <span className="font-medium text-foreground">{selectedClientName}</span>
+          )}
           {projectFilter &&
-            ` · projet « ${projectOptions.find((p) => p.id === projectFilter)?.name ?? ""} »`}{" "}
-          ·{" "}
-          <button
-            type="button"
-            onClick={() => setClientFilter("")}
-            className="font-medium text-primary hover:underline"
-          >
-            Tous les clients
-          </button>
+            ` · projet « ${projectOptions.find((p) => p.id === projectFilter)?.name ?? ""} »`}
+          {selectedCollabName && (
+            <>
+              {" · "}
+              <button
+                type="button"
+                onClick={() => setCollabFilter("")}
+                className="font-medium text-primary hover:underline"
+              >
+                Tous les collaborateurs
+              </button>
+            </>
+          )}
+          {selectedClientName && (
+            <>
+              {" · "}
+              <button
+                type="button"
+                onClick={() => setClientFilter("")}
+                className="font-medium text-primary hover:underline"
+              >
+                Tous les clients
+              </button>
+            </>
+          )}
         </p>
       )}
 
@@ -886,6 +982,11 @@ function EventChip({
         )}
         <span className={cn(full && "min-w-0")}>
           {event.overdueSince && <span className="mr-1">⚠</span>}
+          {event.assigneeInitials && (
+            <span className="mr-1 rounded bg-background/60 px-1 font-semibold">
+              {event.assigneeInitials}
+            </span>
+          )}
           {event.time && <span className="mr-1 font-semibold">{event.time}</span>}
           {event.title}
         </span>

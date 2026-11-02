@@ -236,3 +236,21 @@ class MeetingWritePermissionTests(RoleTestCase):
         self.auth_as(self.collaborateur)
         res = self.client.delete(meeting_detail_url(meeting.id))
         self.assertEqual(res.status_code, 204)
+
+
+class CalendarTeamTests(RoleTestCase):
+    """Équipe de chaque événement : pour le filtre par collaborateur de
+    l'agence, jamais envoyée au client."""
+
+    def test_team_events_carry_assignee_and_collaborators(self):
+        self.mission.collaborators.add(self.other_collaborateur)
+        self.auth_as(self.admin)
+        [event] = [e for e in self.client.get(reverse("calendar")).data if e["id"] == f"ev-{self.mission.id}"]
+        self.assertEqual(event["assignee_id"], str(self.collaborateur.id))
+        self.assertEqual(event["collaborators"], [str(self.other_collaborateur.id)])
+
+    def test_client_never_receives_the_team(self):
+        self.auth_as(self.client_user)
+        for event in self.client.get(reverse("calendar")).data:
+            self.assertNotIn("assignee_id", event)
+            self.assertNotIn("collaborators", event)
