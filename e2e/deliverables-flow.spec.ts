@@ -153,7 +153,8 @@ test("circuit complet d'un livrable entre l'agence et le client", async ({ brows
   await test.step("l'agence voit la validation et publie", async () => {
     await gotoMission(agency);
     await expect(card(agency).getByText("Prêt à publier")).toBeVisible();
-    await expect(card(agency).getByText(/Validé par le client le/)).toBeVisible();
+    // Le nom de la personne qui a validé, côté agence.
+    await expect(card(agency).getByText(/Validé par Client E2E \w+ le/)).toBeVisible();
     await card(agency)
       .getByRole("button", { name: `Publier ${NAME}` })
       .click();

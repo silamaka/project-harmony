@@ -57,7 +57,7 @@ export async function seedClientMission(request: APIRequestContext, adminToken: 
     name: `Client E2E ${suffix}`,
   });
   const clientEmail = `client.${suffix}@e2e.test`;
-  const clientUser = await api<{ id: string }>(request, adminToken, "POST", "/users/", {
+  await api(request, adminToken, "POST", "/users/", {
     email: clientEmail,
     first_name: "Client",
     last_name: `E2E ${suffix}`,
@@ -86,11 +86,9 @@ export async function seedClientMission(request: APIRequestContext, adminToken: 
     missionId: mission.id,
     clientEmail,
     cleanup: async (context: APIRequestContext = request) => {
-      // L'entreprise d'abord : elle emporte projets, missions, livrables et
-      // commentaires ; le compte client (auteur de commentaires, protégés)
-      // ne peut être supprimé qu'ensuite.
+      // Supprimer l'entreprise emporte projets, missions, livrables,
+      // commentaires et ses comptes clients (voir ClientViewSet.destroy).
       await api(context, adminToken, "DELETE", `/clients/${company.id}/`);
-      await api(context, adminToken, "DELETE", `/users/${clientUser.id}/`);
     },
   };
 }
