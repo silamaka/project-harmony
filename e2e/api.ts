@@ -9,9 +9,16 @@ export const API_URL = process.env["E2E_API_URL"] ?? "http://localhost:8000/api/
 
 export type Tokens = { access: string; refresh: string };
 
-/** Connexion par l'API (limitée à 10 par minute côté serveur : à économiser). */
+/** Connexion par l'API (limitée à 10 par minute côté serveur : à économiser).
+ * Limite atteinte (429) : on attend le délai indiqué puis on réessaie une fois,
+ * plutôt que d'échouer quand toute la suite tourne d'affilée. */
 export async function apiLogin(request: APIRequestContext, email: string, password: string) {
-  const res = await request.post(`${API_URL}/auth/login/`, { data: { email, password } });
+  let res = await request.post(`${API_URL}/auth/login/`, { data: { email, password } });
+  if (res.status() === 429) {
+    const wait = Number(res.headers()["retry-after"] ?? "60");
+    await new Promise((resolve) => setTimeout(resolve, (wait + 1) * 1000));
+    res = await request.post(`${API_URL}/auth/login/`, { data: { email, password } });
+  }
   if (!res.ok()) throw new Error(`Connexion API refusée pour ${email} : ${res.status()}`);
   const body = (await res.json()) as Tokens & { user: { id: string } };
   return body;
@@ -84,6 +91,7 @@ export async function seedClientMission(request: APIRequestContext, adminToken: 
   return {
     title,
     missionId: mission.id,
+    companyId: company.id,
     clientEmail,
     cleanup: async (context: APIRequestContext = request) => {
       // Supprimer l'entreprise emporte projets, missions, livrables,
