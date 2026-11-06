@@ -57,9 +57,27 @@ import { errorMessage } from "@/lib/api";
 type CalendarEvent = ApiCalendarEvent & {
   late?: boolean;
   overdueSince?: string;
-  /** Initiales du responsable, affichées sur l'étiquette (agence seulement). */
-  assigneeInitials?: string;
+  /** Initiales du client, affichées sur l'étiquette (agence seulement). */
+  clientInitials?: string;
+  /** Nom complet du client, au survol de l'étiquette. */
+  clientName?: string;
 };
+
+/** Initiales d'un client : premières lettres de ses deux premiers mots
+ * ("ALLO DAKAR" → AD), ou deux premières lettres d'un nom en un mot
+ * ("MAN'NITii" → MA). */
+function clientInitialsOf(name: string) {
+  const words = name
+    .normalize("NFD")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const letters =
+    words.length >= 2
+      ? `${words[0]!.charAt(0)}${words[1]!.charAt(0)}`
+      : (words[0] ?? "").slice(0, 2);
+  return letters.toUpperCase();
+}
 
 type CalendarSearch = { client?: string; projet?: string; collab?: string };
 
@@ -273,8 +291,8 @@ function CalendarPage() {
   // déplacement d'échéance, pas de filtre client, pas de report des retards
   // (le serveur ne lui envoie que ses publications et ses descentes).
   const isClient = user?.role === "client";
-  // Filtre par collaborateur et initiales : pilotage de l'équipe, réservé à
-  // l'admin et au chef de projet.
+  // Filtre par collaborateur et initiales du client : pilotage de l'équipe,
+  // réservé à l'admin et au chef de projet.
   const canFilterTeam = user?.role === "admin" || user?.role === "chef_projet";
   const { data: rawEvents } = useQuery({ queryKey: ["calendar"], queryFn: calendarService.list });
   const { data: users } = useQuery({
@@ -282,22 +300,19 @@ function CalendarPage() {
     queryFn: userService.list,
     enabled: canFilterTeam,
   });
+  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const events = useMemo(() => {
     const base = isClient
       ? (rawEvents ?? []).map(inLocalTime)
       : withOverdueRollover(rawEvents ?? []);
     if (!canFilterTeam) return base;
-    const initials = new Map(
-      (users ?? []).map((u) => [
-        u.id,
-        `${u.first_name.charAt(0)}${u.last_name.charAt(0)}`.toUpperCase(),
-      ]),
-    );
+    // Client de chaque événement : le calendrier de l'agence les mélange tous.
+    const byId = new Map((clients ?? []).map((c) => [c.id, c.name]));
     return base.map((e) => {
-      const assigneeInitials = e.assignee_id ? initials.get(e.assignee_id) : undefined;
-      return assigneeInitials ? { ...e, assigneeInitials } : e;
+      const clientName = e.client_id ? byId.get(e.client_id) : undefined;
+      return clientName ? { ...e, clientName, clientInitials: clientInitialsOf(clientName) } : e;
     });
-  }, [rawEvents, isClient, canFilterTeam, users]);
+  }, [rawEvents, isClient, canFilterTeam, clients]);
   // Livrables qui attendent la validation du client, une fois chacun (un
   // livrable disponible peut aussi avoir une publication prévue) : la
   // publication d'abord, qui porte l'échéance la plus parlante.
@@ -359,7 +374,6 @@ function CalendarPage() {
     });
   const setCollabFilter = (collab: string) =>
     setSearch({ client: clientFilter, projet: projectFilter, collab });
-  const { data: clients } = useQuery({ queryKey: ["clients"], queryFn: clientService.list });
   const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: projectService.list });
   // Tous les clients (même sans mission : le calendrier est alors vide), et
   // tous les projets du client choisi.
@@ -1001,6 +1015,7 @@ function EventChip({
         onClick(event);
       }}
       title={[
+        event.clientName,
         event.title,
         status?.label,
         event.overdueSince
@@ -1029,9 +1044,9 @@ function EventChip({
         )}
         <span className={cn(full && "min-w-0")}>
           {event.overdueSince && <span className="mr-1">⚠</span>}
-          {event.assigneeInitials && (
+          {event.clientInitials && (
             <span className="mr-1 rounded bg-background/60 px-1 font-semibold">
-              {event.assigneeInitials}
+              {event.clientInitials}
             </span>
           )}
           {event.time && <span className="mr-1 font-semibold">{event.time}</span>}
