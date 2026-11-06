@@ -161,8 +161,12 @@ function CampaignsPage() {
               </div>
               <CampaignProgress
                 label="Budget dépensé"
-                value={c.summary.budget_used}
-                detail={`${formatMoney(c.summary.spend)} sur ${formatMoney(c.budget_ht)} HT`}
+                value={c.budget_ht > 0 ? c.summary.budget_used : null}
+                detail={
+                  c.budget_ht > 0
+                    ? `${formatMoney(c.summary.spend)} sur ${formatMoney(c.budget_ht)} HT`
+                    : "Budget non défini"
+                }
                 warnAbove={90}
               />
               <CampaignProgress

@@ -1,19 +1,13 @@
 import { cn } from "@/lib/utils";
+import { campaignStatusTone } from "@/lib/campaign";
 import { CAMPAIGN_STATUS_LABELS, type CampaignStatus } from "@/types";
-
-const statusTone: Record<CampaignStatus, string> = {
-  preparation: "bg-muted text-muted-foreground",
-  en_cours: "bg-success/15 text-success",
-  pause: "bg-warning/20 text-warning",
-  terminee: "bg-primary/10 text-primary",
-};
 
 export function CampaignStatusBadge({ status }: { status: CampaignStatus }) {
   return (
     <span
       className={cn(
         "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold",
-        statusTone[status],
+        campaignStatusTone[status],
       )}
     >
       {CAMPAIGN_STATUS_LABELS[status]}

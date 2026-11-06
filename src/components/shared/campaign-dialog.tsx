@@ -39,6 +39,15 @@ import {
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/** Titre de section du formulaire, sur toute la largeur. */
+function Section({ title }: { title: string }) {
+  return (
+    <h3 className="border-b border-border pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:col-span-2">
+      {title}
+    </h3>
+  );
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
@@ -181,6 +190,7 @@ export function CampaignDialog({ campaign }: { campaign?: Campaign }) {
             if (!invalid) mutation.mutate();
           }}
         >
+          <Section title="Général" />
           <Field label="Nom de la campagne">
             <Input
               value={form.name}
@@ -266,6 +276,7 @@ export function CampaignDialog({ campaign }: { campaign?: Campaign }) {
             </Field>
           </div>
 
+          <Section title="Objectif et budget" />
           <Field label="Objectif">
             <select
               className={selectClass}
@@ -306,7 +317,10 @@ export function CampaignDialog({ campaign }: { campaign?: Campaign }) {
             />
           </Field>
 
-          <Field label="Budget HT (FCFA)">
+          <Field
+            label="Budget HT (FCFA)"
+            {...(form.budget_ht > 0 ? { hint: formatMoney(form.budget_ht) } : {})}
+          >
             <Input
               type="number"
               min={0}
@@ -340,6 +354,7 @@ export function CampaignDialog({ campaign }: { campaign?: Campaign }) {
           </Field>
           <div />
 
+          <Section title="Ciblage et notes" />
           <div className="sm:col-span-2">
             <Field label="Ciblage" hint="Zone, âge, centres d'intérêt… Visible du client.">
               <Textarea
@@ -359,6 +374,7 @@ export function CampaignDialog({ campaign }: { campaign?: Campaign }) {
             </Field>
           </div>
 
+          <Section title="Visuels" />
           <div className="sm:col-span-2">
             <Field
               label={`Visuels de la campagne (${form.content_ids.length})`}
