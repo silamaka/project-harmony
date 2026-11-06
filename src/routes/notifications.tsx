@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
+  Target,
   AtSign,
   AlertTriangle,
   Bell,
@@ -44,6 +45,7 @@ const ICONS: Record<Notification["type"], typeof Bell> = {
   decision_client: UserCheck,
   publication: CalendarClock,
   mention: AtSign,
+  campagne: Target,
 };
 
 function NotificationsPage() {

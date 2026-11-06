@@ -18,6 +18,9 @@ class NotificationType(models.TextChoices):
     PUBLICATION = "publication", "Publication"
     # Quelqu'un vous a mentionné dans une discussion : personnelle (recipient).
     MENTION = "mention", "Mention"
+    # Alerte de campagne publicitaire (fin proche, budget, relevé en retard) :
+    # sans mission, donc réservée à l'admin et au chef de projet.
+    CAMPAGNE = "campagne", "Campagne"
 
 
 class Notification(models.Model):

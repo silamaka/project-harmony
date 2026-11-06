@@ -282,7 +282,8 @@ export interface Notification {
     | "retard"
     | "decision_client"
     | "publication"
-    | "mention";
+    | "mention"
+    | "campagne";
   title: string;
   body: string;
   read: boolean;
@@ -302,3 +303,93 @@ export interface DashboardStats {
   deliverables: number;
   late_missions: number;
 }
+
+/* ------------------------------- Campagnes ------------------------------- */
+export type CampaignStatus = "preparation" | "en_cours" | "pause" | "terminee";
+export type CampaignObjective =
+  "messages" | "prospects" | "ventes" | "visites" | "trafic" | "abonnes" | "notoriete";
+export type CampaignPlatform = "meta" | "tiktok" | "snapchat" | "google" | "autre";
+
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  preparation: "En préparation",
+  en_cours: "En cours",
+  pause: "En pause",
+  terminee: "Terminée",
+};
+export const CAMPAIGN_OBJECTIVE_LABELS: Record<CampaignObjective, string> = {
+  messages: "Messages (WhatsApp, Messenger)",
+  prospects: "Prospects",
+  ventes: "Ventes en ligne",
+  visites: "Visites en boutique",
+  trafic: "Trafic (clics)",
+  abonnes: "Abonnés",
+  notoriete: "Notoriété",
+};
+/** Unité d'un résultat, pour les libellés ("200 messages", "coût par vente"). */
+export const CAMPAIGN_RESULT_UNIT: Record<CampaignObjective, string> = {
+  messages: "messages",
+  prospects: "prospects",
+  ventes: "ventes",
+  visites: "visites",
+  trafic: "clics",
+  abonnes: "abonnés",
+  notoriete: "personnes touchées",
+};
+export const CAMPAIGN_PLATFORM_LABELS: Record<CampaignPlatform, string> = {
+  meta: "Meta",
+  tiktok: "TikTok",
+  snapchat: "Snapchat",
+  google: "Google",
+  autre: "Autre",
+};
+
+/** Relevé à une date : totaux depuis le début de la campagne. */
+export interface CampaignReport {
+  id: string;
+  date: string;
+  spend: number;
+  reach: number | null;
+  impressions: number | null;
+  clicks: number | null;
+  results: number;
+  created_at: string;
+}
+
+export interface Campaign {
+  id: string;
+  client_id: string;
+  project_id: string | null;
+  name: string;
+  platforms: CampaignPlatform[];
+  objective: CampaignObjective;
+  objective_target: number | null;
+  start_date: string;
+  end_date: string | null;
+  status: CampaignStatus;
+  budget_ht: number;
+  tva_rate: number;
+  paid_by: "client" | "agence";
+  targeting: string;
+  /** Absent pour le client. */
+  internal_notes?: string;
+  content_ids: string[];
+  reports: CampaignReport[];
+  /** Calculé par le serveur. */
+  summary: {
+    budget_tva: number;
+    budget_ttc: number;
+    spend: number;
+    reach: number | null;
+    impressions: number | null;
+    clicks: number | null;
+    results: number;
+    cost_per_result: number | null;
+    results_progress: number | null;
+    budget_used: number | null;
+    last_report_date: string | null;
+    last_period: { spend: number; results: number } | null;
+  };
+  created_at: string;
+}
+
+export type CampaignInput = Omit<Campaign, "id" | "reports" | "summary" | "created_at">;

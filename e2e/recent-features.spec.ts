@@ -126,3 +126,48 @@ test("l'agence voit l'équipe du client sur sa fiche", async ({ browser }) => {
   await expect(agency.getByText(/Client E2E/).first()).toBeVisible();
   await expect(agency.getByRole("button", { name: "Ajouter une personne" })).toBeVisible();
 });
+
+test("campagne : l'agence suit ses chiffres, le client ne voit que l'essentiel", async ({
+  browser,
+  request,
+}) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const launched = await api<{ id: string }>(request, admin.access, "POST", "/campaigns/", {
+    client_id: seed.companyId,
+    name: "Campagne E2E",
+    platforms: ["meta"],
+    objective: "messages",
+    objective_target: 200,
+    start_date: today,
+    status: "en_cours",
+    budget_ht: "100000",
+    internal_notes: "Note interne E2E",
+  });
+  await api(request, admin.access, "POST", `/campaigns/${launched.id}/reports/`, {
+    date: today,
+    spend: "50000",
+    results: 80,
+  });
+  await api(request, admin.access, "POST", "/campaigns/", {
+    client_id: seed.companyId,
+    name: "Brouillon E2E",
+    objective: "messages",
+    start_date: today,
+  });
+
+  const agency = await openAs(browser, admin);
+  await agency.goto(`/campagnes/${launched.id}`, { waitUntil: "networkidle" });
+  // 50 000 FCFA pour 80 messages : 625 FCFA par message, 40 % de l'objectif.
+  await expect(agency.getByText("625 FCFA")).toBeVisible();
+  await expect(agency.getByText("40 %")).toBeVisible();
+  await expect(agency.getByText("Note interne E2E")).toBeVisible();
+
+  const customer = await openAs(browser, client);
+  await customer.goto("/campagnes", { waitUntil: "networkidle" });
+  await expect(customer.getByText("Campagne E2E")).toBeVisible();
+  await expect(customer.getByText("Brouillon E2E")).toHaveCount(0);
+  await customer.getByText("Campagne E2E").click();
+  await expect(customer.getByText("625 FCFA")).toBeVisible();
+  await expect(customer.getByText("Note interne E2E")).toHaveCount(0);
+  await expect(customer.getByRole("button", { name: "Ajouter" })).toHaveCount(0);
+});

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "calendar_app",
     "notifications",
     "dashboard",
+    "campaigns",
     "core",
 ]
 

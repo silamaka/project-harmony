@@ -22,6 +22,8 @@ import { Route as PortailRouteImport } from './routes/portail'
 import { Route as ProfilRouteImport } from './routes/profil'
 import { Route as ReinitialiserMotDePasseRouteImport } from './routes/reinitialiser-mot-de-passe'
 import { Route as StatistiquesRouteImport } from './routes/statistiques'
+import { Route as CampagnesIndexRouteImport } from './routes/campagnes.index'
+import { Route as CampagnesCampaignIdRouteImport } from './routes/campagnes.$campaignId'
 import { Route as ClientsIndexRouteImport } from './routes/clients.index'
 import { Route as ClientsClientIdRouteImport } from './routes/clients.$clientId'
 import { Route as CollaborateursIndexRouteImport } from './routes/collaborateurs.index'
@@ -96,6 +98,16 @@ const StatistiquesRoute = StatistiquesRouteImport.update({
   path: '/statistiques',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CampagnesIndexRoute = CampagnesIndexRouteImport.update({
+  id: '/campagnes/',
+  path: '/campagnes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CampagnesCampaignIdRoute = CampagnesCampaignIdRouteImport.update({
+  id: '/campagnes/$campaignId',
+  path: '/campagnes/$campaignId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ClientsIndexRoute = ClientsIndexRouteImport.update({
   id: '/clients/',
   path: '/clients/',
@@ -151,10 +163,12 @@ export interface FileRoutesByFullPath {
   '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/statistiques': typeof StatistiquesRoute
+  '/campagnes/$campaignId': typeof CampagnesCampaignIdRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/collaborateurs/$userId': typeof CollaborateursUserIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
+  '/campagnes/': typeof CampagnesIndexRoute
   '/clients/': typeof ClientsIndexRoute
   '/collaborateurs/': typeof CollaborateursIndexRoute
   '/missions/': typeof MissionsIndexRoute
@@ -174,10 +188,12 @@ export interface FileRoutesByTo {
   '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/statistiques': typeof StatistiquesRoute
+  '/campagnes/$campaignId': typeof CampagnesCampaignIdRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/collaborateurs/$userId': typeof CollaborateursUserIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
+  '/campagnes': typeof CampagnesIndexRoute
   '/clients': typeof ClientsIndexRoute
   '/collaborateurs': typeof CollaborateursIndexRoute
   '/missions': typeof MissionsIndexRoute
@@ -198,10 +214,12 @@ export interface FileRoutesById {
   '/profil': typeof ProfilRoute
   '/reinitialiser-mot-de-passe': typeof ReinitialiserMotDePasseRoute
   '/statistiques': typeof StatistiquesRoute
+  '/campagnes/$campaignId': typeof CampagnesCampaignIdRoute
   '/clients/$clientId': typeof ClientsClientIdRoute
   '/collaborateurs/$userId': typeof CollaborateursUserIdRoute
   '/missions/$missionId': typeof MissionsMissionIdRoute
   '/projets/$projectId': typeof ProjetsProjectIdRoute
+  '/campagnes/': typeof CampagnesIndexRoute
   '/clients/': typeof ClientsIndexRoute
   '/collaborateurs/': typeof CollaborateursIndexRoute
   '/missions/': typeof MissionsIndexRoute
@@ -223,10 +241,12 @@ export interface FileRouteTypes {
     | '/profil'
     | '/reinitialiser-mot-de-passe'
     | '/statistiques'
+    | '/campagnes/$campaignId'
     | '/clients/$clientId'
     | '/collaborateurs/$userId'
     | '/missions/$missionId'
     | '/projets/$projectId'
+    | '/campagnes/'
     | '/clients/'
     | '/collaborateurs/'
     | '/missions/'
@@ -246,10 +266,12 @@ export interface FileRouteTypes {
     | '/profil'
     | '/reinitialiser-mot-de-passe'
     | '/statistiques'
+    | '/campagnes/$campaignId'
     | '/clients/$clientId'
     | '/collaborateurs/$userId'
     | '/missions/$missionId'
     | '/projets/$projectId'
+    | '/campagnes'
     | '/clients'
     | '/collaborateurs'
     | '/missions'
@@ -269,10 +291,12 @@ export interface FileRouteTypes {
     | '/profil'
     | '/reinitialiser-mot-de-passe'
     | '/statistiques'
+    | '/campagnes/$campaignId'
     | '/clients/$clientId'
     | '/collaborateurs/$userId'
     | '/missions/$missionId'
     | '/projets/$projectId'
+    | '/campagnes/'
     | '/clients/'
     | '/collaborateurs/'
     | '/missions/'
@@ -293,10 +317,12 @@ export interface RootRouteChildren {
   ProfilRoute: typeof ProfilRoute
   ReinitialiserMotDePasseRoute: typeof ReinitialiserMotDePasseRoute
   StatistiquesRoute: typeof StatistiquesRoute
+  CampagnesCampaignIdRoute: typeof CampagnesCampaignIdRoute
   ClientsClientIdRoute: typeof ClientsClientIdRoute
   CollaborateursUserIdRoute: typeof CollaborateursUserIdRoute
   MissionsMissionIdRoute: typeof MissionsMissionIdRoute
   ProjetsProjectIdRoute: typeof ProjetsProjectIdRoute
+  CampagnesIndexRoute: typeof CampagnesIndexRoute
   ClientsIndexRoute: typeof ClientsIndexRoute
   CollaborateursIndexRoute: typeof CollaborateursIndexRoute
   MissionsIndexRoute: typeof MissionsIndexRoute
@@ -396,6 +422,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StatistiquesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campagnes/': {
+      id: '/campagnes/'
+      path: '/campagnes'
+      fullPath: '/campagnes/'
+      preLoaderRoute: typeof CampagnesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/campagnes/$campaignId': {
+      id: '/campagnes/$campaignId'
+      path: '/campagnes/$campaignId'
+      fullPath: '/campagnes/$campaignId'
+      preLoaderRoute: typeof CampagnesCampaignIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/clients/': {
       id: '/clients/'
       path: '/clients'
@@ -469,10 +509,12 @@ const rootRouteChildren: RootRouteChildren = {
   ProfilRoute: ProfilRoute,
   ReinitialiserMotDePasseRoute: ReinitialiserMotDePasseRoute,
   StatistiquesRoute: StatistiquesRoute,
+  CampagnesCampaignIdRoute: CampagnesCampaignIdRoute,
   ClientsClientIdRoute: ClientsClientIdRoute,
   CollaborateursUserIdRoute: CollaborateursUserIdRoute,
   MissionsMissionIdRoute: MissionsMissionIdRoute,
   ProjetsProjectIdRoute: ProjetsProjectIdRoute,
+  CampagnesIndexRoute: CampagnesIndexRoute,
   ClientsIndexRoute: ClientsIndexRoute,
   CollaborateursIndexRoute: CollaborateursIndexRoute,
   MissionsIndexRoute: MissionsIndexRoute,

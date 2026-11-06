@@ -1,6 +1,9 @@
 import { api, endpoints } from "@/lib/api";
 import type {
   CalendarEvent,
+  Campaign,
+  CampaignInput,
+  CampaignReport,
   Client,
   Comment,
   CorrectionCategory,
@@ -343,6 +346,26 @@ export const dashboardService = {
         publicationsAtRisk: Deliverable[];
       }>(`${endpoints.dashboard}alerts/`)
     ).data,
+};
+
+/* ------------------------------- Campagnes ------------------------------- */
+export const campaignService = {
+  /** GET /api/v1/campaigns/ — le client ne reçoit que ses campagnes lancées. */
+  list: async () => (await api.get<Campaign[]>(endpoints.campaigns)).data,
+  get: async (id: string) => (await api.get<Campaign>(`${endpoints.campaigns}${id}/`)).data,
+  create: async (payload: CampaignInput) =>
+    (await api.post<Campaign>(endpoints.campaigns, payload)).data,
+  update: async (id: string, patch: Partial<CampaignInput>) =>
+    (await api.patch<Campaign>(`${endpoints.campaigns}${id}/`, patch)).data,
+  remove: async (id: string) => {
+    await api.delete(`${endpoints.campaigns}${id}/`);
+    return true;
+  },
+  /** Relevé (totaux depuis le début) ; même date = correction. */
+  addReport: async (id: string, report: Omit<CampaignReport, "id" | "created_at">) =>
+    (await api.post<Campaign>(`${endpoints.campaigns}${id}/reports/`, report)).data,
+  removeReport: async (id: string, reportId: string) =>
+    (await api.delete<Campaign>(`${endpoints.campaigns}${id}/reports/${reportId}/`)).data,
 };
 
 export { isLate, isMissionDone, isProjectLate };

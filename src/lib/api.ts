@@ -96,6 +96,7 @@ export const endpoints = {
   calendar: "/calendar/",
   meetings: "/meetings/",
   notifications: "/notifications/",
+  campaigns: "/campaigns/",
 } as const;
 
 /**

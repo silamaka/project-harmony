@@ -89,8 +89,12 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
+        from campaigns.alerts import notify_campaign_alerts
+
         sent = send_publication_reminders()
         late = notify_late_missions()
+        campaigns = notify_campaign_alerts()
         self.stdout.write(
-            f"{sent} rappel(s) de publication, {late} mission(s) en retard signalée(s)."
+            f"{sent} rappel(s) de publication, {late} mission(s) en retard signalée(s), "
+            f"{campaigns} alerte(s) de campagne."
         )

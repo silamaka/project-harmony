@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
+  Target,
   BarChart3,
   Bell,
   CalendarDays,
@@ -71,6 +72,12 @@ const NAV: NavItem[] = [
   { to: "/portail", label: "Portail client", icon: UserCircle, roles: ["client"] },
   // Même page, placée après le portail (page d'accueil du client).
   { to: "/calendrier", label: "Calendrier", icon: CalendarDays, roles: ["client"] },
+  {
+    to: "/campagnes",
+    label: "Campagnes",
+    icon: Target,
+    roles: ["admin", "chef_projet", "collaborateur", "client"],
+  },
   {
     to: "/statistiques",
     label: "Statistiques",
